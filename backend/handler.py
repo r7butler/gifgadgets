@@ -8,6 +8,7 @@ import boto3
 
 ASSETS_BUCKET = os.environ["ASSETS_BUCKET"]
 TABLE_NAME = os.environ["TABLE_NAME"]
+ASSETS_CDN_URL = os.environ.get("ASSETS_CDN_URL", "").rstrip("/")
 
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
@@ -65,17 +66,16 @@ def handle_upload(event):
         ContentType="image/gif",
     )
 
-    gif_url = f"https://{ASSETS_BUCKET}.s3.amazonaws.com/{s3_key}"
-
-    # Write metadata to DynamoDB
+    # Write metadata to DynamoDB (store the S3 key, not a direct URL)
     table.put_item(
         Item={
             "id": gif_id,
             "created_at": created_at,
-            "gif_url": gif_url,
+            "s3_key": s3_key,
         }
     )
 
+    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
     return _cors_response(200, {"id": gif_id, "gif_url": gif_url, "created_at": created_at})
 
 
@@ -90,22 +90,23 @@ def handle_get_gif(gif_id):
     if not item:
         return _cors_response(404, {"error": "GIF not found"})
 
+    # Support both old records (gif_url) and new records (s3_key)
+    s3_key = item.get("s3_key") or f"gifs/{gif_id}.gif"
+    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+
     return _cors_response(200, {
         "id": item["id"],
-        "gif_url": item["gif_url"],
+        "gif_url": gif_url,
         "created_at": item["created_at"],
     })
 
 
 def _cors_response(status_code, body):
-    """Return a JSON response with CORS headers."""
+    """Return a JSON response. CORS headers are handled by the Function URL config."""
     return {
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
         },
         "body": json.dumps(body),
     }

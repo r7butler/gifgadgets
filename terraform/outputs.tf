@@ -17,3 +17,8 @@ output "lambda_function_url" {
   description = "Lambda Function URL (API base URL)"
   value       = aws_lambda_function_url.api.function_url
 }
+
+output "assets_cdn_url" {
+  description = "CloudFront URL for GIF assets"
+  value       = "https://${aws_cloudfront_distribution.assets.domain_name}"
+}

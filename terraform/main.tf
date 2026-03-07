@@ -155,8 +155,9 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ASSETS_BUCKET = aws_s3_bucket.assets.id
-      TABLE_NAME    = aws_dynamodb_table.gifs.name
+      ASSETS_BUCKET  = aws_s3_bucket.assets.id
+      TABLE_NAME     = aws_dynamodb_table.gifs.name
+      ASSETS_CDN_URL = "https://${aws_cloudfront_distribution.assets.domain_name}"
     }
   }
 }
@@ -169,10 +170,26 @@ resource "aws_lambda_function_url" "api" {
 
   cors {
     allow_origins = ["*"]
-    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_methods = ["GET", "POST"]
     allow_headers = ["Content-Type"]
     max_age       = 3600
   }
+}
+
+resource "aws_lambda_permission" "function_url_public" {
+  statement_id           = "FunctionURLAllowPublicAccess"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.api.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+# Since Oct 2025, function URLs also require lambda:InvokeFunction
+resource "aws_lambda_permission" "function_url_invoke" {
+  statement_id  = "FunctionURLAllowPublicInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "*"
 }
 
 # ---------- CloudFront ----------
@@ -182,6 +199,77 @@ resource "aws_cloudfront_origin_access_control" "site" {
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
+}
+
+# OAC for the GIF assets bucket
+resource "aws_cloudfront_origin_access_control" "assets" {
+  name                              = "gifcaption-assets-oac"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# CloudFront distribution for GIF assets (stable, SEO-friendly URLs)
+resource "aws_cloudfront_distribution" "assets" {
+  enabled = true
+  comment = "GifCaption GIF assets CDN"
+
+  origin {
+    domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
+    origin_id                = "s3-assets"
+    origin_access_control_id = aws_cloudfront_origin_access_control.assets.id
+  }
+
+  default_cache_behavior {
+    target_origin_id       = "s3-assets"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 86400
+    max_ttl     = 31536000
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+
+# Allow the assets CloudFront distribution to read from the assets bucket
+resource "aws_s3_bucket_policy" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontOAC"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.assets.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn
+          }
+        }
+      }
+    ]
+  })
 }
 
 resource "aws_cloudfront_distribution" "site" {

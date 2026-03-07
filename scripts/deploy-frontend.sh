@@ -44,7 +44,6 @@ aws s3 sync "$FRONTEND_DIR/" "s3://$SITE_BUCKET/" --delete
 
 # Invalidate CloudFront cache
 echo "==> Invalidating CloudFront cache..."
-DISTRIBUTION_ID=$(cd "$TF_DIR" && terraform output -raw cloudfront_url | grep -oP 'https://\K[^.]+')
 # The distribution ID isn't directly in outputs; use aws cli to find it by domain
 CF_DOMAIN=$(cd "$TF_DIR" && terraform output -raw cloudfront_url | sed 's|https://||')
 DISTRIBUTION_ID=$(aws cloudfront list-distributions \
