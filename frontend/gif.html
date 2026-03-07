@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>View GIF - GifCaption</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>GIF Viewer</h1>
+    <a href="index.html">&larr; Back to home</a>
+
+    <div id="gif-container" class="hidden">
+      <img id="gif-image" src="" alt="GIF" />
+      <p>Created at: <span id="gif-created-at"></span></p>
+    </div>
+
+    <div id="gif-loading">
+      <p>Loading...</p>
+    </div>
+
+    <div id="gif-error" class="error hidden">
+      <p>Error: <span id="error-message"></span></p>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      if (!id) {
+        document.getElementById("gif-loading").classList.add("hidden");
+        document.getElementById("error-message").textContent = "No GIF ID provided.";
+        document.getElementById("gif-error").classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const data = await fetchGif(id);
+        document.getElementById("gif-image").src = data.gif_url;
+        document.getElementById("gif-created-at").textContent = data.created_at;
+        document.getElementById("gif-container").classList.remove("hidden");
+        document.getElementById("gif-loading").classList.add("hidden");
+      } catch (err) {
+        document.getElementById("gif-loading").classList.add("hidden");
+        document.getElementById("error-message").textContent = err.message;
+        document.getElementById("gif-error").classList.remove("hidden");
+      }
+    })();
+  </script>
+</body>
+</html>
