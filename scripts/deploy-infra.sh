@@ -37,7 +37,7 @@ elif [[ "$ACTION" == "destroy" ]]; then
   terraform destroy
 else
   echo "==> terraform apply"
-  terraform apply
+  terraform apply --auto-approve
 
   echo ""
   echo "===== Deployment Outputs ====="

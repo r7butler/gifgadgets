@@ -40,6 +40,7 @@
     canvas = $('#preview-canvas');
     ctx = canvas.getContext('2d');
     bindEvents();
+    preloadGifWorker();
 
     var params = new URLSearchParams(window.location.search);
     var gifId = params.get('id');
@@ -49,6 +50,18 @@
     } else if (source === 'local') {
       loadGifFromIndexedDB();
     }
+  }
+
+  // ── GIF Worker Preload ────────────────────────
+  function preloadGifWorker() {
+    fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+      .then(function (r) { return r.blob(); })
+      .then(function (blob) {
+        state._workerBlobUrl = URL.createObjectURL(blob);
+      })
+      .catch(function () {
+        // Silently fail — checked at export time
+      });
   }
 
   // ── GIF Loading ──────────────────────────────
@@ -586,12 +599,18 @@
     expCanvas.height = state.height;
     var expCtx = expCanvas.getContext('2d');
 
+    var workerUrl = state._workerBlobUrl;
+    if (!workerUrl) {
+      showError('GIF worker not ready. Please try again.');
+      return;
+    }
+
     var gif = new GIF({
       workers: Math.min(navigator.hardwareConcurrency || 2, 4),
       quality: 10,
       width: state.width,
       height: state.height,
-      workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
+      workerScript: workerUrl,
     });
 
     for (var i = 0; i < state.frames.length; i++) {
