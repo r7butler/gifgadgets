@@ -134,12 +134,12 @@
     var compCanvas = document.createElement('canvas');
     compCanvas.width = w;
     compCanvas.height = h;
-    var compCtx = compCanvas.getContext('2d');
+    var compCtx = compCanvas.getContext('2d', { willReadFrequently: true });
 
     var tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = w;
     tmpCanvas.height = h;
-    var tmpCtx = tmpCanvas.getContext('2d');
+    var tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
 
     state.frames = [];
     var prevState = null;
