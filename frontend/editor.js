@@ -763,9 +763,6 @@
     $('#cap-stroke-width').value = cap.strokeWidth;
     $('#cap-stroke-width-val').textContent = cap.strokeWidth;
     $('#cap-font').value = cap.fontFamily;
-    $$('.align-btn').forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.align === cap.align);
-    });
   }
 
   function updatePlaybackUI() {
@@ -854,6 +851,17 @@
       });
     }
 
+    // Mobile timeline toggle
+    var timelineToggle = $('#timeline-toggle');
+    if (timelineToggle) {
+      timelineToggle.addEventListener('click', function () {
+        var timeline = $('#editor-timeline');
+        var collapsed = timeline.classList.toggle('mobile-collapsed');
+        timelineToggle.classList.toggle('collapsed', collapsed);
+        timelineToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
     // Playback
     $('#btn-play-pause').addEventListener('click', togglePlayPause);
     $('#btn-prev-frame').addEventListener('click', function () {
@@ -909,12 +917,7 @@
     $('#cap-font').addEventListener('change', function (e) {
       updateSelectedCaption({ fontFamily: e.target.value });
     });
-    $$('.align-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        updateSelectedCaption({ align: btn.dataset.align });
-        updateCaptionEditor();
-      });
-    });
+
 
     // Export & Share
     $('#btn-export').addEventListener('click', function () { exportGif(); });
