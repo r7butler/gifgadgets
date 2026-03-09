@@ -232,8 +232,10 @@
       }
     }
 
-    // Selection highlight
-    if (state.selectedCaptionId) {
+    // Selection highlight (hide when sidebar is collapsed on mobile)
+    var sidebarEl = $('#editor-sidebar');
+    var sidebarCollapsed = sidebarEl && sidebarEl.classList.contains('mobile-collapsed');
+    if (state.selectedCaptionId && !sidebarCollapsed) {
       var sel = findCaption(state.selectedCaptionId);
       if (sel && state.currentFrame >= sel.startFrame && state.currentFrame <= sel.endFrame) {
         drawSelectionBox(ctx, sel);
@@ -887,7 +889,19 @@
       addCaption({ text: 'BOTTOM TEXT', y: 0.85 });
     });
     $('#btn-delete-caption').addEventListener('click', function () {
+      if (state.selectedCaptionId) {
+        $('#delete-modal').classList.remove('hidden');
+      }
+    });
+    $('#delete-modal-confirm').addEventListener('click', function () {
       if (state.selectedCaptionId) removeCaption(state.selectedCaptionId);
+      $('#delete-modal').classList.add('hidden');
+    });
+    $('#delete-modal-cancel').addEventListener('click', function () {
+      $('#delete-modal').classList.add('hidden');
+    });
+    $('#delete-modal').addEventListener('click', function (e) {
+      if (e.target === this) $('#delete-modal').classList.add('hidden');
     });
 
     // Caption editor inputs

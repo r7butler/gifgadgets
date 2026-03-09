@@ -291,6 +291,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* Caption editor */
 .caption-editor h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+.delete-caption-btn { margin-top: 20px; }
 
 /* Timeline */
 .editor-timeline {
@@ -404,6 +405,10 @@ input[type="range"]::-moz-range-thumb {
 }
 .modal-close:hover { color: var(--text); background: var(--bg-base); }
 .modal-title { font-size: 1.25rem; margin-bottom: 1rem; }
+.modal-sm { max-width: 340px; text-align: center; }
+.modal-body-text { font-size: .9rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.5; }
+.modal-actions { display: flex; gap: .75rem; justify-content: center; }
+.modal-actions .btn { min-width: 100px; justify-content: center; }
 .share-preview {
   border-radius: 8px; overflow: hidden; margin-bottom: 1rem;
   background: var(--bg-base); display: flex; justify-content: center;
