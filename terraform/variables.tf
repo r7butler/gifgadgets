@@ -15,3 +15,10 @@ variable "assets_bucket_name" {
   type        = string
   default     = "gifcaption-assets"
 }
+
+variable "openai_api_key" {
+  description = "OpenAI API key for chat completions (stored in Secrets Manager)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

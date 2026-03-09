@@ -54,3 +54,31 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Share a captioned GIF — upload the blob and get back a public share URL.
+ * @param {Blob} blob  GIF blob from the encoder
+ * @param {string} title  Caption/title text for the share page
+ * @returns {{ slug, share_url, gif_url }}
+ */
+async function shareGif(blob, title) {
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+  const response = await fetch(API_BASE_URL + "/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file: base64, title }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || "Share failed");
+  }
+
+  return response.json();
+}

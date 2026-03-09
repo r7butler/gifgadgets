@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>View GIF - GifCaption</title>
+  <title>View GIF — GifCaption</title>
+  <meta name="description" content="View and edit a captioned GIF on GifCaption." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,6 +17,7 @@
     <div id="gif-container" class="hidden">
       <img id="gif-image" src="" alt="GIF" />
       <p>Created at: <span id="gif-created-at"></span></p>
+      <p style="margin-top:1rem"><a id="edit-link" href="#" class="btn btn-primary">Open in Editor</a></p>
     </div>
 
     <div id="gif-loading">
@@ -40,6 +44,7 @@
         const data = await fetchGif(id);
         document.getElementById("gif-image").src = data.gif_url;
         document.getElementById("gif-created-at").textContent = data.created_at;
+        document.getElementById("edit-link").href = "editor.html?id=" + encodeURIComponent(id);
         document.getElementById("gif-container").classList.remove("hidden");
         document.getElementById("gif-loading").classList.add("hidden");
       } catch (err) {

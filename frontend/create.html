@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Upload GIF - GifCaption</title>
+  <title>Upload GIF — GifCaption</title>
+  <meta name="description" content="Upload your GIF to start adding frame-perfect captions with GifCaption." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,13 +17,11 @@
     <form id="upload-form">
       <label for="gif-file">Select a GIF file:</label>
       <input type="file" id="gif-file" accept="image/gif" required />
-      <button type="submit" class="btn">Upload</button>
+      <button type="submit" class="btn btn-primary">Upload &amp; Edit</button>
     </form>
 
     <div id="upload-result" class="result hidden">
-      <p>GIF uploaded successfully!</p>
-      <p>ID: <span id="gif-id"></span></p>
-      <a id="gif-link" href="#">View your GIF &rarr;</a>
+      <p>GIF uploaded! Redirecting to editor…</p>
     </div>
 
     <div id="upload-error" class="error hidden">
@@ -37,10 +38,10 @@
 
       try {
         const result = await uploadGif(file);
-        document.getElementById("gif-id").textContent = result.id;
-        document.getElementById("gif-link").href = "gif.html?id=" + encodeURIComponent(result.id);
         document.getElementById("upload-result").classList.remove("hidden");
         document.getElementById("upload-error").classList.add("hidden");
+        // Redirect to editor with the uploaded GIF
+        window.location.href = "editor.html?id=" + encodeURIComponent(result.id);
       } catch (err) {
         document.getElementById("error-message").textContent = err.message;
         document.getElementById("upload-error").classList.remove("hidden");
