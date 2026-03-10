@@ -35,7 +35,7 @@
     var trackH = 34;
     var rulerH = 28;
     var margin = { top: 8, right: 24, bottom: 4, left: 110 };
-    var cw = container.clientWidth || 800;
+    var cw = container.clientWidth || window.innerWidth || 800;
     var innerW = cw - margin.left - margin.right;
     var numTracks = Math.max(state.captions.length, 0);
     var totalH = margin.top + numTracks * trackH + rulerH + margin.bottom;

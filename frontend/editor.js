@@ -453,11 +453,18 @@
     // ── Mobile timeline toggle ────────────────
     var timelineToggle = $('#timeline-toggle');
     if (timelineToggle) {
+      // Start collapsed on mobile
+      if (window.innerWidth <= 768) {
+        $('#editor-timeline').classList.add('mobile-collapsed');
+        timelineToggle.classList.add('collapsed');
+        timelineToggle.setAttribute('aria-expanded', 'false');
+      }
       timelineToggle.addEventListener('click', function () {
         var timeline = $('#editor-timeline');
         var collapsed = timeline.classList.toggle('mobile-collapsed');
         timelineToggle.classList.toggle('collapsed', collapsed);
         timelineToggle.setAttribute('aria-expanded', String(!collapsed));
+        if (!collapsed && state.frames.length > 0) GC.buildTimeline();
       });
     }
 
