@@ -110,47 +110,47 @@
               <div id="caption-list" class="caption-list">
                 <div class="caption-list-empty">No captions yet.<br>Click <strong>+ Add</strong> to start.</div>
               </div>
-            </div>
-          </div>
 
-          <!-- Caption editor (shown when caption selected) -->
-          <div id="caption-editor" class="sidebar-section caption-editor hidden">
-            <h3>Edit Caption</h3>
-            <div class="form-group">
-              <label for="cap-text">Text</label>
-              <textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="cap-font">Font</label>
-              <select id="cap-font">
-                <option value="Impact">Impact</option>
-                <option value="Arial Black">Arial Black</option>
-                <option value="Comic Sans MS">Comic Sans MS</option>
-                <option value="Arial">Arial</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Courier New">Courier New</option>
-                <option value="Times New Roman">Times New Roman</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Size: <span id="cap-font-size-val">40</span>px</label>
-              <input type="range" id="cap-font-size" min="12" max="120" value="40" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="cap-color">Fill</label>
-                <input type="color" id="cap-color" value="#ffffff" />
+              <!-- Caption editor (shown when caption selected) -->
+              <div id="caption-editor" class="caption-editor hidden">
+                <h3>Edit Caption</h3>
+                <div class="form-group">
+                  <label for="cap-text">Text</label>
+                  <textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="cap-font">Font</label>
+                  <select id="cap-font">
+                    <option value="Impact">Impact</option>
+                    <option value="Arial Black">Arial Black</option>
+                    <option value="Comic Sans MS">Comic Sans MS</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Size: <span id="cap-font-size-val">40</span>px</label>
+                  <input type="range" id="cap-font-size" min="12" max="120" value="40" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="cap-color">Fill</label>
+                    <input type="color" id="cap-color" value="#ffffff" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cap-stroke-color">Outline</label>
+                    <input type="color" id="cap-stroke-color" value="#000000" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Outline width: <span id="cap-stroke-width-val">3</span>px</label>
+                  <input type="range" id="cap-stroke-width" min="0" max="10" step="0.5" value="3" />
+                </div>
+                <button id="btn-delete-caption" class="btn btn-danger btn-full delete-caption-btn">Delete Caption</button>
               </div>
-              <div class="form-group">
-                <label for="cap-stroke-color">Outline</label>
-                <input type="color" id="cap-stroke-color" value="#000000" />
-              </div>
             </div>
-            <div class="form-group">
-              <label>Outline width: <span id="cap-stroke-width-val">3</span>px</label>
-              <input type="range" id="cap-stroke-width" min="0" max="10" step="0.5" value="3" />
-            </div>
-            <button id="btn-delete-caption" class="btn btn-danger btn-full delete-caption-btn">Delete Caption</button>
           </div>
 
           <!-- Box caption (solid bar above/below GIF) -->
