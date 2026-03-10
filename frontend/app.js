@@ -1,3 +1,14 @@
+/* ==========================================================
+   GifCaption – Backend API Helpers
+
+   Thin wrappers around fetch() for talking to the Lambda
+   backend.  Used by the editor modules (gif-export.js uses
+   shareGif) and by legacy pages (create.html, gif.html).
+
+   NOTE:  fetchGif() calls the removed /gif/:id endpoint —
+   it is dead code kept only for gif.html compatibility.
+   ========================================================== */
+
 // Base URL for the API — update this after deploying Terraform.
 // Use the Lambda Function URL output from `terraform output lambda_function_url`.
 const API_BASE_URL = "https://zzdzs3cdwds3h2jczap4das4ky0bxccn.lambda-url.us-east-1.on.aws";

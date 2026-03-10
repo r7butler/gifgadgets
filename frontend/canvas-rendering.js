@@ -1,0 +1,288 @@
+/* ==========================================================
+   GifCaption – Canvas Rendering
+
+   All canvas drawing helpers: text captions, box-caption bars,
+   selection handles, watermark, and text wrapping.
+
+   These functions are NOT GIF-specific — they work on any
+   canvas context, so future tools (still-image macro editor,
+   etc.) can reuse them directly.
+
+   Depends on: editor-state.js (GC namespace, state, constants)
+   ========================================================== */
+
+(function () {
+  'use strict';
+
+  var state = GC.state;
+
+  // ── Box Caption Geometry ─────────────────────
+
+  /** Total pixel height of a box-caption bar (bar + both borders), or 0. */
+  GC.boxTotalH = function (bc) {
+    if (!bc) return 0;
+    return bc.height + bc.borderWidth * 2;
+  };
+
+  /** Full canvas size once box-caption bars are factored in. */
+  GC.getCompositeSize = function () {
+    return {
+      w: state.width,
+      h: state.height + GC.boxTotalH(state.boxCaptionTop) + GC.boxTotalH(state.boxCaptionBottom),
+    };
+  };
+
+  /** Y-offset where the source image/frame should be drawn (below the top bar). */
+  GC.getFrameOffsetY = function () {
+    return GC.boxTotalH(state.boxCaptionTop);
+  };
+
+  // ── Box Caption Drawing ──────────────────────
+
+  /**
+   * Draw a single box-caption bar at a given Y position.
+   * Renders the background fill, optional border, and wrapped text.
+   */
+  function _drawOneBox(context, bc, boxY, compW) {
+    var boxH = bc.height + bc.borderWidth * 2;
+
+    context.save();
+
+    // Background fill
+    context.fillStyle = bc.bgColor;
+    context.fillRect(0, boxY, compW, boxH);
+
+    // Black border stroke
+    if (bc.borderWidth > 0) {
+      context.strokeStyle = '#000000';
+      context.lineWidth = bc.borderWidth;
+      var half = bc.borderWidth / 2;
+      context.strokeRect(half, boxY + half, compW - bc.borderWidth, boxH - bc.borderWidth);
+    }
+
+    // Wrapped text centred vertically in the bar
+    var textAreaW = compW * 0.92;
+    var padX = (compW - textAreaW) / 2;
+    context.font = 'bold ' + bc.fontSize + 'px ' + bc.fontFamily;
+    context.textAlign = bc.align;
+    context.textBaseline = 'middle';
+    context.fillStyle = bc.textColor;
+
+    var lines = GC.wrapText(context, bc.text || '', textAreaW);
+    var lh = bc.fontSize * 1.25;
+    var totalTextH = lines.length * lh;
+    var startY = boxY + bc.borderWidth + (bc.height - totalTextH) / 2 + lh / 2;
+    var textX = bc.align === 'left' ? padX : bc.align === 'right' ? compW - padX : compW / 2;
+
+    for (var i = 0; i < lines.length; i++) {
+      context.fillText(lines[i], textX, startY + i * lh);
+    }
+    context.restore();
+  }
+
+  /** Draw both active box caption bars (top and/or bottom) onto a context. */
+  GC.drawBoxCaption = function (context, compW, compH) {
+    if (state.boxCaptionTop) {
+      _drawOneBox(context, state.boxCaptionTop, 0, compW);
+    }
+    if (state.boxCaptionBottom) {
+      var bottomY = compH - GC.boxTotalH(state.boxCaptionBottom);
+      _drawOneBox(context, state.boxCaptionBottom, bottomY, compW);
+    }
+  };
+
+  // ── Canvas Sync ──────────────────────────────
+
+  /** Resize the preview <canvas> element when composite dimensions change. */
+  GC.syncCanvasSize = function () {
+    var size = GC.getCompositeSize();
+    if (GC.canvas.width !== size.w || GC.canvas.height !== size.h) {
+      GC.canvas.width = size.w;
+      GC.canvas.height = size.h;
+    }
+  };
+
+  // ── Frame + Caption Compositing ──────────────
+
+  /**
+   * Render the current frame onto the preview canvas.
+   * Composites: GIF frame → overlay captions → box bars → selection box.
+   */
+  GC.renderCurrentFrame = function () {
+    if (state.frames.length === 0) return;
+
+    GC.syncCanvasSize();
+    var size = GC.getCompositeSize();
+    var offsetY = GC.getFrameOffsetY();
+    var ctx = GC.ctx;
+
+    // Clear and draw the raw frame at the correct vertical offset
+    ctx.clearRect(0, 0, size.w, size.h);
+    ctx.putImageData(state.frames[state.currentFrame].imageData, 0, offsetY);
+
+    // Overlay on-image captions (coordinates are relative to the GIF area)
+    ctx.save();
+    ctx.translate(0, offsetY);
+    for (var i = 0; i < state.captions.length; i++) {
+      var cap = state.captions[i];
+      if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
+        GC.drawCaption(ctx, cap);
+      }
+    }
+    ctx.restore();
+
+    // Box-caption bars on top of everything
+    GC.drawBoxCaption(ctx, size.w, size.h);
+
+    // Selection highlight (hidden when sidebar is collapsed on mobile)
+    var sidebarEl = GC.$('#editor-sidebar');
+    var sidebarCollapsed = sidebarEl && sidebarEl.classList.contains('mobile-collapsed');
+    if (state.selectedCaptionId && !sidebarCollapsed) {
+      var sel = GC.findCaption(state.selectedCaptionId);
+      if (sel && state.currentFrame >= sel.startFrame && state.currentFrame <= sel.endFrame) {
+        ctx.save();
+        ctx.translate(0, offsetY);
+        GC.drawSelectionBox(ctx, sel);
+        ctx.restore();
+      }
+    }
+  };
+
+  // ── On-Image Caption Drawing ─────────────────
+
+  /** Draw a single on-image text caption (stroke outline + fill). */
+  GC.drawCaption = function (context, cap) {
+    var x = cap.x * state.width;
+    var y = cap.y * state.height;
+    context.save();
+    context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
+    context.textAlign = cap.align;
+    context.textBaseline = 'top';
+
+    var lines = GC.wrapText(context, cap.text, state.width * 0.92);
+    var lh = cap.fontSize * 1.2;
+
+    for (var i = 0; i < lines.length; i++) {
+      var ly = y + i * lh;
+      if (cap.strokeWidth > 0) {
+        context.strokeStyle = cap.strokeColor;
+        context.lineWidth = cap.strokeWidth * 2;
+        context.lineJoin = 'round';
+        context.miterLimit = 2;
+        context.strokeText(lines[i], x, ly);
+      }
+      context.fillStyle = cap.color;
+      context.fillText(lines[i], x, ly);
+    }
+    context.restore();
+  };
+
+  // ── Selection Box & Hit-Testing ──────────────
+
+  /** Return the four corner positions of a caption's selection box. */
+  GC.getSelectionCorners = function (bbox) {
+    var pad = 5;
+    var hs = GC.HANDLE_SIZE;
+    return [
+      { x: bbox.x - pad - hs / 2, y: bbox.y - pad - hs / 2 },
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y - pad - hs / 2 },
+      { x: bbox.x - pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },
+    ];
+  };
+
+  /** Draw the dashed selection rectangle + circular corner handles. */
+  GC.drawSelectionBox = function (context, cap) {
+    var bbox = GC.getCaptionBBox(context, cap);
+    if (!bbox) return;
+
+    context.save();
+    context.strokeStyle = '#22d3ee';
+    context.lineWidth = 2;
+    context.setLineDash([6, 3]);
+    context.strokeRect(bbox.x - 5, bbox.y - 5, bbox.w + 10, bbox.h + 10);
+
+    // Circular corner handles
+    context.fillStyle = '#22d3ee';
+    context.setLineDash([]);
+    var hs = GC.HANDLE_SIZE;
+    var corners = GC.getSelectionCorners(bbox);
+    corners.forEach(function (p) {
+      context.beginPath();
+      context.arc(p.x + hs / 2, p.y + hs / 2, hs / 2, 0, Math.PI * 2);
+      context.fill();
+    });
+    context.restore();
+  };
+
+  /**
+   * Calculate the bounding box of a caption's rendered text.
+   * Returns { x, y, w, h } in canvas-pixel coordinates (GIF-area-relative).
+   */
+  GC.getCaptionBBox = function (context, cap) {
+    var x = cap.x * state.width;
+    var y = cap.y * state.height;
+    context.save();
+    context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
+    context.textAlign = cap.align;
+
+    var lines = GC.wrapText(context, cap.text, state.width * 0.92);
+    var lh = cap.fontSize * 1.2;
+    var maxW = 0;
+    for (var j = 0; j < lines.length; j++) {
+      maxW = Math.max(maxW, context.measureText(lines[j]).width);
+    }
+    context.restore();
+
+    var totalH = lines.length * lh;
+    var bx = cap.align === 'left' ? x : cap.align === 'right' ? x - maxW : x - maxW / 2;
+    return { x: bx, y: y, w: maxW, h: totalH };
+  };
+
+  // ── Text Wrapping ────────────────────────────
+
+  /**
+   * Word-wrap a string to fit within maxWidth pixels.
+   * Returns an array of line strings.
+   */
+  GC.wrapText = function (context, text, maxWidth) {
+    if (!text) return [''];
+    var words = text.split(' ');
+    var lines = [];
+    var line = '';
+    for (var i = 0; i < words.length; i++) {
+      var test = line ? line + ' ' + words[i] : words[i];
+      if (context.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = words[i];
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : [''];
+  };
+
+  // ── Watermark ────────────────────────────────
+
+  /** Draw a small semi-transparent "GifCaption" label in the bottom-right. */
+  GC.drawWatermark = function (ctx2d) {
+    var compSize = GC.getCompositeSize();
+    var fontSize = Math.max(10, Math.round(state.width * 0.028));
+    ctx2d.save();
+    ctx2d.font = fontSize + 'px sans-serif';
+    ctx2d.textAlign = 'right';
+    ctx2d.textBaseline = 'bottom';
+    ctx2d.globalAlpha = 0.35;
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.strokeStyle = '#000000';
+    ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
+    var text = 'GifCaption';
+    var x = compSize.w - 6;
+    var y = compSize.h - 4;
+    ctx2d.strokeText(text, x, y);
+    ctx2d.fillText(text, x, y);
+    ctx2d.restore();
+  };
+
+})();

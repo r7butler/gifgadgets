@@ -94,7 +94,7 @@ def handler(event, context):
 
 
 def handle_upload(event):
-    """Handle POST /upload — accept base64-encoded GIF, store in S3 + DynamoDB."""
+    """Handle POST /upload — accept a base64-encoded GIF and store it in S3."""
     try:
         body = event.get("body", "")
         if event.get("isBase64Encoded"):
