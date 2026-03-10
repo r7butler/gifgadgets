@@ -305,7 +305,7 @@ input[type="range"]::-moz-range-thumb {
 .timeline-header h3 { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
 .timeline-hint { font-size: 11px; color: var(--text-muted); }
 
-#timeline { overflow-x: auto; }
+#timeline { overflow-x: auto; touch-action: none; }
 #timeline svg { display: block; }
 
 /* D3 brush overrides */

@@ -541,10 +541,14 @@
         .on('click', function () { selectCaption(cap.id); });
 
       // D3 Brush
+      var prevSel = null;
+      var dragEdge = null; // 'start', 'end', or 'both'
       var brush = d3.brushX()
         .extent([[0, 2], [innerW, trackH - 6]])
         .on('start', function (event) {
           if (!event.sourceEvent) return; // ignore programmatic brush.move
+          prevSel = event.selection ? event.selection.slice() : null;
+          dragEdge = null;
           selectCaption(cap.id);
           // Pause playback while dragging timeline
           if (state.isPlaying) {
@@ -558,11 +562,33 @@
           var s1 = Math.round(xScale.invert(event.selection[1]));
           cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
           cap.endFrame = Math.max(cap.startFrame, Math.min(totalFrames - 1, s1));
-          // Show the nearest edge frame without resuming playback
-          var pointerX = d3.pointer(event.sourceEvent, this)[0];
-          var distToStart = Math.abs(pointerX - event.selection[0]);
-          var distToEnd = Math.abs(pointerX - event.selection[1]);
-          var targetFrame = distToStart < distToEnd ? cap.startFrame : cap.endFrame;
+          // Show the frame at the edge being dragged
+          var targetFrame;
+          try {
+            var pointerX = d3.pointer(event.sourceEvent, this)[0];
+            var distToStart = Math.abs(pointerX - event.selection[0]);
+            var distToEnd = Math.abs(pointerX - event.selection[1]);
+            targetFrame = distToStart < distToEnd ? cap.startFrame : cap.endFrame;
+          } catch (e) {
+            // Determine which edge is being dragged (only on first movement)
+            if (!dragEdge && prevSel) {
+              var startMoved = Math.abs(event.selection[0] - prevSel[0]) > 0.5;
+              var endMoved = Math.abs(event.selection[1] - prevSel[1]) > 0.5;
+              if (startMoved && !endMoved) dragEdge = 'start';
+              else if (endMoved && !startMoved) dragEdge = 'end';
+              else dragEdge = 'both';
+            }
+            if (dragEdge === 'start') {
+              targetFrame = cap.startFrame;
+            } else if (dragEdge === 'end') {
+              targetFrame = cap.endFrame;
+            } else {
+              var midX = (event.selection[0] + event.selection[1]) / 2;
+              targetFrame = Math.round(xScale.invert(midX));
+              targetFrame = Math.max(0, Math.min(totalFrames - 1, targetFrame));
+            }
+          }
+          prevSel = event.selection.slice();
           state.currentFrame = targetFrame;
           renderCurrentFrame();
           movePlayhead();
@@ -942,10 +968,10 @@
     }
 
     // Playback
-    $('#btn-play-pause').addEventListener('click', togglePlayPause);
     $('#btn-prev-frame').addEventListener('click', function () {
       seekFrame((state.currentFrame - 1 + state.frames.length) % state.frames.length);
     });
+    $('#btn-play-pause').addEventListener('click', togglePlayPause);
     $('#btn-next-frame').addEventListener('click', function () {
       seekFrame((state.currentFrame + 1) % state.frames.length);
     });
