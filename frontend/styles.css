@@ -293,6 +293,61 @@ input[type="range"]::-moz-range-thumb {
 .caption-editor h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
 .delete-caption-btn { margin-top: 20px; }
 
+/* Section toggle (collapsible sections in sidebar) */
+.section-toggle {
+  display: flex; align-items: center; width: 100%; padding: 10px 12px;
+  background: var(--bg-tertiary); border: none; color: var(--text);
+  font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.section-toggle::before {
+  content: '▾'; margin-right: 6px; transition: transform .15s;
+}
+.section-toggle.collapsed::before { transform: rotate(-90deg); }
+.box-caption-section.collapsed .box-caption-body { display: none; }
+
+/* Box caption toggle switch */
+.toggle-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0; background: var(--border); border-radius: 999px;
+  cursor: pointer; transition: background .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; left: 2px; bottom: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  transition: transform .2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* Box caption add buttons */
+.btn-add-box {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg-secondary); border: 1px dashed var(--border);
+  color: var(--text-secondary); padding: 6px 12px; border-radius: 6px;
+  cursor: pointer; font-size: 12px; margin-bottom: 6px; transition: border-color .2s, color .2s;
+}
+.btn-add-box:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Box caption editor panel */
+.box-editor {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px; margin-bottom: 8px; background: var(--bg-secondary);
+}
+.box-editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.box-editor-label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.btn-remove-box {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 11px; padding: 2px 6px; border-radius: 4px;
+  transition: color .2s, background .2s;
+}
+.btn-remove-box:hover { color: #e74c3c; background: rgba(231,76,60,.1); }
+.box-editor .form-group { margin-bottom: 8px; }
+
 /* Timeline */
 .editor-timeline {
   background: var(--bg-secondary); border-top: 1px solid var(--border);
@@ -434,6 +489,23 @@ input[type="range"]::-moz-range-thumb {
 .share-status.success { color: #22c55e; }
 .share-status.error { color: #ef4444; }
 
+/* Skeleton loader */
+@keyframes skeleton-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border) 50%, var(--bg-secondary) 75%);
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s infinite linear;
+}
+.skeleton-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.skeleton-input { flex: 1; height: 38px; }
+.skeleton-btn { width: 100px; height: 38px; flex-shrink: 0; }
+.skeleton-social { display: flex; gap: .5rem; justify-content: center; }
+.skeleton-social-btn { width: 140px; height: 36px; }
+
 /* ── Responsive ──────────────────────────── */
 
 /* Tablets & small desktops */
@@ -463,7 +535,8 @@ input[type="range"]::-moz-range-thumb {
 
   /* Sidebar collapsible */
   .editor-sidebar.mobile-collapsed .sidebar-section,
-  .editor-sidebar.mobile-collapsed .caption-editor { display: none; }
+  .editor-sidebar.mobile-collapsed .caption-editor,
+  .editor-sidebar.mobile-collapsed .box-caption-section { display: none; }
 
   /* Timeline collapsible */
   .editor-timeline.mobile-collapsed .timeline-header,

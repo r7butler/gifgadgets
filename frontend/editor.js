@@ -23,6 +23,10 @@
     dragState: null,      // { captionId, offsetX, offsetY }
     gifId: null,
     gifFilename: null,
+    // Box captions (solid bars above/below the GIF)
+    // Each is null when not added, or an object when active
+    boxCaptionTop: null,
+    boxCaptionBottom: null,
   };
 
   var nextCaptionId = 1;
@@ -30,6 +34,19 @@
   var canvas, ctx;
   var timelineState = null;
   var exportInProgress = false;
+
+  function makeBoxCaption() {
+    return {
+      text: '',
+      height: 80,
+      fontSize: 36,
+      fontFamily: 'Impact',
+      align: 'center',
+      textColor: '#000000',
+      bgColor: '#ffffff',
+      borderWidth: 0,
+    };
+  }
 
   var TRACK_COLORS = [
     '#6366f1', '#22d3ee', '#f59e0b', '#10b981',
@@ -193,6 +210,7 @@
     $('#editor-workspace').classList.remove('hidden');
     $('#upload-zone').classList.add('hidden');
     $('#btn-share').disabled = false;
+    $('#btn-download').disabled = false;
   }
 
   // ── Playback ─────────────────────────────────
@@ -235,16 +253,108 @@
   }
 
   // ── Rendering ────────────────────────────────
+
+  /** Return the total height contributed by a single box caption (or 0). */
+  function boxTotalH(bc) {
+    if (!bc) return 0;
+    return bc.height + bc.borderWidth * 2;
+  }
+
+  /** Return the total canvas dimensions accounting for box captions. */
+  function getCompositeSize() {
+    var w = state.width;
+    var h = state.height + boxTotalH(state.boxCaptionTop) + boxTotalH(state.boxCaptionBottom);
+    return { w: w, h: h };
+  }
+
+  /** Return the Y offset where the GIF frame should be drawn. */
+  function getFrameOffsetY() {
+    return boxTotalH(state.boxCaptionTop);
+  }
+
+  /** Draw a single box caption bar at a given Y position. */
+  function _drawOneBox(context, bc, boxY, compW) {
+    var boxH = bc.height + bc.borderWidth * 2;
+
+    // Background
+    context.save();
+    context.fillStyle = bc.bgColor;
+    context.fillRect(0, boxY, compW, boxH);
+
+    // Black border
+    if (bc.borderWidth > 0) {
+      context.strokeStyle = '#000000';
+      context.lineWidth = bc.borderWidth;
+      var half = bc.borderWidth / 2;
+      context.strokeRect(half, boxY + half, compW - bc.borderWidth, boxH - bc.borderWidth);
+    }
+
+    // Text
+    var textAreaW = compW * 0.92;
+    var padX = (compW - textAreaW) / 2;
+    context.font = 'bold ' + bc.fontSize + 'px ' + bc.fontFamily;
+    context.textAlign = bc.align;
+    context.textBaseline = 'middle';
+    context.fillStyle = bc.textColor;
+
+    var lines = wrapText(context, bc.text || '', textAreaW);
+    var lh = bc.fontSize * 1.25;
+    var totalTextH = lines.length * lh;
+    var startY = boxY + bc.borderWidth + (bc.height - totalTextH) / 2 + lh / 2;
+    var textX = bc.align === 'left' ? padX : bc.align === 'right' ? compW - padX : compW / 2;
+
+    for (var i = 0; i < lines.length; i++) {
+      context.fillText(lines[i], textX, startY + i * lh);
+    }
+    context.restore();
+  }
+
+  /** Draw all active box caption bars onto a context. */
+  function drawBoxCaption(context, compW, compH) {
+    if (state.boxCaptionTop) {
+      _drawOneBox(context, state.boxCaptionTop, 0, compW);
+    }
+    if (state.boxCaptionBottom) {
+      var bottomY = compH - boxTotalH(state.boxCaptionBottom);
+      _drawOneBox(context, state.boxCaptionBottom, bottomY, compW);
+    }
+  }
+
+  /** Sync preview canvas size with composite dimensions. */
+  function syncCanvasSize() {
+    var size = getCompositeSize();
+    if (canvas.width !== size.w || canvas.height !== size.h) {
+      canvas.width = size.w;
+      canvas.height = size.h;
+    }
+  }
+
   function renderCurrentFrame() {
     if (state.frames.length === 0) return;
-    ctx.putImageData(state.frames[state.currentFrame].imageData, 0, 0);
 
+    syncCanvasSize();
+    var size = getCompositeSize();
+    var offsetY = getFrameOffsetY();
+
+    // Clear entire composite canvas
+    ctx.clearRect(0, 0, size.w, size.h);
+
+    // Draw the GIF frame at the correct offset
+    ctx.putImageData(state.frames[state.currentFrame].imageData, 0, offsetY);
+
+    // Draw overlay captions (coordinates are relative to GIF frame area)
+    ctx.save();
+    ctx.translate(0, offsetY);
     for (var i = 0; i < state.captions.length; i++) {
       var cap = state.captions[i];
       if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
         drawCaption(ctx, cap);
       }
     }
+    ctx.restore();
+
+    // Draw box caption bar
+    drawBoxCaption(ctx, size.w, size.h);
 
     // Selection highlight (hide when sidebar is collapsed on mobile)
     var sidebarEl = $('#editor-sidebar');
@@ -252,7 +362,10 @@
     if (state.selectedCaptionId && !sidebarCollapsed) {
       var sel = findCaption(state.selectedCaptionId);
       if (sel && state.currentFrame >= sel.startFrame && state.currentFrame <= sel.endFrame) {
+        ctx.save();
+        ctx.translate(0, offsetY);
         drawSelectionBox(ctx, sel);
+        ctx.restore();
       }
     }
   }
@@ -416,9 +529,14 @@
   // ── Canvas Drag ──────────────────────────────
   function canvasCoords(e) {
     var rect = canvas.getBoundingClientRect();
+    var compSize = getCompositeSize();
+    var offsetY = getFrameOffsetY();
+    // Map mouse position to GIF-frame-relative coordinates
+    var rawX = (e.clientX - rect.left) * (compSize.w / rect.width);
+    var rawY = (e.clientY - rect.top) * (compSize.h / rect.height);
     return {
-      x: (e.clientX - rect.left) * (state.width / rect.width),
-      y: (e.clientY - rect.top) * (state.height / rect.height),
+      x: rawX,
+      y: rawY - offsetY,
     };
   }
 
@@ -744,9 +862,12 @@
     exportInProgress = true;
     showExportProgress(0);
 
+    var compSize = getCompositeSize();
+    var offsetY = getFrameOffsetY();
+
     var expCanvas = document.createElement('canvas');
-    expCanvas.width = state.width;
-    expCanvas.height = state.height;
+    expCanvas.width = compSize.w;
+    expCanvas.height = compSize.h;
     var expCtx = expCanvas.getContext('2d');
 
     var workerUrl = state._workerBlobUrl;
@@ -758,17 +879,27 @@
     var gif = new GIF({
       workers: Math.min(navigator.hardwareConcurrency || 2, 4),
       quality: 10,
-      width: state.width,
-      height: state.height,
+      width: compSize.w,
+      height: compSize.h,
       workerScript: workerUrl,
     });
 
     for (var i = 0; i < state.frames.length; i++) {
-      expCtx.putImageData(state.frames[i].imageData, 0, 0);
+      expCtx.clearRect(0, 0, compSize.w, compSize.h);
+      expCtx.putImageData(state.frames[i].imageData, 0, offsetY);
+
+      // Overlay captions (relative to GIF frame area)
+      expCtx.save();
+      expCtx.translate(0, offsetY);
       for (var j = 0; j < state.captions.length; j++) {
         var cap = state.captions[j];
         if (i >= cap.startFrame && i <= cap.endFrame) drawCaption(expCtx, cap);
       }
+      expCtx.restore();
+
+      // Box caption bar
+      drawBoxCaption(expCtx, compSize.w, compSize.h);
+
       drawWatermark(expCtx);
       gif.addFrame(expCtx, { copy: true, delay: state.frames[i].delay });
     }
@@ -781,11 +912,17 @@
       if (opts.onBlob) {
         opts.onBlob(blob);
       } else {
-        downloadBlob(blob, 'captioned.gif');
+        downloadBlob(blob, makeCaptionedFilename());
       }
     });
 
     gif.render();
+  }
+
+  function makeCaptionedFilename() {
+    var base = (state.gifFilename || 'animation').replace(/\.gif$/i, '');
+    var id = Math.random().toString(36).slice(2, 7);
+    return base + '-captioned-' + id + '.gif';
   }
 
   function downloadBlob(blob, filename) {
@@ -800,6 +937,7 @@
   }
 
   function drawWatermark(ctx2d) {
+    var compSize = getCompositeSize();
     var fontSize = Math.max(10, Math.round(state.width * 0.028));
     ctx2d.save();
     ctx2d.font = fontSize + 'px sans-serif';
@@ -810,8 +948,8 @@
     ctx2d.strokeStyle = '#000000';
     ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
     var text = 'GifCaption';
-    var x = state.width - 6;
-    var y = state.height - 4;
+    var x = compSize.w - 6;
+    var y = compSize.h - 4;
     ctx2d.strokeText(text, x, y);
     ctx2d.fillText(text, x, y);
     ctx2d.restore();
@@ -848,6 +986,10 @@
     $('#share-url').value = '';
     $('#share-image-url').value = '';
     $('#share-image-url-row').style.display = 'none';
+    $('#share-skeletons').classList.remove('hidden');
+    $('#share-ready').classList.add('hidden');
+    $('#share-social-skeletons').classList.remove('hidden');
+    $('#share-social-ready').classList.add('hidden');
     setShareStatus('Generating title…', '');
 
     modal.classList.remove('hidden');
@@ -883,8 +1025,14 @@
         $('#share-image-url-row').style.display = '';
       }
       setShareSocial(data.shareResult.share_url, data.title);
+      $('#share-skeletons').classList.add('hidden');
+      $('#share-ready').classList.remove('hidden');
+      $('#share-social-skeletons').classList.add('hidden');
+      $('#share-social-ready').classList.remove('hidden');
       setShareStatus('Link ready — copy and share!', 'success');
     }).catch(function (err) {
+      $('#share-skeletons').classList.add('hidden');
+      $('#share-social-skeletons').classList.add('hidden');
       setShareStatus('Upload failed: ' + err.message, 'error');
     });
   }
@@ -1029,6 +1177,7 @@
         $('#editor-workspace').classList.add('hidden');
         $('#upload-zone').classList.remove('hidden');
         $('#btn-share').disabled = true;
+        $('#btn-download').disabled = true;
         if ($('#file-input')) $('#file-input').value = '';
       });
     }
@@ -1061,6 +1210,17 @@
         var collapsed = timeline.classList.toggle('mobile-collapsed');
         timelineToggle.classList.toggle('collapsed', collapsed);
         timelineToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
+    // Box caption section toggle
+    var boxCapToggle = $('#box-caption-toggle');
+    if (boxCapToggle) {
+      boxCapToggle.addEventListener('click', function () {
+        var section = $('#box-caption-section');
+        var collapsed = section.classList.toggle('collapsed');
+        boxCapToggle.classList.toggle('collapsed', collapsed);
+        boxCapToggle.setAttribute('aria-expanded', String(!collapsed));
       });
     }
 
@@ -1132,9 +1292,157 @@
       updateSelectedCaption({ fontFamily: e.target.value });
     });
 
+    // ── Box caption controls ──────────────────
+    function addBoxCaption(position) {
+      var bc = makeBoxCaption();
+      if (position === 'top') {
+        state.boxCaptionTop = bc;
+        $('#box-top-editor').classList.remove('hidden');
+        $('#btn-add-box-top').classList.add('hidden');
+        // Show bottom add button below top editor if bottom isn't active
+        if (!state.boxCaptionBottom) $('#btn-add-box-bottom').classList.remove('hidden');
+      } else {
+        state.boxCaptionBottom = bc;
+        $('#box-bottom-editor').classList.remove('hidden');
+        $('#btn-add-box-bottom').classList.add('hidden');
+      }
+      renderCurrentFrame();
+    }
+
+    function removeBoxCaption(position) {
+      if (position === 'top') {
+        state.boxCaptionTop = null;
+        $('#box-top-editor').classList.add('hidden');
+        $('#btn-add-box-top').classList.remove('hidden');
+        // Reset form values
+        $('#box-top-text').value = '';
+        $('#box-top-height').value = 80; $('#box-top-height-val').textContent = '80';
+        $('#box-top-border').value = 0; $('#box-top-border-val').textContent = '0';
+        $('#box-top-fontsize').value = 36; $('#box-top-fontsize-val').textContent = '36';
+      } else {
+        state.boxCaptionBottom = null;
+        $('#box-bottom-editor').classList.add('hidden');
+        $('#btn-add-box-bottom').classList.remove('hidden');
+        $('#box-bottom-text').value = '';
+        $('#box-bottom-height').value = 80; $('#box-bottom-height-val').textContent = '80';
+        $('#box-bottom-border').value = 0; $('#box-bottom-border-val').textContent = '0';
+        $('#box-bottom-fontsize').value = 36; $('#box-bottom-fontsize-val').textContent = '36';
+      }
+      renderCurrentFrame();
+    }
+
+    $('#btn-add-box-top').addEventListener('click', function () { addBoxCaption('top'); });
+    $('#btn-add-box-bottom').addEventListener('click', function () { addBoxCaption('bottom'); });
+
+    var pendingBoxRemove = null;
+    $('#btn-remove-box-top').addEventListener('click', function () {
+      pendingBoxRemove = 'top';
+      $('#remove-box-modal').classList.remove('hidden');
+    });
+    $('#btn-remove-box-bottom').addEventListener('click', function () {
+      pendingBoxRemove = 'bottom';
+      $('#remove-box-modal').classList.remove('hidden');
+    });
+    $('#remove-box-modal-confirm').addEventListener('click', function () {
+      if (pendingBoxRemove) removeBoxCaption(pendingBoxRemove);
+      pendingBoxRemove = null;
+      $('#remove-box-modal').classList.add('hidden');
+    });
+    $('#remove-box-modal-cancel').addEventListener('click', function () {
+      pendingBoxRemove = null;
+      $('#remove-box-modal').classList.add('hidden');
+    });
+    $('#remove-box-modal').addEventListener('click', function (e) {
+      if (e.target === this) { pendingBoxRemove = null; this.classList.add('hidden'); }
+    });
+
+    // Wire up each position's controls
+    ['top', 'bottom'].forEach(function (pos) {
+      var stateKey = pos === 'top' ? 'boxCaptionTop' : 'boxCaptionBottom';
+
+      $('#box-' + pos + '-text').addEventListener('input', function (e) {
+        if (state[stateKey]) { state[stateKey].text = e.target.value; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-height').addEventListener('input', function (e) {
+        var v = parseInt(e.target.value, 10);
+        $('#box-' + pos + '-height-val').textContent = v;
+        if (state[stateKey]) { state[stateKey].height = v; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-border').addEventListener('input', function (e) {
+        var v = parseInt(e.target.value, 10);
+        $('#box-' + pos + '-border-val').textContent = v;
+        if (state[stateKey]) { state[stateKey].borderWidth = v; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-fontsize').addEventListener('input', function (e) {
+        var v = parseInt(e.target.value, 10);
+        $('#box-' + pos + '-fontsize-val').textContent = v;
+        if (state[stateKey]) { state[stateKey].fontSize = v; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-align').addEventListener('change', function (e) {
+        if (state[stateKey]) { state[stateKey].align = e.target.value; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-font').addEventListener('change', function (e) {
+        if (state[stateKey]) { state[stateKey].fontFamily = e.target.value; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-text-color').addEventListener('input', function (e) {
+        if (state[stateKey]) { state[stateKey].textColor = e.target.value; renderCurrentFrame(); }
+      });
+      $('#box-' + pos + '-bg-color').addEventListener('input', function (e) {
+        if (state[stateKey]) { state[stateKey].bgColor = e.target.value; renderCurrentFrame(); }
+      });
+    });
+
 
     // Export & Share
+    var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    $('#btn-download').addEventListener('click', function () {
+      if (isMobile) {
+        exportGif({ onBlob: showDownloadModal });
+      } else {
+        exportGif();
+      }
+    });
     $('#btn-share').addEventListener('click', shareFlow);
+
+    // Download modal events
+    function showDownloadModal(blob) {
+      var modal = $('#download-modal');
+      modal._blob = blob;
+      var preview = $('#download-preview');
+      preview.innerHTML = '';
+      var blobUrl = URL.createObjectURL(blob);
+      var img = document.createElement('img');
+      img.src = blobUrl;
+      img.alt = 'Your captioned GIF';
+      preview.appendChild(img);
+      modal._blobUrl = blobUrl;
+      modal.classList.remove('hidden');
+    }
+    function closeDownloadModal() {
+      var modal = $('#download-modal');
+      modal.classList.add('hidden');
+      if (modal._blobUrl) { URL.revokeObjectURL(modal._blobUrl); modal._blobUrl = null; }
+      modal._blob = null;
+    }
+    $('#download-modal-close').addEventListener('click', closeDownloadModal);
+    $('#download-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeDownloadModal();
+    });
+    $('#btn-dl-download').addEventListener('click', function () {
+      var blob = $('#download-modal')._blob;
+      if (blob) downloadBlob(blob, makeCaptionedFilename());
+    });
+    $('#btn-dl-save-photos').addEventListener('click', function () {
+      var blob = $('#download-modal')._blob;
+      if (!blob) return;
+      var fname = makeCaptionedFilename();
+      var file = new File([blob], fname, { type: 'image/gif' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Captioned GIF' }).catch(function () {});
+      } else {
+        downloadBlob(blob, fname);
+      }
+    });
 
     // Share modal events
     $('#share-modal-close').addEventListener('click', closeShareModal);
@@ -1165,7 +1473,7 @@
     });
     $('#btn-share-download').addEventListener('click', function () {
       var modal = $('#share-modal');
-      if (modal._blob) downloadBlob(modal._blob, 'captioned.gif');
+      if (modal._blob) downloadBlob(modal._blob, makeCaptionedFilename());
     });
 
     // Save to Photos (mobile: uses Web Share API or falls back to download)
@@ -1178,12 +1486,13 @@
       savePhotosBtn.addEventListener('click', function () {
         var modal = $('#share-modal');
         if (!modal._blob) return;
-        var file = new File([modal._blob], 'captioned.gif', { type: 'image/gif' });
+        var fname = makeCaptionedFilename();
+        var file = new File([modal._blob], fname, { type: 'image/gif' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           navigator.share({ files: [file], title: 'Captioned GIF' }).catch(function () {});
         } else {
           // Fallback: trigger download
-          downloadBlob(modal._blob, 'captioned.gif');
+          downloadBlob(modal._blob, fname);
         }
       });
     }
