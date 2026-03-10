@@ -543,7 +543,8 @@
       // D3 Brush
       var brush = d3.brushX()
         .extent([[0, 2], [innerW, trackH - 6]])
-        .on('start', function () {
+        .on('start', function (event) {
+          if (!event.sourceEvent) return; // ignore programmatic brush.move
           selectCaption(cap.id);
           // Pause playback while dragging timeline
           if (state.isPlaying) {
@@ -552,7 +553,7 @@
           }
         })
         .on('brush', function (event) {
-          if (!event.selection) return;
+          if (!event.selection || !event.sourceEvent) return;
           var s0 = Math.round(xScale.invert(event.selection[0]));
           var s1 = Math.round(xScale.invert(event.selection[1]));
           cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
@@ -567,7 +568,7 @@
           movePlayhead();
         })
         .on('end', function (event) {
-          if (!event.selection) return;
+          if (!event.selection || !event.sourceEvent) return;
           var s0 = Math.round(xScale.invert(event.selection[0]));
           var s1 = Math.round(xScale.invert(event.selection[1]));
           cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
