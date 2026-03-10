@@ -93,7 +93,11 @@
         // Clean up the pending entry
         var del = db.transaction('files', 'readwrite');
         del.objectStore('files').delete('pending');
-        GC.loadGifFromFile(file);
+        if (file.type && file.type.startsWith('video/')) {
+          GC.loadVideoAsGif(file);
+        } else {
+          GC.loadGifFromFile(file);
+        }
       };
       get.onerror = function () { GC.hideLoading(); };
     };
@@ -219,6 +223,121 @@
     GC.renderCurrentFrame();
     GC.updatePlaybackUI();
     GC.movePlayhead();
+  };
+
+  // ── Video → GIF Conversion ───────────────────
+
+  /**
+   * Load a video file, extract frames at ~10 fps using canvas,
+   * and populate GC.state.frames as if a GIF had been loaded.
+   */
+  GC.loadVideoAsGif = function (file) {
+    state.gifFilename = (file.name || 'video').replace(/\.[^.]+$/, '') + '.gif';
+    GC.showLoading('Converting video to GIF frames…');
+
+    var url = URL.createObjectURL(file);
+    var video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    video.onerror = function () {
+      URL.revokeObjectURL(url);
+      GC.hideLoading();
+      GC.showError('Could not load video. The format may not be supported by your browser.');
+    };
+
+    video.onloadedmetadata = function () {
+      var duration = video.duration;
+      if (!isFinite(duration) || duration <= 0) {
+        URL.revokeObjectURL(url);
+        GC.hideLoading();
+        GC.showError('Could not determine video duration.');
+        return;
+      }
+
+      // Cap at 20 seconds to avoid excessive memory use
+      var maxDuration = Math.min(duration, 20);
+      var fps = 10;
+      var frameInterval = 1 / fps;
+      var delay = Math.round(1000 / fps); // ms per frame for GIF playback
+
+      var w = video.videoWidth;
+      var h = video.videoHeight;
+
+      // Scale down large videos to keep memory reasonable
+      var maxDim = 640;
+      if (w > maxDim || h > maxDim) {
+        var scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
+      state.width = w;
+      state.height = h;
+
+      var captureCanvas = document.createElement('canvas');
+      captureCanvas.width = w;
+      captureCanvas.height = h;
+      var captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+
+      state.frames = [];
+      var currentTime = 0;
+      var totalFrames = Math.floor(maxDuration * fps);
+
+      function captureFrame() {
+        if (currentTime > maxDuration) {
+          finishCapture();
+          return;
+        }
+        video.currentTime = currentTime;
+      }
+
+      video.onseeked = function () {
+        captureCtx.drawImage(video, 0, 0, w, h);
+        var imgData = captureCtx.getImageData(0, 0, w, h);
+        state.frames.push({
+          imageData: new ImageData(new Uint8ClampedArray(imgData.data), w, h),
+          delay: delay,
+        });
+
+        // Update loading progress
+        var progress = Math.round((state.frames.length / totalFrames) * 100);
+        GC.showLoading('Converting video… ' + progress + '%');
+
+        currentTime += frameInterval;
+        captureFrame();
+      };
+
+      function finishCapture() {
+        URL.revokeObjectURL(url);
+        if (state.frames.length === 0) {
+          GC.hideLoading();
+          GC.showError('No frames could be extracted from the video.');
+          return;
+        }
+
+        GC.canvas.width = w;
+        GC.canvas.height = h;
+        state.currentFrame = 0;
+        state.isPlaying = false;
+
+        GC.renderCurrentFrame();
+        GC.buildTimeline();
+        GC.updateUI();
+
+        GC.$('#editor-workspace').classList.remove('hidden');
+        GC.$('#upload-zone').classList.add('hidden');
+        GC.$('#btn-share').disabled = false;
+        GC.$('#btn-download').disabled = false;
+
+        GC.hideLoading();
+      }
+
+      captureFrame();
+    };
+
+    video.src = url;
   };
 
 })();

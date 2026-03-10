@@ -63,7 +63,8 @@
     // Wrapped text centred vertically in the bar
     var textAreaW = compW * 0.92;
     var padX = (compW - textAreaW) / 2;
-    context.font = 'bold ' + bc.fontSize + 'px ' + bc.fontFamily;
+    var weight = bc.fontWeight || 700;
+    context.font = weight + ' ' + bc.fontSize + 'px ' + bc.fontFamily;
     context.textAlign = bc.align;
     context.textBaseline = 'middle';
     context.fillStyle = bc.textColor;
@@ -146,6 +147,9 @@
         ctx.restore();
       }
     }
+
+    // Crop overlay (preview only — not baked into export)
+    GC.drawCropOverlay();
   };
 
   // ── On-Image Caption Drawing ─────────────────
@@ -284,6 +288,50 @@
     ctx2d.strokeText(text, x, y);
     ctx2d.fillText(text, x, y);
     ctx2d.restore();
+  };
+
+  // ── Crop Overlay ─────────────────────────────
+
+  /** Draw a semi-transparent overlay with a clear crop window on the preview canvas. */
+  GC.drawCropOverlay = function () {
+    if (!state.cropActive || !state.cropRect) return;
+    var ctx = GC.ctx;
+    var compSize = GC.getCompositeSize();
+    var offsetY = GC.getFrameOffsetY();
+    var r = state.cropRect;
+
+    ctx.save();
+    // Darken entire canvas
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, compSize.w, compSize.h);
+    // Clear the crop region
+    ctx.clearRect(r.x, r.y + offsetY, r.w, r.h);
+    // Re-draw crop region content
+    if (state.frames.length > 0) {
+      var frame = state.frames[state.currentFrame];
+      ctx.putImageData(frame.imageData, 0, offsetY,
+        r.x, r.y, r.w, r.h);
+      // Re-draw captions in crop area
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y + offsetY, r.w, r.h);
+      ctx.clip();
+      ctx.translate(0, offsetY);
+      for (var i = 0; i < state.captions.length; i++) {
+        var cap = state.captions[i];
+        if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
+          GC.drawCaption(ctx, cap);
+        }
+      }
+      ctx.restore();
+      GC.drawBoxCaption(ctx, compSize.w, compSize.h);
+    }
+    // Draw crop border
+    ctx.strokeStyle = '#6366f1';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(r.x, r.y + offsetY, r.w, r.h);
+    ctx.restore();
   };
 
 })();

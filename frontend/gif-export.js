@@ -40,11 +40,31 @@
     var compSize = GC.getCompositeSize();
     var offsetY = GC.getFrameOffsetY();
 
+    // Determine crop region (if active)
+    var crop = state.cropActive && state.cropRect ? state.cropRect : null;
+    var outW = crop ? crop.w : compSize.w;
+    var outH = crop ? crop.h : compSize.h;
+
+    if (outW <= 0 || outH <= 0) {
+      GC.showError('Crop region is too small.');
+      GC.exportInProgress = false;
+      return;
+    }
+
     // Off-screen canvas used to composite each frame for the encoder
     var expCanvas = document.createElement('canvas');
     expCanvas.width = compSize.w;
     expCanvas.height = compSize.h;
     var expCtx = expCanvas.getContext('2d');
+
+    // Separate canvas for cropped output (if cropping)
+    var cropCanvas, cropCtx;
+    if (crop) {
+      cropCanvas = document.createElement('canvas');
+      cropCanvas.width = outW;
+      cropCanvas.height = outH;
+      cropCtx = cropCanvas.getContext('2d');
+    }
 
     var workerUrl = state._workerBlobUrl;
     if (!workerUrl) {
@@ -53,11 +73,13 @@
       return;
     }
 
+    var quality = state.compressGif ? state.gifQuality : 10;
+
     var gif = new GIF({
       workers: Math.min(navigator.hardwareConcurrency || 2, 4),
-      quality: 10,
-      width: compSize.w,
-      height: compSize.h,
+      quality: quality,
+      width: outW,
+      height: outH,
       workerScript: workerUrl,
     });
 
@@ -76,7 +98,17 @@
 
       GC.drawBoxCaption(expCtx, compSize.w, compSize.h);
       GC.drawWatermark(expCtx);
-      gif.addFrame(expCtx, { copy: true, delay: state.frames[i].delay });
+
+      // If cropping, extract the crop region into the crop canvas
+      var frameCtx = expCtx;
+      if (crop) {
+        // Adjust crop Y to account for box caption offset
+        cropCtx.clearRect(0, 0, outW, outH);
+        cropCtx.drawImage(expCanvas, crop.x, crop.y + offsetY, crop.w, crop.h, 0, 0, outW, outH);
+        frameCtx = cropCtx;
+      }
+
+      gif.addFrame(frameCtx, { copy: true, delay: state.frames[i].delay });
     }
 
     gif.on('progress', function (p) { GC.showExportProgress(p); });

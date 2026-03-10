@@ -56,6 +56,13 @@
 
     // Export options
     hideWatermark: false,   // true = user opted out of the watermark
+    compressGif: false,     // true = use higher compression settings
+    gifQuality: 10,         // gif.js quality (1 = best, 30 = worst)
+    lossyCompress: false,   // true = reduce colour palette for smaller files
+
+    // Crop
+    cropActive: false,      // true = crop mode enabled
+    cropRect: null,         // { x, y, w, h } in GIF pixel coords (null = no crop)
   };
 
   // ── Mutable Shared References ────────────────
@@ -91,6 +98,7 @@
       textColor: '#000000',
       bgColor: '#ffffff',
       borderWidth: 0,       // black border thickness around the bar
+      fontWeight: 700,      // CSS font-weight (100–900)
     };
   };
 

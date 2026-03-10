@@ -375,10 +375,13 @@
         e.preventDefault();
         dropZone.classList.remove('dragover');
         var file = e.dataTransfer.files[0];
-        if (file && (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif'))) {
+        if (!file) return;
+        if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
           GC.loadGifFromFile(file);
+        } else if (file.type.startsWith('video/')) {
+          GC.loadVideoAsGif(file);
         } else {
-          GC.showError('Please drop a GIF file.');
+          GC.showError('Please drop a GIF or video file.');
         }
       });
       dropZone.addEventListener('click', function () { $('#file-input').click(); });
@@ -387,7 +390,13 @@
     var fileInput = $('#file-input');
     if (fileInput) {
       fileInput.addEventListener('change', function () {
-        if (fileInput.files[0]) GC.loadGifFromFile(fileInput.files[0]);
+        var file = fileInput.files[0];
+        if (!file) return;
+        if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
+          GC.loadGifFromFile(file);
+        } else if (file.type.startsWith('video/')) {
+          GC.loadVideoAsGif(file);
+        }
       });
     }
 
@@ -400,12 +409,24 @@
         state.captions = [];
         state.selectedCaptionId = null;
         state.currentFrame = 0;
+        state.cropActive = false;
+        state.cropRect = null;
+        state.compressGif = false;
+        state.gifQuality = 10;
+        state.lossyCompress = false;
         GC.nextCaptionId = 1;
         $('#editor-workspace').classList.add('hidden');
         $('#upload-zone').classList.remove('hidden');
         $('#btn-share').disabled = true;
         $('#btn-download').disabled = true;
         if ($('#file-input')) $('#file-input').value = '';
+        // Reset Other Options UI
+        if ($('#chk-crop')) { $('#chk-crop').checked = false; }
+        if ($('#crop-settings')) { $('#crop-settings').classList.add('hidden'); }
+        if ($('#chk-compress')) { $('#chk-compress').checked = false; }
+        if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
+        if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
+        if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
       });
     }
 
@@ -554,6 +575,7 @@
         $('#box-top-height').value = 80; $('#box-top-height-val').textContent = '80';
         $('#box-top-border').value = 0; $('#box-top-border-val').textContent = '0';
         $('#box-top-fontsize').value = 36; $('#box-top-fontsize-val').textContent = '36';
+        $('#box-top-bold').checked = true;
       } else {
         state.boxCaptionBottom = null;
         $('#box-bottom-editor').classList.add('hidden');
@@ -562,6 +584,7 @@
         $('#box-bottom-height').value = 80; $('#box-bottom-height-val').textContent = '80';
         $('#box-bottom-border').value = 0; $('#box-bottom-border-val').textContent = '0';
         $('#box-bottom-fontsize').value = 36; $('#box-bottom-fontsize-val').textContent = '36';
+        $('#box-bottom-bold').checked = true;
       }
       GC.renderCurrentFrame();
     }
@@ -591,9 +614,22 @@
       if (e.target === this) { pendingBoxRemove = null; this.classList.add('hidden'); }
     });
 
+    // Fonts that only ship a single weight — hide the bold toggle for these
+    var SINGLE_WEIGHT_FONTS = ['Impact', 'Arial Black'];
+
+    function toggleBoldOption(pos, fontFamily) {
+      var group = $('#box-' + pos + '-bold-group');
+      if (!group) return;
+      var hide = SINGLE_WEIGHT_FONTS.indexOf(fontFamily) !== -1;
+      group.style.display = hide ? 'none' : '';
+    }
+
     // Wire up each position's sliders/pickers
     ['top', 'bottom'].forEach(function (pos) {
       var stateKey = pos === 'top' ? 'boxCaptionTop' : 'boxCaptionBottom';
+
+      // Hide bold toggle for the default font if single-weight
+      toggleBoldOption(pos, 'Impact');
 
       $('#box-' + pos + '-text').addEventListener('input', function (e) {
         if (state[stateKey]) { state[stateKey].text = e.target.value; GC.renderCurrentFrame(); }
@@ -613,11 +649,15 @@
         $('#box-' + pos + '-fontsize-val').textContent = v;
         if (state[stateKey]) { state[stateKey].fontSize = v; GC.renderCurrentFrame(); }
       });
+      $('#box-' + pos + '-bold').addEventListener('change', function (e) {
+        if (state[stateKey]) { state[stateKey].fontWeight = e.target.checked ? 700 : 400; GC.renderCurrentFrame(); }
+      });
       $('#box-' + pos + '-align').addEventListener('change', function (e) {
         if (state[stateKey]) { state[stateKey].align = e.target.value; GC.renderCurrentFrame(); }
       });
       $('#box-' + pos + '-font').addEventListener('change', function (e) {
         if (state[stateKey]) { state[stateKey].fontFamily = e.target.value; GC.renderCurrentFrame(); }
+        toggleBoldOption(pos, e.target.value);
       });
       $('#box-' + pos + '-text-color').addEventListener('input', function (e) {
         if (state[stateKey]) { state[stateKey].textColor = e.target.value; GC.renderCurrentFrame(); }
@@ -751,11 +791,103 @@
       }
     });
 
+    // ── Other Options toggle ───────────────────
+    var otherOptsToggle = $('#other-options-toggle');
+    if (otherOptsToggle) {
+      otherOptsToggle.addEventListener('click', function () {
+        var section = $('#other-options-section');
+        var collapsed = section.classList.toggle('collapsed');
+        otherOptsToggle.classList.toggle('collapsed', collapsed);
+        otherOptsToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
     // ── Watermark toggle ─────────────────────
     var chkWatermark = $('#chk-watermark');
     if (chkWatermark) {
       chkWatermark.addEventListener('change', function () {
         state.hideWatermark = !chkWatermark.checked;
+      });
+    }
+
+    // ── Compression toggle ───────────────────
+    var chkCompress = $('#chk-compress');
+    if (chkCompress) {
+      chkCompress.addEventListener('change', function () {
+        state.compressGif = chkCompress.checked;
+        var settings = $('#compress-settings');
+        if (settings) settings.classList.toggle('hidden', !chkCompress.checked);
+        if (chkCompress.checked) {
+          state.gifQuality = parseInt($('#compress-quality').value, 10);
+        } else {
+          state.gifQuality = 10;
+        }
+      });
+    }
+    var compressQuality = $('#compress-quality');
+    if (compressQuality) {
+      compressQuality.addEventListener('input', function () {
+        var v = parseInt(compressQuality.value, 10);
+        $('#compress-quality-val').textContent = v;
+        state.gifQuality = v;
+      });
+    }
+    var chkLossy = $('#chk-lossy');
+    if (chkLossy) {
+      chkLossy.addEventListener('change', function () {
+        state.lossyCompress = chkLossy.checked;
+      });
+    }
+
+    // ── Crop toggle ──────────────────────────
+    var chkCrop = $('#chk-crop');
+    if (chkCrop) {
+      chkCrop.addEventListener('change', function () {
+        state.cropActive = chkCrop.checked;
+        var settings = $('#crop-settings');
+        if (settings) settings.classList.toggle('hidden', !chkCrop.checked);
+        if (chkCrop.checked) {
+          // Default crop to full image if not set
+          if (!state.cropRect) {
+            state.cropRect = { x: 0, y: 0, w: state.width, h: state.height };
+            syncCropInputs();
+          }
+        } else {
+          state.cropRect = null;
+        }
+        GC.renderCurrentFrame();
+      });
+    }
+
+    function syncCropInputs() {
+      var r = state.cropRect;
+      if (!r) return;
+      $('#crop-x').value = r.x;
+      $('#crop-y').value = r.y;
+      $('#crop-w').value = r.w;
+      $('#crop-h').value = r.h;
+    }
+
+    ['crop-x', 'crop-y', 'crop-w', 'crop-h'].forEach(function (id) {
+      var el = $('#' + id);
+      if (el) {
+        el.addEventListener('input', function () {
+          if (!state.cropRect) return;
+          var key = id.split('-')[1] === 'x' ? 'x' : id.split('-')[1] === 'y' ? 'y' : id.split('-')[1] === 'w' ? 'w' : 'h';
+          var v = parseInt(el.value, 10);
+          if (isNaN(v) || v < 0) return;
+          state.cropRect[key] = v;
+          GC.renderCurrentFrame();
+        });
+      }
+    });
+
+    var btnCropReset = $('#btn-crop-reset');
+    if (btnCropReset) {
+      btnCropReset.addEventListener('click', function () {
+        state.cropRect = { x: 0, y: 0, w: state.width, h: state.height };
+        syncCropInputs();
+        GC.renderCurrentFrame();
       });
     }
 

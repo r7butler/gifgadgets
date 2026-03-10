@@ -63,8 +63,8 @@
         </svg>
         <h2>Drop your GIF here</h2>
         <p>or click to browse</p>
-        <p class="drop-hint">Supports animated GIF files</p>
-        <input type="file" id="file-input" accept="image/gif" hidden />
+        <p class="drop-hint">Supports animated GIF and video files</p>
+        <input type="file" id="file-input" accept="image/gif,video/mp4,video/webm,video/quicktime,video/x-msvideo" hidden />
       </div>
     </div>
 
@@ -95,7 +95,7 @@
 
         <!-- Sidebar -->
         <div class="editor-sidebar" id="editor-sidebar">
-          <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true">Captions &amp; Settings</button>
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true">Captions</button>
           <div class="sidebar-section on-image-caption-section" id="on-image-caption-section">
             <button class="section-toggle" id="on-image-caption-toggle" aria-expanded="true">On-Image Captions</button>
             <div class="on-image-caption-body">
@@ -181,6 +181,12 @@
                   <label>Font size: <span id="box-top-fontsize-val">36</span>px</label>
                   <input type="range" id="box-top-fontsize" min="12" max="120" value="36" />
                 </div>
+                <div class="form-group box-bold-group" id="box-top-bold-group">
+                  <label class="option-label">
+                    <input type="checkbox" id="box-top-bold" checked />
+                    <span>Bold</span>
+                  </label>
+                </div>
                 <div class="form-row">
                   <div class="form-group">
                     <label for="box-top-align">Align</label>
@@ -239,6 +245,12 @@
                   <label>Font size: <span id="box-bottom-fontsize-val">36</span>px</label>
                   <input type="range" id="box-bottom-fontsize" min="12" max="120" value="36" />
                 </div>
+                <div class="form-group box-bold-group" id="box-bottom-bold-group">
+                  <label class="option-label">
+                    <input type="checkbox" id="box-bottom-bold" checked />
+                    <span>Bold</span>
+                  </label>
+                </div>
                 <div class="form-row">
                   <div class="form-group">
                     <label for="box-bottom-align">Align</label>
@@ -276,12 +288,56 @@
             </div>
           </div>
 
-          <!-- Watermark toggle -->
-          <div class="sidebar-section watermark-option">
-            <label class="watermark-label">
-              <input type="checkbox" id="chk-watermark" checked />
-              <span>Include GifCaption watermark</span>
-            </label>
+          <!-- Other Options (collapsible) -->
+          <div class="sidebar-section other-options-section" id="other-options-section">
+            <button class="section-toggle" id="other-options-toggle" aria-expanded="true">Other Options</button>
+            <div class="other-options-body">
+              <label class="option-label">
+                <input type="checkbox" id="chk-watermark" checked />
+                <span>Include GifCaption watermark</span>
+              </label>
+              <label class="option-label">
+                <input type="checkbox" id="chk-compress" />
+                <span>Compress output</span>
+              </label>
+              <div id="compress-settings" class="sub-settings hidden">
+                <div class="form-group">
+                  <label>Quality: <span id="compress-quality-val">10</span></label>
+                  <input type="range" id="compress-quality" min="1" max="30" value="10" />
+                  <div class="range-labels"><span>Higher quality</span><span>Smaller file</span></div>
+                </div>
+                <label class="option-label">
+                  <input type="checkbox" id="chk-lossy" />
+                  <span>Lossy (reduce colours)</span>
+                </label>
+              </div>
+              <label class="option-label">
+                <input type="checkbox" id="chk-crop" />
+                <span>Crop</span>
+              </label>
+              <div id="crop-settings" class="sub-settings hidden">
+                <p class="sub-hint">Drag on the preview to select a crop region, or set values manually.</p>
+                <div class="form-row crop-inputs">
+                  <div class="form-group">
+                    <label for="crop-x">X</label>
+                    <input type="number" id="crop-x" min="0" value="0" class="input-sm" />
+                  </div>
+                  <div class="form-group">
+                    <label for="crop-y">Y</label>
+                    <input type="number" id="crop-y" min="0" value="0" class="input-sm" />
+                  </div>
+                  <div class="form-group">
+                    <label for="crop-w">W</label>
+                    <input type="number" id="crop-w" min="1" value="0" class="input-sm" />
+                  </div>
+                  <div class="form-group">
+                    <label for="crop-h">H</label>
+                    <input type="number" id="crop-h" min="1" value="0" class="input-sm" />
+                  </div>
+                </div>
+                <button id="btn-crop-reset" class="btn btn-ghost btn-xs">Reset Crop</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
