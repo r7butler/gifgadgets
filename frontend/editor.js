@@ -192,7 +192,6 @@
 
     $('#editor-workspace').classList.remove('hidden');
     $('#upload-zone').classList.add('hidden');
-    $('#btn-export').disabled = false;
     $('#btn-share').disabled = false;
   }
 
@@ -544,15 +543,41 @@
       // D3 Brush
       var brush = d3.brushX()
         .extent([[0, 2], [innerW, trackH - 6]])
-        .on('brush end', function (event) {
+        .on('start', function () {
+          selectCaption(cap.id);
+          // Pause playback while dragging timeline
+          if (state.isPlaying) {
+            state._wasPlayingBeforeBrush = true;
+            pause();
+          }
+        })
+        .on('brush', function (event) {
+          if (!event.selection) return;
+          var s0 = Math.round(xScale.invert(event.selection[0]));
+          var s1 = Math.round(xScale.invert(event.selection[1]));
+          cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
+          cap.endFrame = Math.max(cap.startFrame, Math.min(totalFrames - 1, s1));
+          // Show the nearest edge frame without resuming playback
+          var pointerX = d3.pointer(event.sourceEvent, this)[0];
+          var distToStart = Math.abs(pointerX - event.selection[0]);
+          var distToEnd = Math.abs(pointerX - event.selection[1]);
+          var targetFrame = distToStart < distToEnd ? cap.startFrame : cap.endFrame;
+          state.currentFrame = targetFrame;
+          renderCurrentFrame();
+          movePlayhead();
+        })
+        .on('end', function (event) {
           if (!event.selection) return;
           var s0 = Math.round(xScale.invert(event.selection[0]));
           var s1 = Math.round(xScale.invert(event.selection[1]));
           cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
           cap.endFrame = Math.max(cap.startFrame, Math.min(totalFrames - 1, s1));
           renderCurrentFrame();
-        })
-        .on('start', function () { selectCaption(cap.id); });
+          if (state._wasPlayingBeforeBrush) {
+            state._wasPlayingBeforeBrush = false;
+            play();
+          }
+        });
 
       var brushG = tg.append('g').attr('class', 'caption-brush')
         .call(brush)
@@ -698,6 +723,8 @@
 
     // Clear previous state
     $('#share-url').value = '';
+    $('#share-image-url').value = '';
+    $('#share-image-url-row').style.display = 'none';
     setShareStatus('Generating title…', '');
 
     modal.classList.remove('hidden');
@@ -727,6 +754,10 @@
       });
     }).then(function (data) {
       $('#share-url').value = data.shareResult.share_url;
+      if (data.shareResult.gif_url) {
+        $('#share-image-url').value = data.shareResult.gif_url;
+        $('#share-image-url-row').style.display = '';
+      }
       setShareSocial(data.shareResult.share_url, data.title);
       setShareStatus('Link ready — copy and share!', 'success');
     }).catch(function (err) {
@@ -873,7 +904,6 @@
         nextCaptionId = 1;
         $('#editor-workspace').classList.add('hidden');
         $('#upload-zone').classList.remove('hidden');
-        $('#btn-export').disabled = true;
         $('#btn-share').disabled = true;
         if ($('#file-input')) $('#file-input').value = '';
       });
@@ -980,7 +1010,6 @@
 
 
     // Export & Share
-    $('#btn-export').addEventListener('click', function () { exportGif(); });
     $('#btn-share').addEventListener('click', shareFlow);
 
     // Share modal events
@@ -999,10 +1028,41 @@
         setShareStatus('Copied!', 'success');
       });
     });
+    $('#btn-copy-image-url').addEventListener('click', function () {
+      var input = $('#share-image-url');
+      if (!input.value) return;
+      navigator.clipboard.writeText(input.value).then(function () {
+        setShareStatus('Image URL copied!', 'success');
+      }).catch(function () {
+        input.select();
+        document.execCommand('copy');
+        setShareStatus('Image URL copied!', 'success');
+      });
+    });
     $('#btn-share-download').addEventListener('click', function () {
       var modal = $('#share-modal');
       if (modal._blob) downloadBlob(modal._blob, 'captioned.gif');
     });
+
+    // Save to Photos (mobile: uses Web Share API or falls back to download)
+    var savePhotosBtn = $('#btn-share-save-photos');
+    if (savePhotosBtn) {
+      // Show on mobile/touch devices
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        savePhotosBtn.style.display = '';
+      }
+      savePhotosBtn.addEventListener('click', function () {
+        var modal = $('#share-modal');
+        if (!modal._blob) return;
+        var file = new File([modal._blob], 'captioned.gif', { type: 'image/gif' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'Captioned GIF' }).catch(function () {});
+        } else {
+          // Fallback: trigger download
+          downloadBlob(modal._blob, 'captioned.gif');
+        }
+      });
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {

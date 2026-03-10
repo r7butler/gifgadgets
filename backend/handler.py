@@ -170,11 +170,13 @@ def _build_share_page(title, gif_url, slug):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{safe_title} — GifCaption</title>
 <meta name="description" content="{safe_title} — made with GifCaption, the free online GIF caption editor.">
-<meta property="og:type" content="video.other">
+<meta property="og:type" content="website">
 <meta property="og:title" content="{safe_title}">
 <meta property="og:description" content="Made with GifCaption — the free GIF caption editor">
 <meta property="og:image" content="{gif_url}">
 <meta property="og:image:type" content="image/gif">
+<meta property="og:image:width" content="600">
+<meta property="og:image:height" content="600">
 <meta property="og:url" content="{site_root}/g/{slug}.html">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{safe_title}">
