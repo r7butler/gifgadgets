@@ -289,8 +289,8 @@
           </div>
 
           <!-- Other Options (collapsible) -->
-          <div class="sidebar-section other-options-section" id="other-options-section">
-            <button class="section-toggle" id="other-options-toggle" aria-expanded="true">Other Options</button>
+          <div class="sidebar-section other-options-section collapsed" id="other-options-section">
+            <button class="section-toggle collapsed" id="other-options-toggle" aria-expanded="false">Other Options</button>
             <div class="other-options-body">
               <label class="option-label">
                 <input type="checkbox" id="chk-watermark" checked />
@@ -302,7 +302,7 @@
               </label>
               <div id="compress-settings" class="sub-settings hidden">
                 <div class="form-group">
-                  <label>Quality: <span id="compress-quality-val">10</span></label>
+                  <label>Compression Level: <span id="compress-quality-val">10</span></label>
                   <input type="range" id="compress-quality" min="1" max="30" value="10" />
                   <div class="range-labels"><span>Higher quality</span><span>Smaller file</span></div>
                 </div>

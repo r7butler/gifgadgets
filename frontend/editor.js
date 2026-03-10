@@ -791,11 +791,7 @@
     // ── Export & Share ─────────────────────────
     var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     $('#btn-download').addEventListener('click', function () {
-      if (isMobile) {
-        GC.exportGif({ onBlob: showDownloadModal });
-      } else {
-        GC.exportGif();
-      }
+      GC.exportGif({ onBlob: showDownloadModal });
     });
     $('#btn-share').addEventListener('click', function () {
       if (state.frames.length === 0 || GC.exportInProgress) return;
