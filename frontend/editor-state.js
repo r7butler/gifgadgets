@@ -53,6 +53,9 @@
     // null = not yet added; object = active (see GC.makeBoxCaption).
     boxCaptionTop: null,
     boxCaptionBottom: null,
+
+    // Export options
+    hideWatermark: false,   // true = user opted out of the watermark
   };
 
   // ── Mutable Shared References ────────────────

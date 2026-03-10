@@ -751,6 +751,14 @@
       }
     });
 
+    // ── Watermark toggle ─────────────────────
+    var chkWatermark = $('#chk-watermark');
+    if (chkWatermark) {
+      chkWatermark.addEventListener('change', function () {
+        state.hideWatermark = !chkWatermark.checked;
+      });
+    }
+
     // ── Window resize → rebuild timeline ──────
     var resizeTimer;
     window.addEventListener('resize', function () {

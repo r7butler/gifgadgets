@@ -267,6 +267,7 @@
 
   /** Draw a small semi-transparent "GifCaption" label in the bottom-right. */
   GC.drawWatermark = function (ctx2d) {
+    if (GC.state.hideWatermark) return;
     var compSize = GC.getCompositeSize();
     var fontSize = Math.max(10, Math.round(state.width * 0.028));
     ctx2d.save();
