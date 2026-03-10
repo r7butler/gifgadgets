@@ -29,3 +29,15 @@ variable "gemini_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN (must be in us-east-1) for the gifcaption.com custom domain"
+  type        = string
+  default     = "arn:aws:acm:us-east-1:759371407688:certificate/233f0971-73b2-4fba-bac1-4b0d51a43cd4"
+}
+
+variable "content_acm_certificate_arn" {
+  description = "ACM certificate ARN (must be in us-east-1) for the content.gifcaption.com custom domain"
+  type        = string
+  default     = "arn:aws:acm:us-east-1:759371407688:certificate/ae2c065f-bde1-49e4-a62a-32a59d8f84f3"
+}
