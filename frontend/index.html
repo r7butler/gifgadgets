@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GifCaption — Add captions to GIFs online, free</title>
-  <meta name="description" content="Add frame-perfect captions to any GIF. Drag text anywhere, time it to specific frames with a visual timeline, and download instantly. Free online GIF editor and caption tool." />
+  <title>GifCaption — Add Captions to GIFs Online, Free | GIF Text Editor</title>
+  <meta name="description" content="Add frame-perfect captions and text overlays to any GIF for free. Drag text anywhere, time it to specific frames with a visual timeline, style fonts and colors, and export instantly. No signup, no watermark — the best free online GIF caption maker and text editor." />
+  <meta name="keywords" content="gif caption, add text to gif, gif editor, gif text overlay, caption gif online, gif meme maker, free gif editor, animated gif text, gif caption maker" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#6366f1" />
   <link rel="canonical" href="https://gifcaption.com/" />
@@ -14,15 +15,15 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="GifCaption — Add captions to GIFs online, free" />
-  <meta property="og:description" content="Frame-perfect GIF captions with a visual timeline. Free online GIF editor and caption tool." />
+  <meta property="og:title" content="GifCaption — Add Captions to GIFs Online, Free" />
+  <meta property="og:description" content="The easiest way to add text and captions to GIFs. Frame-precise timing, drag-and-drop positioning, custom fonts and colors. No signup, no watermark. Free online GIF editor." />
   <meta property="og:site_name" content="GifCaption" />
   <meta property="og:url" content="https://gifcaption.com/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="GifCaption — Add captions to GIFs online" />
-  <meta name="twitter:description" content="Frame-perfect GIF captions with a visual timeline. Free online GIF editor and caption tool." />
+  <meta name="twitter:title" content="GifCaption — Add Captions to GIFs Online, Free" />
+  <meta name="twitter:description" content="The easiest way to add text and captions to GIFs. Frame-precise timing, drag-and-drop positioning, custom fonts. Free, no signup, no watermark." />
 
   <link rel="stylesheet" href="styles.css" />
 
@@ -32,12 +33,62 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "GifCaption",
-    "url": "https://gifcaption.app/",
-    "description": "Add frame-perfect captions to any GIF. Drag text anywhere, time it to specific frames, and download instantly.",
+    "url": "https://gifcaption.com/",
+    "description": "Add frame-perfect captions and text overlays to any GIF. Drag text anywhere, time it to specific frames with a visual timeline, style fonts and colors, and export instantly. Free, no signup, no watermark.",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "Any",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "browserRequirements": "Requires a modern browser with JavaScript and Canvas support"
+    "browserRequirements": "Requires a modern browser with JavaScript and Canvas support",
+    "featureList": ["Add text captions to GIFs", "Frame-precise timing control", "Drag-and-drop text positioning", "Custom fonts, colors, and sizes", "Multiple simultaneous captions", "Visual frame timeline", "Instant GIF export", "No signup required", "No watermark"],
+    "screenshot": "https://gifcaption.com/og-image.png"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How do I add text to a GIF?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Upload your GIF to GifCaption, click 'Add Caption', type your text, and drag it to position. Use the visual timeline to control exactly which frames the caption appears on, then export your captioned GIF."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is GifCaption free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, GifCaption is completely free to use. There is no signup required, no watermark added to your GIFs, and no limit on how many GIFs you can caption."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I add multiple captions to a GIF?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. You can add as many text captions as you want, each with independent timing, positioning, font, color, and size settings."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does GifCaption work on mobile?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, GifCaption works in any modern mobile browser. You can upload GIFs, add captions, and export directly from your phone or tablet."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What file formats does GifCaption support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "GifCaption supports animated GIF files as well as video files (MP4, WebM, MOV, AVI) which are converted to GIF for captioning."
+        }
+      }
+    ]
   }
   </script>
 </head>
@@ -46,7 +97,7 @@
     <header class="landing-header">
       <h1>Gif<span style="color:var(--accent)">Caption</span></h1>
       <p class="tagline">Add frame-perfect captions to any GIF.</p>
-      <p class="sub">Free online GIF editor and caption tool.</p>
+      <p class="sub">Free online GIF caption maker — no signup, no watermark.</p>
     </header>
 
     <section class="landing-upload" id="landing-drop" role="button" tabindex="0" aria-label="Upload a GIF file">
@@ -77,8 +128,114 @@
       </div>
     </section>
 
+    <!-- About section -->
+    <section class="landing-about" aria-label="About GifCaption">
+      <h2>The Easiest Way to Add Text to GIFs</h2>
+      <p>
+        GifCaption is a free online tool that lets you add text captions and overlays to any animated GIF.
+        Unlike other GIF editors, GifCaption gives you <strong>frame-level precision</strong> — you control
+        exactly which frames each caption appears on using a visual timeline. Drag text anywhere on the image,
+        customize fonts, colors, sizes, and alignment, and export a perfectly captioned GIF in seconds.
+      </p>
+      <p>
+        Everything runs entirely in your browser. Your GIFs are never uploaded to a server, so your content
+        stays private. There's no account to create, no watermark on your exports, and no limit on how many
+        GIFs you can edit.
+      </p>
+    </section>
+
+    <!-- How it works -->
+    <section class="landing-steps" aria-label="How it works">
+      <h2>How It Works</h2>
+      <ol class="steps-list">
+        <li class="step-item">
+          <span class="step-number">1</span>
+          <div>
+            <h3>Upload your GIF or video</h3>
+            <p>Drag and drop a GIF or video file, or click to browse. Videos are automatically converted to GIF format.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-number">2</span>
+          <div>
+            <h3>Add and position captions</h3>
+            <p>Type your text, then drag it anywhere on the image. Customize the font, size, color, background, and alignment.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-number">3</span>
+          <div>
+            <h3>Set timing with the timeline</h3>
+            <p>Use the visual frame timeline to choose exactly when each caption appears and disappears — down to the individual frame.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-number">4</span>
+          <div>
+            <h3>Export and share</h3>
+            <p>Download your captioned GIF instantly, or share it with a link. The entire process takes seconds.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Use cases -->
+    <section class="landing-usecases" aria-label="Use cases">
+      <h2>What You Can Do with GifCaption</h2>
+      <div class="usecases-grid">
+        <div class="usecase-card">
+          <h3>Memes &amp; Reactions</h3>
+          <p>Add funny captions, dialogue, and punchlines to reaction GIFs for social media, group chats, or forums.</p>
+        </div>
+        <div class="usecase-card">
+          <h3>Tutorials &amp; Demos</h3>
+          <p>Annotate screen recordings and product demos with step-by-step instructions that appear at the right moment.</p>
+        </div>
+        <div class="usecase-card">
+          <h3>Accessibility</h3>
+          <p>Add subtitles or descriptive text to GIFs so that spoken or contextual content is readable by everyone.</p>
+        </div>
+        <div class="usecase-card">
+          <h3>Marketing &amp; Social</h3>
+          <p>Create eye-catching captioned GIFs for email campaigns, social posts, and presentations without any design tools.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="landing-faq" aria-label="Frequently asked questions">
+      <h2>Frequently Asked Questions</h2>
+      <dl class="faq-list">
+        <div class="faq-item">
+          <dt>How do I add text to a GIF?</dt>
+          <dd>Upload your GIF to GifCaption, click "Add Caption", type your text, and drag it to position. Use the visual timeline to control exactly which frames the caption appears on, then export your captioned GIF.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Is GifCaption free?</dt>
+          <dd>Yes, GifCaption is completely free to use. There is no signup required, no watermark added to your GIFs, and no limit on how many GIFs you can caption.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Can I add multiple captions to a GIF?</dt>
+          <dd>Yes. You can add as many text captions as you want, each with independent timing, positioning, font, color, and size settings.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Does GifCaption work on mobile?</dt>
+          <dd>Yes, GifCaption works in any modern mobile browser. You can upload GIFs, add captions, and export directly from your phone or tablet.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>What file formats does GifCaption support?</dt>
+          <dd>GifCaption supports animated GIF files as well as video files (MP4, WebM, MOV, AVI) which are converted to GIF for captioning.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Are my GIFs uploaded to a server?</dt>
+          <dd>No. All processing happens locally in your browser. Your files never leave your device unless you choose to share a captioned GIF via a link.</dd>
+        </div>
+      </dl>
+    </section>
+
     <footer class="landing-footer">
       <p>Keyboard shortcuts: <kbd>Space</kbd> play/pause &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> step frames &nbsp; <kbd>Del</kbd> remove caption</p>
+      <p class="footer-byline">GifCaption — Free online GIF caption maker and text editor.</p>
     </footer>
   </main>
 
