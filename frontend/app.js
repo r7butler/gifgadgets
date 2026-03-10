@@ -59,10 +59,9 @@ function fileToBase64(file) {
  * Share a captioned GIF — upload the blob and get back a public share URL.
  * @param {Blob} blob  GIF blob from the encoder
  * @param {string} title  Caption/title text for the share page
- * @param {string[]} [tags]  Tag list from AI generation
  * @returns {{ slug, share_url, gif_url }}
  */
-async function shareGif(blob, title, tags) {
+async function shareGif(blob, title, filename) {
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -71,7 +70,7 @@ async function shareGif(blob, title, tags) {
   });
 
   const body = { file: base64, title };
-  if (tags && tags.length) body.tags = tags;
+  if (filename) body.filename = filename;
 
   const response = await fetch(API_BASE_URL + "/share", {
     method: "POST",
@@ -82,27 +81,6 @@ async function shareGif(blob, title, tags) {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error || "Share failed");
-  }
-
-  return response.json();
-}
-
-/**
- * Generate an AI title/slug for a GIF by sending two key frames to the backend.
- * @param {string} frame1Base64  Base64-encoded PNG of the first frame
- * @param {string} frame2Base64  Base64-encoded PNG of the middle frame
- * @returns {{ title, slug, cached }}
- */
-async function generateTitle(frame1Base64, frame2Base64, filename) {
-  const response = await fetch(API_BASE_URL + "/generate-title", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ frame1: frame1Base64, frame2: frame2Base64, ...(filename ? { filename } : {}) }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || "Title generation failed");
   }
 
   return response.json();

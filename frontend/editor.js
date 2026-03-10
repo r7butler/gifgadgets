@@ -990,41 +990,24 @@
     $('#share-ready').classList.add('hidden');
     $('#share-social-skeletons').classList.remove('hidden');
     $('#share-social-ready').classList.add('hidden');
-    setShareStatus('Generating title…', '');
+    setShareStatus('Uploading…', '');
 
     modal.classList.remove('hidden');
 
-    // Extract first and middle frames as base64 PNG for AI title generation
-    var frame1B64 = extractFrameAsBase64(0);
-    var midIdx = Math.floor(state.frames.length / 2);
-    var frame2B64 = extractFrameAsBase64(midIdx);
+    // Build title from first caption text or fallback
+    var title = '';
+    for (var i = 0; i < state.captions.length; i++) {
+      if (state.captions[i].text.trim()) { title = state.captions[i].text.trim(); break; }
+    }
+    if (!title) title = 'Captioned GIF';
 
-    // Generate AI title, then upload
-    generateTitle(frame1B64, frame2B64, state.gifFilename).then(function (result) {
-      var title = result.title || 'Captioned GIF';
-      var tags = result.tags || [];
-      setShareStatus('Uploading…', '');
-      return shareGif(blob, title, tags).then(function (shareResult) {
-        return { shareResult: shareResult, title: title };
-      });
-    }).catch(function () {
-      // Fallback: use first caption text if AI title fails
-      var title = '';
-      for (var i = 0; i < state.captions.length; i++) {
-        if (state.captions[i].text.trim()) { title = state.captions[i].text.trim(); break; }
-      }
-      if (!title) title = 'Captioned GIF';
-      setShareStatus('Uploading…', '');
-      return shareGif(blob, title, []).then(function (shareResult) {
-        return { shareResult: shareResult, title: title };
-      });
-    }).then(function (data) {
-      $('#share-url').value = data.shareResult.share_url;
-      if (data.shareResult.gif_url) {
-        $('#share-image-url').value = data.shareResult.gif_url;
+    shareGif(blob, title, state.gifFilename).then(function (shareResult) {
+      $('#share-url').value = shareResult.share_url;
+      if (shareResult.gif_url) {
+        $('#share-image-url').value = shareResult.gif_url;
         $('#share-image-url-row').style.display = '';
       }
-      setShareSocial(data.shareResult.share_url, data.title);
+      setShareSocial(shareResult.share_url, title);
       $('#share-skeletons').classList.add('hidden');
       $('#share-ready').classList.remove('hidden');
       $('#share-social-skeletons').classList.add('hidden');
@@ -1221,6 +1204,17 @@
         var collapsed = section.classList.toggle('collapsed');
         boxCapToggle.classList.toggle('collapsed', collapsed);
         boxCapToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
+    // On-image caption section toggle
+    var onImageCapToggle = $('#on-image-caption-toggle');
+    if (onImageCapToggle) {
+      onImageCapToggle.addEventListener('click', function () {
+        var section = $('#on-image-caption-section');
+        var collapsed = section.classList.toggle('collapsed');
+        onImageCapToggle.classList.toggle('collapsed', collapsed);
+        onImageCapToggle.setAttribute('aria-expanded', String(!collapsed));
       });
     }
 

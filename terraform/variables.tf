@@ -16,20 +16,6 @@ variable "assets_bucket_name" {
   default     = "gifcaption-assets"
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key for chat completions (stored in Secrets Manager)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "gemini_api_key" {
-  description = "Google Gemini API key for vision title generation (stored in Secrets Manager)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "acm_certificate_arn" {
   description = "ACM certificate ARN (must be in us-east-1) for the gifcaption.com custom domain"
   type        = string

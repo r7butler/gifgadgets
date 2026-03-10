@@ -74,64 +74,6 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
   }
 }
 
-# ---------- DynamoDB ----------
-
-resource "aws_dynamodb_table" "gifs" {
-  name         = "gifs"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "id"
-
-  attribute {
-    name = "id"
-    type = "S"
-  }
-
-  attribute {
-    name = "tag"
-    type = "S"
-  }
-
-  attribute {
-    name = "created_at"
-    type = "S"
-  }
-
-  global_secondary_index {
-    name            = "tag-index"
-    hash_key        = "tag"
-    range_key       = "created_at"
-    projection_type = "ALL"
-  }
-}
-
-# ---------- Secrets Manager: OpenAI API Key ----------
-
-resource "aws_secretsmanager_secret" "openai_api_key" {
-  name                    = "gifcaption/openai-api-key"
-  description             = "OpenAI API key for GifCaption chat completions"
-  recovery_window_in_days = 7
-}
-
-resource "aws_secretsmanager_secret_version" "openai_api_key" {
-  count         = var.openai_api_key != "" ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.openai_api_key.id
-  secret_string = var.openai_api_key
-}
-
-# ---------- Secrets Manager: Gemini API Key ----------
-
-resource "aws_secretsmanager_secret" "gemini_api_key" {
-  name                    = "gifcaption/gemini-api-key"
-  description             = "Google Gemini API key for GIF title generation"
-  recovery_window_in_days = 7
-}
-
-resource "aws_secretsmanager_secret_version" "gemini_api_key" {
-  count         = var.gemini_api_key != "" ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.gemini_api_key.id
-  secret_string = var.gemini_api_key
-}
-
 # ---------- IAM Role for Lambda ----------
 
 resource "aws_iam_role" "lambda" {
@@ -167,22 +109,7 @@ resource "aws_iam_role_policy" "lambda" {
       {
         Effect = "Allow"
         Action = "s3:PutObject"
-        Resource = [
-          "${aws_s3_bucket.site.arn}/g/*",
-          "${aws_s3_bucket.site.arn}/tag/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query"
-        ]
-        Resource = [
-          aws_dynamodb_table.gifs.arn,
-          "${aws_dynamodb_table.gifs.arn}/index/tag-index"
-        ]
+        Resource = "${aws_s3_bucket.site.arn}/g/*"
       },
       {
         Effect = "Allow"
@@ -192,16 +119,6 @@ resource "aws_iam_role_policy" "lambda" {
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = [
-          aws_secretsmanager_secret.openai_api_key.arn,
-          aws_secretsmanager_secret.gemini_api_key.arn,
-        ]
       }
     ]
   })
@@ -222,13 +139,10 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ASSETS_BUCKET     = aws_s3_bucket.assets.id
-      SITE_BUCKET       = aws_s3_bucket.site.id
-      TABLE_NAME        = aws_dynamodb_table.gifs.name
-      ASSETS_CDN_URL    = "https://content.gifcaption.com"
-      SITE_CDN_URL      = "https://gifcaption.com"
-      OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api_key.arn
-      GEMINI_SECRET_ARN = aws_secretsmanager_secret.gemini_api_key.arn
+      ASSETS_BUCKET  = aws_s3_bucket.assets.id
+      SITE_BUCKET    = aws_s3_bucket.site.id
+      ASSETS_CDN_URL = "https://content.gifcaption.com"
+      SITE_CDN_URL   = "https://gifcaption.com"
     }
   }
 }

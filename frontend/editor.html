@@ -96,17 +96,20 @@
         <!-- Sidebar -->
         <div class="editor-sidebar" id="editor-sidebar">
           <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true">Captions &amp; Settings</button>
-          <div class="sidebar-section">
-            <div class="section-header">
-              <h3>Captions</h3>
-              <button id="btn-add-caption" class="btn btn-small btn-accent">+ Add</button>
-            </div>
-            <div class="quick-actions">
-              <button id="btn-add-top" class="btn btn-ghost btn-xs">+ Top Text</button>
-              <button id="btn-add-bottom" class="btn btn-ghost btn-xs">+ Bottom Text</button>
-            </div>
-            <div id="caption-list" class="caption-list">
-              <div class="caption-list-empty">No captions yet.<br>Click <strong>+ Add</strong> to start.</div>
+          <div class="sidebar-section on-image-caption-section" id="on-image-caption-section">
+            <button class="section-toggle" id="on-image-caption-toggle" aria-expanded="true">On-Image Captions</button>
+            <div class="on-image-caption-body">
+              <div class="section-header">
+                <h3>Captions</h3>
+                <button id="btn-add-caption" class="btn btn-small btn-accent">+ Add</button>
+              </div>
+              <div class="quick-actions">
+                <button id="btn-add-top" class="btn btn-ghost btn-xs">+ Top Text</button>
+                <button id="btn-add-bottom" class="btn btn-ghost btn-xs">+ Bottom Text</button>
+              </div>
+              <div id="caption-list" class="caption-list">
+                <div class="caption-list-empty">No captions yet.<br>Click <strong>+ Add</strong> to start.</div>
+              </div>
             </div>
           </div>
 
