@@ -543,10 +543,13 @@
       // D3 Brush
       var prevSel = null;
       var dragEdge = null; // 'start', 'end', or 'both'
+      var userDragging = false;
       var brush = d3.brushX()
         .extent([[0, 2], [innerW, trackH - 6]])
         .on('start', function (event) {
           if (!event.sourceEvent) return; // ignore programmatic brush.move
+          userDragging = true;
+          state._brushActive = true;
           prevSel = event.selection ? event.selection.slice() : null;
           dragEdge = null;
           selectCaption(cap.id);
@@ -557,7 +560,7 @@
           }
         })
         .on('brush', function (event) {
-          if (!event.selection || !event.sourceEvent) return;
+          if (!event.selection || !userDragging) return;
           var s0 = Math.round(xScale.invert(event.selection[0]));
           var s1 = Math.round(xScale.invert(event.selection[1]));
           cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
@@ -594,11 +597,16 @@
           movePlayhead();
         })
         .on('end', function (event) {
-          if (!event.selection || !event.sourceEvent) return;
-          var s0 = Math.round(xScale.invert(event.selection[0]));
-          var s1 = Math.round(xScale.invert(event.selection[1]));
-          cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
-          cap.endFrame = Math.max(cap.startFrame, Math.min(totalFrames - 1, s1));
+          if (!userDragging) return;
+          userDragging = false;
+          state._brushActive = false;
+          if (event.selection) {
+            var s0 = Math.round(xScale.invert(event.selection[0]));
+            var s1 = Math.round(xScale.invert(event.selection[1]));
+            cap.startFrame = Math.max(0, Math.min(totalFrames - 1, s0));
+            cap.endFrame = Math.max(cap.startFrame, Math.min(totalFrames - 1, s1));
+          }
+          updateCaptionList();
           renderCurrentFrame();
           if (state._wasPlayingBeforeBrush) {
             state._wasPlayingBeforeBrush = false;
@@ -1113,12 +1121,12 @@
       }
     });
 
-    // Resize → rebuild timeline
+    // Resize → rebuild timeline (skip if brush drag is active)
     var resizeTimer;
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
-        if (state.frames.length > 0) buildTimeline();
+        if (state.frames.length > 0 && !state._brushActive) buildTimeline();
       }, 200);
     });
   }
