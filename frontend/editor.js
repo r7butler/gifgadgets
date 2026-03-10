@@ -22,6 +22,7 @@
     selectedCaptionId: null,
     dragState: null,      // { captionId, offsetX, offsetY }
     gifId: null,
+    gifFilename: null,
   };
 
   var nextCaptionId = 1;
@@ -66,6 +67,7 @@
 
   // ── GIF Loading ──────────────────────────────
   function loadGifFromFile(file) {
+    state.gifFilename = file.name || null;
     showLoading('Parsing GIF frames…');
     var reader = new FileReader();
     reader.onload = function () {
@@ -696,25 +698,50 @@
 
     // Clear previous state
     $('#share-url').value = '';
-    setShareStatus('Uploading…', '');
+    setShareStatus('Generating title…', '');
 
     modal.classList.remove('hidden');
 
-    // Build default title from first caption text
-    var title = '';
-    for (var i = 0; i < state.captions.length; i++) {
-      if (state.captions[i].text.trim()) { title = state.captions[i].text.trim(); break; }
-    }
-    if (!title) title = 'Captioned GIF';
+    // Extract first and middle frames as base64 PNG for AI title generation
+    var frame1B64 = extractFrameAsBase64(0);
+    var midIdx = Math.floor(state.frames.length / 2);
+    var frame2B64 = extractFrameAsBase64(midIdx);
 
-    // Upload via API
-    shareGif(blob, title).then(function (result) {
-      $('#share-url').value = result.share_url;
-      setShareSocial(result.share_url, title);
+    // Generate AI title, then upload
+    generateTitle(frame1B64, frame2B64, state.gifFilename).then(function (result) {
+      var title = result.title || 'Captioned GIF';
+      setShareStatus('Uploading…', '');
+      return shareGif(blob, title).then(function (shareResult) {
+        return { shareResult: shareResult, title: title };
+      });
+    }).catch(function () {
+      // Fallback: use first caption text if AI title fails
+      var title = '';
+      for (var i = 0; i < state.captions.length; i++) {
+        if (state.captions[i].text.trim()) { title = state.captions[i].text.trim(); break; }
+      }
+      if (!title) title = 'Captioned GIF';
+      setShareStatus('Uploading…', '');
+      return shareGif(blob, title).then(function (shareResult) {
+        return { shareResult: shareResult, title: title };
+      });
+    }).then(function (data) {
+      $('#share-url').value = data.shareResult.share_url;
+      setShareSocial(data.shareResult.share_url, data.title);
       setShareStatus('Link ready — copy and share!', 'success');
     }).catch(function (err) {
       setShareStatus('Upload failed: ' + err.message, 'error');
     });
+  }
+
+  function extractFrameAsBase64(frameIndex) {
+    var tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = state.width;
+    tmpCanvas.height = state.height;
+    var tmpCtx = tmpCanvas.getContext('2d');
+    tmpCtx.putImageData(state.frames[frameIndex].imageData, 0, 0);
+    // toDataURL returns "data:image/png;base64,<data>" — strip the prefix
+    return tmpCanvas.toDataURL('image/png').split(',')[1];
   }
 
   function closeShareModal() {

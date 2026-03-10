@@ -82,3 +82,24 @@ async function shareGif(blob, title) {
 
   return response.json();
 }
+
+/**
+ * Generate an AI title/slug for a GIF by sending two key frames to the backend.
+ * @param {string} frame1Base64  Base64-encoded PNG of the first frame
+ * @param {string} frame2Base64  Base64-encoded PNG of the middle frame
+ * @returns {{ title, slug, cached }}
+ */
+async function generateTitle(frame1Base64, frame2Base64, filename) {
+  const response = await fetch(API_BASE_URL + "/generate-title", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ frame1: frame1Base64, frame2: frame2Base64, ...(filename ? { filename } : {}) }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || "Title generation failed");
+  }
+
+  return response.json();
+}

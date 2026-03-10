@@ -3,7 +3,10 @@ import os
 import re
 import uuid
 import base64
+import hashlib
 from datetime import datetime, timezone
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 import boto3
 
@@ -16,6 +19,135 @@ SITE_CDN_URL = os.environ.get("SITE_CDN_URL", "").rstrip("/")
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
+secretsmanager = boto3.client("secretsmanager")
+
+_api_key_cache = {}
+
+
+def _get_openai_api_key():
+    """Retrieve OpenAI API key from Secrets Manager (cached for Lambda lifetime)."""
+    if "openai" in _api_key_cache:
+        return _api_key_cache["openai"]
+    secret_arn = os.environ.get("OPENAI_SECRET_ARN", "")
+    if not secret_arn:
+        raise RuntimeError("OPENAI_SECRET_ARN not configured")
+    resp = secretsmanager.get_secret_value(SecretId=secret_arn)
+    key = resp["SecretString"].strip()
+    _api_key_cache["openai"] = key
+    return key
+
+
+def _call_openai_vision(frame1_b64, frame2_b64, filename=None):
+    """Call OpenAI Vision API with two frames and return a short descriptive title."""
+    api_key = _get_openai_api_key()
+    filename_hint = (
+        f" The original file was named '{filename}' — you may use this as inspiration if it seems relevant."
+        if filename else ""
+    )
+    payload = {
+        "model": "gpt-4o-mini",
+        "max_tokens": 60,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a GIF title generator. Given two frames from an animated GIF, "
+                    "produce a short, catchy, SEO-friendly title (3-8 words). "
+                    "Do NOT use quotes. Just return the title text, nothing else."
+                ),
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Here are the first and middle frames of an animated GIF. Generate a short descriptive title." + filename_hint},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{frame1_b64}", "detail": "low"}},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{frame2_b64}", "detail": "low"}},
+                ],
+            },
+        ],
+    }
+    req = Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+    )
+    try:
+        with urlopen(req, timeout=20) as resp:
+            result = json.loads(resp.read())
+        return result["choices"][0]["message"]["content"].strip().strip('"').strip("'")
+    except (URLError, KeyError, IndexError) as e:
+        raise RuntimeError(f"OpenAI API call failed: {e}")
+
+
+def _hash_frames(frame1_b64, frame2_b64):
+    """Create a SHA-256 hash of two frame payloads for cache lookups."""
+    h = hashlib.sha256()
+    h.update(frame1_b64.encode("ascii"))
+    h.update(b"|")
+    h.update(frame2_b64.encode("ascii"))
+    return h.hexdigest()
+
+
+def handle_generate_title(event):
+    """Handle POST /generate-title — use OpenAI Vision to generate an SEO title from GIF frames."""
+    try:
+        body = event.get("body", "")
+        if event.get("isBase64Encoded"):
+            body = base64.b64decode(body).decode("utf-8")
+        payload = json.loads(body)
+    except (json.JSONDecodeError, Exception):
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    frame1 = payload.get("frame1")
+    frame2 = payload.get("frame2")
+    filename = payload.get("filename") or None
+    if not frame1 or not frame2:
+        return _cors_response(400, {"error": "Missing 'frame1' and/or 'frame2' (base64-encoded PNG)"})
+
+    # Check cache by frame hash
+    frame_hash = _hash_frames(frame1, frame2)
+    cache_key = f"framehash:{frame_hash}"
+
+    try:
+        cached = table.get_item(Key={"id": cache_key})
+        if "Item" in cached:
+            return _cors_response(200, {
+                "title": cached["Item"]["title"],
+                "slug": cached["Item"]["slug"],
+                "cached": True,
+            })
+    except Exception:
+        pass  # Cache miss or error — proceed to generate
+
+    # Call OpenAI Vision
+    try:
+        title = _call_openai_vision(frame1, frame2, filename)
+    except RuntimeError as e:
+        print(f"[generate-title] OpenAI error: {e}")
+        return _cors_response(502, {"error": str(e)})
+
+    slug = _slugify(title)
+    if not slug:
+        slug = "gif"
+
+    # Cache the result
+    try:
+        table.put_item(
+            Item={
+                "id": cache_key,
+                "title": title,
+                "slug": slug,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "type": "title_cache",
+            }
+        )
+    except Exception:
+        pass  # Non-fatal — caching failure shouldn't block the response
+
+    return _cors_response(200, {"title": title, "slug": slug, "cached": False})
 
 
 def _slugify(text):
@@ -84,6 +216,8 @@ def handler(event, context):
 
     if method == "POST" and path == "/upload":
         return handle_upload(event)
+    elif method == "POST" and path == "/generate-title":
+        return handle_generate_title(event)
     elif method == "POST" and path == "/share":
         return handle_share(event)
     elif method == "GET" and path.startswith("/gif/"):

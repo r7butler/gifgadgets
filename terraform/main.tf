@@ -101,6 +101,20 @@ resource "aws_secretsmanager_secret_version" "openai_api_key" {
   secret_string = var.openai_api_key
 }
 
+# ---------- Secrets Manager: Gemini API Key ----------
+
+resource "aws_secretsmanager_secret" "gemini_api_key" {
+  name                    = "gifcaption/gemini-api-key"
+  description             = "Google Gemini API key for GIF title generation"
+  recovery_window_in_days = 7
+}
+
+resource "aws_secretsmanager_secret_version" "gemini_api_key" {
+  count         = var.gemini_api_key != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.gemini_api_key.id
+  secret_string = var.gemini_api_key
+}
+
 # ---------- IAM Role for Lambda ----------
 
 resource "aws_iam_role" "lambda" {
@@ -160,7 +174,10 @@ resource "aws_iam_role_policy" "lambda" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_secretsmanager_secret.openai_api_key.arn
+        Resource = [
+          aws_secretsmanager_secret.openai_api_key.arn,
+          aws_secretsmanager_secret.gemini_api_key.arn,
+        ]
       }
     ]
   })
@@ -173,7 +190,7 @@ resource "aws_lambda_function" "api" {
   role          = aws_iam_role.lambda.arn
   handler       = "handler.handler"
   runtime       = "python3.11"
-  timeout       = 30
+  timeout       = 60
   memory_size   = 256
 
   filename         = "${path.module}/lambda.zip"
@@ -181,12 +198,13 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ASSETS_BUCKET  = aws_s3_bucket.assets.id
-      SITE_BUCKET    = aws_s3_bucket.site.id
-      TABLE_NAME     = aws_dynamodb_table.gifs.name
-      ASSETS_CDN_URL = "https://${aws_cloudfront_distribution.assets.domain_name}"
-      SITE_CDN_URL           = "https://${aws_cloudfront_distribution.site.domain_name}"
-      OPENAI_SECRET_ARN      = aws_secretsmanager_secret.openai_api_key.arn
+      ASSETS_BUCKET     = aws_s3_bucket.assets.id
+      SITE_BUCKET       = aws_s3_bucket.site.id
+      TABLE_NAME        = aws_dynamodb_table.gifs.name
+      ASSETS_CDN_URL    = "https://${aws_cloudfront_distribution.assets.domain_name}"
+      SITE_CDN_URL      = "https://${aws_cloudfront_distribution.site.domain_name}"
+      OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api_key.arn
+      GEMINI_SECRET_ARN = aws_secretsmanager_secret.gemini_api_key.arn
     }
   }
 }
