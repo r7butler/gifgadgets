@@ -860,8 +860,9 @@
     // Generate AI title, then upload
     generateTitle(frame1B64, frame2B64, state.gifFilename).then(function (result) {
       var title = result.title || 'Captioned GIF';
+      var tags = result.tags || [];
       setShareStatus('Uploading…', '');
-      return shareGif(blob, title).then(function (shareResult) {
+      return shareGif(blob, title, tags).then(function (shareResult) {
         return { shareResult: shareResult, title: title };
       });
     }).catch(function () {
@@ -872,7 +873,7 @@
       }
       if (!title) title = 'Captioned GIF';
       setShareStatus('Uploading…', '');
-      return shareGif(blob, title).then(function (shareResult) {
+      return shareGif(blob, title, []).then(function (shareResult) {
         return { shareResult: shareResult, title: title };
       });
     }).then(function (data) {

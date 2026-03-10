@@ -85,6 +85,23 @@ resource "aws_dynamodb_table" "gifs" {
     name = "id"
     type = "S"
   }
+
+  attribute {
+    name = "tag"
+    type = "S"
+  }
+
+  attribute {
+    name = "created_at"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "tag-index"
+    hash_key        = "tag"
+    range_key       = "created_at"
+    projection_type = "ALL"
+  }
 }
 
 # ---------- Secrets Manager: OpenAI API Key ----------
@@ -148,17 +165,24 @@ resource "aws_iam_role_policy" "lambda" {
         Resource = "${aws_s3_bucket.assets.arn}/*"
       },
       {
-        Effect   = "Allow"
-        Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.site.arn}/g/*"
+        Effect = "Allow"
+        Action = "s3:PutObject"
+        Resource = [
+          "${aws_s3_bucket.site.arn}/g/*",
+          "${aws_s3_bucket.site.arn}/tag/*"
+        ]
       },
       {
         Effect = "Allow"
         Action = [
           "dynamodb:PutItem",
-          "dynamodb:GetItem"
+          "dynamodb:GetItem",
+          "dynamodb:Query"
         ]
-        Resource = aws_dynamodb_table.gifs.arn
+        Resource = [
+          aws_dynamodb_table.gifs.arn,
+          "${aws_dynamodb_table.gifs.arn}/index/tag-index"
+        ]
       },
       {
         Effect = "Allow"

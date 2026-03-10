@@ -3,6 +3,12 @@ set -euo pipefail
 
 # Deploy backend: package Lambda code into a zip for Terraform.
 
+# Ensure we're using the personal AWS profile
+if [[ "${AWS_PROFILE:-}" != "personal" ]]; then
+  echo "==> Setting AWS_PROFILE=personal"
+  export AWS_PROFILE=personal
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_DIR/backend"
@@ -24,3 +30,12 @@ echo "==> Cleaning up..."
 rm -rf "$BACKEND_DIR/package"
 
 echo "==> Done! Lambda zip created at: terraform/lambda.zip"
+
+echo "==> Updating Lambda function code..."
+aws lambda update-function-code \
+  --region us-east-1 \
+  --function-name gifcaption-api \
+  --zip-file "fileb://$OUTPUT_ZIP" \
+  --no-cli-pager
+
+echo "==> Lambda function updated!"

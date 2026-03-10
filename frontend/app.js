@@ -59,9 +59,10 @@ function fileToBase64(file) {
  * Share a captioned GIF — upload the blob and get back a public share URL.
  * @param {Blob} blob  GIF blob from the encoder
  * @param {string} title  Caption/title text for the share page
+ * @param {string[]} [tags]  Tag list from AI generation
  * @returns {{ slug, share_url, gif_url }}
  */
-async function shareGif(blob, title) {
+async function shareGif(blob, title, tags) {
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -69,10 +70,13 @@ async function shareGif(blob, title) {
     reader.readAsDataURL(blob);
   });
 
+  const body = { file: base64, title };
+  if (tags && tags.length) body.tags = tags;
+
   const response = await fetch(API_BASE_URL + "/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file: base64, title }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
