@@ -797,7 +797,21 @@
         GC.exportGif();
       }
     });
-    $('#btn-share').addEventListener('click', GC.shareFlow);
+    $('#btn-share').addEventListener('click', function () {
+      if (state.frames.length === 0 || GC.exportInProgress) return;
+      $('#share-consent-modal').classList.remove('hidden');
+    });
+    $('#share-consent-yes').addEventListener('click', function () {
+      $('#share-consent-modal').classList.add('hidden');
+      GC.shareFlow();
+    });
+    $('#share-consent-no').addEventListener('click', function () {
+      $('#share-consent-modal').classList.add('hidden');
+      GC.exportGif({ onBlob: showDownloadModal });
+    });
+    $('#share-consent-modal').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.add('hidden');
+    });
 
     // Download modal (mobile long-press save flow)
     function showDownloadModal(blob) {
