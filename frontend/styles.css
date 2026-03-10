@@ -315,7 +315,11 @@ input[type="range"]::-moz-range-thumb {
 .caption-item-text {
   flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.caption-item-range { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.caption-item-remove {
+  background: none; border: none; color: #e05555; font-size: 18px; line-height: 1;
+  cursor: pointer; padding: 2px 4px; flex-shrink: 0; border-radius: var(--radius-sm);
+}
+.caption-item-remove:hover { color: #ff4444; background: rgba(255,68,68,.15); }
 
 /* Caption editor */
 .caption-editor h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }

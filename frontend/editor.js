@@ -284,8 +284,13 @@
       item.innerHTML =
         '<div class="caption-color-dot" style="background:' + GC.TRACK_COLORS[idx % GC.TRACK_COLORS.length] + '"></div>' +
         '<div class="caption-item-text">' + GC.escapeHtml(cap.text) + '</div>' +
-        '<div class="caption-item-range">f' + cap.startFrame + '–' + cap.endFrame + '</div>';
+        '<button class="caption-item-remove" title="Remove caption" aria-label="Remove caption">&times;</button>';
       item.addEventListener('click', function () { GC.selectCaption(cap.id); });
+      item.querySelector('.caption-item-remove').addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.selectedCaptionId = cap.id;
+        $('#delete-modal').classList.remove('hidden');
+      });
       list.appendChild(item);
     });
   };
