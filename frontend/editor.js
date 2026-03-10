@@ -1017,6 +1017,61 @@
       });
     }
 
+    var btnApplyCrop = $('#btn-apply-crop');
+    if (btnApplyCrop) {
+      btnApplyCrop.addEventListener('click', function () {
+        if (!state.cropActive || !state.cropRect) return;
+        var r = state.cropRect;
+        if (r.w < 1 || r.h < 1) return;
+
+        // Clamp crop to image bounds
+        var cx = Math.max(0, Math.round(r.x));
+        var cy = Math.max(0, Math.round(r.y));
+        var cw = Math.min(state.width - cx, Math.round(r.w));
+        var ch = Math.min(state.height - cy, Math.round(r.h));
+        if (cw < 1 || ch < 1) return;
+
+        // Crop each frame's ImageData
+        var tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = cw;
+        tmpCanvas.height = ch;
+        var tmpCtx = tmpCanvas.getContext('2d');
+        for (var i = 0; i < state.frames.length; i++) {
+          var frame = state.frames[i];
+          tmpCtx.clearRect(0, 0, cw, ch);
+          tmpCtx.putImageData(frame.imageData, -cx, -cy);
+          frame.imageData = tmpCtx.getImageData(0, 0, cw, ch);
+        }
+
+        // Remap on-image caption positions
+        var oldW = state.width;
+        var oldH = state.height;
+        for (var j = 0; j < state.captions.length; j++) {
+          var cap = state.captions[j];
+          cap.x = Math.max(0, Math.min(1, (cap.x * oldW - cx) / cw));
+          cap.y = Math.max(0, Math.min(1, (cap.y * oldH - cy) / ch));
+        }
+
+        // Update dimensions
+        state.width = cw;
+        state.height = ch;
+
+        // Turn off crop mode
+        state.cropActive = false;
+        state.cropRect = null;
+        var chkCrop = $('#chk-crop');
+        if (chkCrop) chkCrop.checked = false;
+        var settings = $('#crop-settings');
+        if (settings) settings.classList.add('hidden');
+
+        // Re-render everything
+        GC.renderCurrentFrame();
+        GC.buildTimeline();
+        GC.updateCaptionList();
+        updateCaptionEditor();
+      });
+    }
+
     // ── Window resize → rebuild timeline ──────
     var resizeTimer;
     window.addEventListener('resize', function () {
