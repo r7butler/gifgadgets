@@ -681,6 +681,7 @@
           state.currentFrame = targetFrame;
           renderCurrentFrame();
           movePlayhead();
+          updatePlaybackUI();
         })
         .on('end', function (event) {
           if (!userDragging) return;
@@ -694,6 +695,7 @@
           }
           updateCaptionList();
           renderCurrentFrame();
+          updatePlaybackUI();
           if (state._wasPlayingBeforeBrush) {
             state._wasPlayingBeforeBrush = false;
             play();

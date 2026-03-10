@@ -40,10 +40,7 @@ def _get_openai_api_key():
 def _call_openai_vision(frame1_b64, frame2_b64, filename=None):
     """Call OpenAI Vision API with two frames and return a short descriptive title."""
     api_key = _get_openai_api_key()
-    filename_hint = (
-        f" The original file was named '{filename}' — you may use this as inspiration if it seems relevant."
-        if filename else ""
-    )
+
     payload = {
         "model": "gpt-4o-mini",
         "max_tokens": 60,
