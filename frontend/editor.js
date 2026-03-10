@@ -283,6 +283,19 @@
     context.restore();
   }
 
+  var HANDLE_SIZE = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 14 : 8;
+
+  function getSelectionCorners(bbox) {
+    var pad = 5;
+    var hs = HANDLE_SIZE;
+    return [
+      { x: bbox.x - pad - hs / 2, y: bbox.y - pad - hs / 2 },                          // top-left
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y - pad - hs / 2 },                 // top-right
+      { x: bbox.x - pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },                 // bottom-left
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },        // bottom-right
+    ];
+  }
+
   function drawSelectionBox(context, cap) {
     var bbox = getCaptionBBox(context, cap);
     if (!bbox) return;
@@ -295,10 +308,13 @@
     // Corner handles
     context.fillStyle = '#22d3ee';
     context.setLineDash([]);
-    var hs = 5;
-    [[bbox.x - 5, bbox.y - 5], [bbox.x + bbox.w + 5 - hs, bbox.y - 5],
-     [bbox.x - 5, bbox.y + bbox.h + 5 - hs], [bbox.x + bbox.w + 5 - hs, bbox.y + bbox.h + 5 - hs]
-    ].forEach(function (p) { context.fillRect(p[0], p[1], hs, hs); });
+    var hs = HANDLE_SIZE;
+    var corners = getSelectionCorners(bbox);
+    corners.forEach(function (p) {
+      context.beginPath();
+      context.arc(p.x + hs / 2, p.y + hs / 2, hs / 2, 0, Math.PI * 2);
+      context.fill();
+    });
     context.restore();
   }
 
@@ -408,6 +424,34 @@
 
   function handleCanvasMouseDown(e) {
     var m = canvasCoords(e);
+    // Hit-test corner resize handles first (only for selected caption)
+    if (state.selectedCaptionId) {
+      var selCap = findCaption(state.selectedCaptionId);
+      if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
+        var bbox = getCaptionBBox(ctx, selCap);
+        if (bbox) {
+          var corners = getSelectionCorners(bbox);
+          var hs = HANDLE_SIZE;
+          var hitRadius = hs * 0.8;
+          for (var c = 0; c < corners.length; c++) {
+            var cx = corners[c].x + hs / 2;
+            var cy = corners[c].y + hs / 2;
+            var dx = m.x - cx, dy = m.y - cy;
+            if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+              state.resizeState = {
+                captionId: selCap.id,
+                startFontSize: selCap.fontSize,
+                startY: m.y,
+                startX: m.x,
+                startDist: Math.sqrt(Math.pow(m.x - selCap.x * state.width, 2) + Math.pow(m.y - selCap.y * state.height, 2)),
+              };
+              canvas.style.cursor = 'nwse-resize';
+              return;
+            }
+          }
+        }
+      }
+    }
     // Hit-test captions in reverse order (top-most first)
     for (var i = state.captions.length - 1; i >= 0; i--) {
       var cap = state.captions[i];
@@ -433,9 +477,46 @@
 
   function handleCanvasMouseMove(e) {
     var m = canvasCoords(e);
+    // Resize drag
+    if (state.resizeState) {
+      var cap = findCaption(state.resizeState.captionId);
+      if (!cap) return;
+      var dist = Math.sqrt(Math.pow(m.x - cap.x * state.width, 2) + Math.pow(m.y - cap.y * state.height, 2));
+      var scale = dist / state.resizeState.startDist;
+      cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
+      renderCurrentFrame();
+      updateCaptionEditor();
+      return;
+    }
     if (!state.dragState) {
       // Update cursor for hover feedback
       var hovering = false;
+      var onHandle = false;
+      // Check resize handles first
+      if (state.selectedCaptionId) {
+        var selCap = findCaption(state.selectedCaptionId);
+        if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
+          var bbox = getCaptionBBox(ctx, selCap);
+          if (bbox) {
+            var corners = getSelectionCorners(bbox);
+            var hs = HANDLE_SIZE;
+            var hitRadius = hs * 0.8;
+            for (var c = 0; c < corners.length; c++) {
+              var cx = corners[c].x + hs / 2;
+              var cy = corners[c].y + hs / 2;
+              var dx = m.x - cx, dy = m.y - cy;
+              if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                onHandle = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (onHandle) {
+        canvas.style.cursor = 'nwse-resize';
+        return;
+      }
       for (var i = state.captions.length - 1; i >= 0; i--) {
         var cap = state.captions[i];
         if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
@@ -457,6 +538,11 @@
   }
 
   function handleCanvasMouseUp() {
+    if (state.resizeState) {
+      state.resizeState = null;
+      canvas.style.cursor = 'default';
+      return;
+    }
     if (state.dragState) {
       state.dragState = null;
       canvas.style.cursor = 'grab';
