@@ -115,6 +115,8 @@
 
   // ── Canvas Drag & Resize ─────────────────────
 
+  var CROP_EDGE_THRESHOLD = 10; // px tolerance for hitting a crop edge
+
   /** Convert a mouse/touch event to GIF-frame-relative canvas coordinates. */
   function canvasCoords(e) {
     var rect = GC.canvas.getBoundingClientRect();
@@ -125,8 +127,70 @@
     return { x: rawX, y: rawY - offsetY };
   }
 
+  /**
+   * Hit-test the crop rectangle edges/interior.
+   * Returns null or { edge: 'n'|'s'|'e'|'w'|'ne'|'nw'|'se'|'sw'|'move' }
+   */
+  function hitTestCrop(m) {
+    if (!state.cropActive || !state.cropRect) return null;
+    var r = state.cropRect;
+    var t = CROP_EDGE_THRESHOLD;
+    var inX = m.x >= r.x - t && m.x <= r.x + r.w + t;
+    var inY = m.y >= r.y - t && m.y <= r.y + r.h + t;
+    if (!inX || !inY) return null;
+
+    var onLeft   = Math.abs(m.x - r.x) <= t;
+    var onRight  = Math.abs(m.x - (r.x + r.w)) <= t;
+    var onTop    = Math.abs(m.y - r.y) <= t;
+    var onBottom = Math.abs(m.y - (r.y + r.h)) <= t;
+
+    if (onTop && onLeft)     return { edge: 'nw' };
+    if (onTop && onRight)    return { edge: 'ne' };
+    if (onBottom && onLeft)  return { edge: 'sw' };
+    if (onBottom && onRight) return { edge: 'se' };
+    if (onTop)    return { edge: 'n' };
+    if (onBottom) return { edge: 's' };
+    if (onLeft)   return { edge: 'w' };
+    if (onRight)  return { edge: 'e' };
+
+    // Inside the crop rect — move
+    if (m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= r.y + r.h) {
+      return { edge: 'move' };
+    }
+    return null;
+  }
+
+  var CROP_CURSOR_MAP = {
+    n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
+    nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
+    move: 'move'
+  };
+
+  function syncCropInputs() {
+    var r = state.cropRect;
+    if (!r) return;
+    $('#crop-x').value = r.x;
+    $('#crop-y').value = r.y;
+    $('#crop-w').value = r.w;
+    $('#crop-h').value = r.h;
+  }
+
   function handleCanvasMouseDown(e) {
     var m = canvasCoords(e);
+
+    // 0. Hit-test crop rectangle first when crop is active
+    if (state.cropActive && state.cropRect) {
+      var cropHit = hitTestCrop(m);
+      if (cropHit) {
+        state.cropDrag = {
+          edge: cropHit.edge,
+          startX: m.x, startY: m.y,
+          origRect: { x: state.cropRect.x, y: state.cropRect.y, w: state.cropRect.w, h: state.cropRect.h }
+        };
+        GC.canvas.style.cursor = CROP_CURSOR_MAP[cropHit.edge] || 'default';
+        return;
+      }
+    }
 
     // 1. Hit-test corner resize handles (selected caption only)
     if (state.selectedCaptionId) {
@@ -183,6 +247,42 @@
   function handleCanvasMouseMove(e) {
     var m = canvasCoords(e);
 
+    // Active crop drag/resize
+    if (state.cropDrag) {
+      var cd = state.cropDrag;
+      var o = cd.origRect;
+      var dx = m.x - cd.startX;
+      var dy = m.y - cd.startY;
+      var r = state.cropRect;
+      var maxW = state.width;
+      var maxH = state.height;
+
+      if (cd.edge === 'move') {
+        r.x = Math.max(0, Math.min(maxW - o.w, o.x + dx));
+        r.y = Math.max(0, Math.min(maxH - o.h, o.y + dy));
+      } else {
+        // Resize edges
+        var nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+        if (cd.edge.indexOf('w') !== -1) { nx = o.x + dx; nw = o.w - dx; }
+        if (cd.edge.indexOf('e') !== -1) { nw = o.w + dx; }
+        if (cd.edge.indexOf('n') !== -1) { ny = o.y + dy; nh = o.h - dy; }
+        if (cd.edge.indexOf('s') !== -1) { nh = o.h + dy; }
+        // Enforce minimum size
+        if (nw < 10) { if (cd.edge.indexOf('w') !== -1) nx = o.x + o.w - 10; nw = 10; }
+        if (nh < 10) { if (cd.edge.indexOf('n') !== -1) ny = o.y + o.h - 10; nh = 10; }
+        // Clamp to canvas bounds
+        if (nx < 0) { nw += nx; nx = 0; }
+        if (ny < 0) { nh += ny; ny = 0; }
+        if (nx + nw > maxW) nw = maxW - nx;
+        if (ny + nh > maxH) nh = maxH - ny;
+        r.x = Math.round(nx); r.y = Math.round(ny);
+        r.w = Math.round(nw); r.h = Math.round(nh);
+      }
+      syncCropInputs();
+      GC.renderCurrentFrame();
+      return;
+    }
+
     // Active resize drag
     if (state.resizeState) {
       var cap = GC.findCaption(state.resizeState.captionId);
@@ -227,7 +327,11 @@
           hovering = true; break;
         }
       }
-      GC.canvas.style.cursor = hovering ? 'grab' : 'default';
+      if (hovering) { GC.canvas.style.cursor = 'grab'; return; }
+
+      // Crop hover cursor
+      var cropHit = hitTestCrop(m);
+      GC.canvas.style.cursor = cropHit ? (CROP_CURSOR_MAP[cropHit.edge] || 'default') : 'default';
       return;
     }
 
@@ -240,6 +344,11 @@
   }
 
   function handleCanvasMouseUp() {
+    if (state.cropDrag) {
+      state.cropDrag = null;
+      GC.canvas.style.cursor = 'default';
+      return;
+    }
     if (state.resizeState) {
       state.resizeState = null;
       GC.canvas.style.cursor = 'default';
@@ -869,15 +978,6 @@
         }
         GC.renderCurrentFrame();
       });
-    }
-
-    function syncCropInputs() {
-      var r = state.cropRect;
-      if (!r) return;
-      $('#crop-x').value = r.x;
-      $('#crop-y').value = r.y;
-      $('#crop-w').value = r.w;
-      $('#crop-h').value = r.h;
     }
 
     ['crop-x', 'crop-y', 'crop-w', 'crop-h'].forEach(function (id) {

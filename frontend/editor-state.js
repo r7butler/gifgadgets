@@ -46,6 +46,7 @@
     selectedCaptionId: null, // ID of the currently-selected caption (or null)
     dragState: null,        // Active position drag: { captionId, offsetX, offsetY }
     resizeState: null,      // Active resize drag: { captionId, startFontSize, startDist, … }
+    cropDrag: null,         // Active crop drag: { edge, startX, startY, origRect }
     gifId: null,            // Backend GIF ID (when loaded via ?id= URL param)
     gifFilename: null,      // Original filename of the uploaded GIF file
 
