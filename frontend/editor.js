@@ -886,9 +886,6 @@
     // Save to Photos (mobile: Web Share API or download fallback)
     var savePhotosBtn = $('#btn-share-save-photos');
     if (savePhotosBtn) {
-      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-        savePhotosBtn.style.display = '';
-      }
       savePhotosBtn.addEventListener('click', function () {
         var modal = $('#share-modal');
         if (!modal._blob) return;
