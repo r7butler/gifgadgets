@@ -1,0 +1,7 @@
+{
+  "name": "gifcaption",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve frontend"
+  }
+}

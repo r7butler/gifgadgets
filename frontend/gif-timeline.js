@@ -38,7 +38,9 @@
     var cw = container.clientWidth || window.innerWidth || 800;
     var innerW = cw - margin.left - margin.right;
     var numTracks = Math.max(state.captions.length, 0);
-    var totalH = margin.top + numTracks * trackH + rulerH + margin.bottom;
+    var motionCaps = state.captions.filter(function (c) { return c.motion && c.motion.length > 0; });
+    var totalH = margin.top + numTracks * trackH + rulerH + margin.bottom +
+      (motionCaps.length > 0 ? motionCaps.length * trackH + 20 : 0);
 
     var xScale = d3.scaleLinear().domain([0, totalFrames - 1]).range([0, innerW]);
 
@@ -187,11 +189,113 @@
         .attr('rx', 2);
     });
 
+    // ── Motion keyframe rows ───────────────────
+    if (motionCaps.length > 0) {
+      var motionBaseY = numTracks * trackH + rulerH + 4;
+
+      g.append('text')
+        .attr('x', -margin.left + 4)
+        .attr('y', motionBaseY + 12)
+        .attr('fill', '#555')
+        .attr('font-size', 10)
+        .attr('font-weight', '600')
+        .text('MOTION');
+
+      motionCaps.forEach(function (cap, mIdx) {
+        var capIdx = state.captions.indexOf(cap);
+        var color = GC.TRACK_COLORS[capIdx % GC.TRACK_COLORS.length];
+        var my = motionBaseY + 18 + mIdx * trackH;
+        var mg = g.append('g').attr('transform', 'translate(0,' + my + ')');
+
+        // Track background
+        mg.append('rect')
+          .attr('width', innerW)
+          .attr('height', trackH - 4)
+          .attr('fill', '#14142a')
+          .attr('rx', 4)
+          .attr('stroke', '#2a2a44')
+          .attr('stroke-width', 1);
+
+        // Track label
+        var labelText = cap.text.length > 12 ? cap.text.substring(0, 12) + '…' : cap.text;
+        svg.append('text')
+          .attr('x', margin.left - 10)
+          .attr('y', margin.top + my + (trackH - 4) / 2)
+          .attr('text-anchor', 'end')
+          .attr('dominant-baseline', 'central')
+          .attr('fill', '#555')
+          .attr('font-size', 11)
+          .text('↔ ' + labelText);
+
+        // Diamond markers — drag to move, right-click/tap to remove
+        cap.motion.forEach(function (kf) {
+          var kfMidY = (trackH - 4) / 2;
+          var kfG = mg.append('g')
+            .attr('transform', 'translate(' + xScale(kf.frame) + ',' + kfMidY + ')')
+            .attr('cursor', 'ew-resize');
+
+          // Hit target (larger than the visual diamond for easier interaction)
+          kfG.append('rect')
+            .attr('width', 20).attr('height', 20)
+            .attr('x', -10).attr('y', -10)
+            .attr('fill', 'transparent');
+
+          // Visual diamond
+          kfG.append('rect')
+            .attr('width', 10).attr('height', 10)
+            .attr('x', -5).attr('y', -5)
+            .attr('fill', color)
+            .attr('transform', 'rotate(45)')
+            .attr('stroke', '#0c0c14').attr('stroke-width', 1);
+
+          // Track total movement to distinguish tap from drag
+          var totalMoved = 0;
+
+          kfG.call(d3.drag()
+            .on('start', function () {
+              totalMoved = 0;
+              if (state.isPlaying) GC.pause();
+            })
+            .on('drag', function (event) {
+              totalMoved += Math.abs(event.dx) + Math.abs(event.dy);
+              var newFrame = Math.round(xScale.invert(Math.max(0, Math.min(innerW, event.x))));
+              newFrame = Math.max(0, Math.min(totalFrames - 1, newFrame));
+              kf.frame = newFrame;
+              state.currentFrame = newFrame;
+              kfG.attr('transform', 'translate(' + xScale(newFrame) + ',' + kfMidY + ')');
+              GC.renderCurrentFrame();
+              GC.movePlayhead();
+              GC.updatePlaybackUI();
+            })
+            .on('end', function (event) {
+              if (totalMoved < 4) {
+                // Treat as a tap on mobile (touch events produce no contextmenu)
+                var src = event.sourceEvent;
+                if (src && src.type === 'touchend') {
+                  showKfMenu(src.changedTouches[0].clientX, src.changedTouches[0].clientY, kf, cap);
+                  return;
+                }
+              }
+              GC.buildTimeline();
+            })
+          );
+
+          // Desktop right-click → context menu
+          kfG.on('contextmenu', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            showKfMenu(event.clientX, event.clientY, kf, cap);
+          });
+        });
+      });
+    }
+
     // ── Playhead (vertical red line) ───────────
     var playhead = g.append('line')
       .attr('class', 'timeline-playhead')
       .attr('y1', 0)
-      .attr('y2', numTracks * trackH + rulerH)
+      .attr('y2', numTracks * trackH + rulerH +
+        (motionCaps.length > 0 ? motionCaps.length * trackH + 22 : 0))
       .attr('stroke', '#ef4444')
       .attr('stroke-width', 2)
       .attr('pointer-events', 'none');
@@ -205,6 +309,59 @@
     if (!GC.timelineState) return;
     var x = GC.timelineState.xScale(state.currentFrame);
     GC.timelineState.playhead.attr('x1', x).attr('x2', x);
+  };
+
+  // ── Keyframe context menu ─────────────────────
+  // A single shared menu element; repositioned on each invocation.
+
+  var _kfMenuKf  = null;  // keyframe object currently targeted
+  var _kfMenuCap = null;  // caption that owns it
+
+  function showKfMenu(clientX, clientY, kf, cap) {
+    _kfMenuKf  = kf;
+    _kfMenuCap = cap;
+    var menu = document.getElementById('kf-context-menu');
+    if (!menu) return;
+    menu.classList.remove('hidden');
+    // Position near the click/tap, keeping it inside the viewport
+    var mw = 160, mh = 36;
+    var x = Math.min(clientX + 4, window.innerWidth  - mw - 8);
+    var y = Math.min(clientY + 4, window.innerHeight - mh - 8);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+  }
+
+  function hideKfMenu() {
+    var menu = document.getElementById('kf-context-menu');
+    if (menu) menu.classList.add('hidden');
+    _kfMenuKf  = null;
+    _kfMenuCap = null;
+  }
+
+  // Wire up the remove button once (safe to call multiple times — idempotent via flag)
+  GC.initKfMenu = function () {
+    var btn = document.getElementById('kf-menu-remove');
+    if (!btn || btn._kfMenuBound) return;
+    btn._kfMenuBound = true;
+
+    btn.addEventListener('click', function () {
+      if (_kfMenuCap && _kfMenuKf) {
+        _kfMenuCap.motion = _kfMenuCap.motion.filter(function (k) { return k !== _kfMenuKf; });
+        hideKfMenu();
+        GC.buildTimeline();
+        GC.renderCurrentFrame();
+        // Refresh sidebar if this caption is selected
+        if (GC.state.selectedCaptionId === _kfMenuCap.id) GC.updateUI();
+      }
+    });
+
+    // Dismiss on any outside click or touchstart
+    document.addEventListener('pointerdown', function (e) {
+      var menu = document.getElementById('kf-context-menu');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
+        hideKfMenu();
+      }
+    }, true);
   };
 
 })();

@@ -92,7 +92,7 @@
       expCtx.translate(0, offsetY);
       for (var j = 0; j < state.captions.length; j++) {
         var cap = state.captions[j];
-        if (i >= cap.startFrame && i <= cap.endFrame) GC.drawCaption(expCtx, cap);
+        if (i >= cap.startFrame && i <= cap.endFrame) GC.drawCaption(expCtx, cap, i);
       }
       expCtx.restore();
 

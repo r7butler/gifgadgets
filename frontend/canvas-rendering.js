@@ -127,7 +127,7 @@
     for (var i = 0; i < state.captions.length; i++) {
       var cap = state.captions[i];
       if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
-        GC.drawCaption(ctx, cap);
+        GC.drawCaption(ctx, cap, state.currentFrame);
       }
     }
     ctx.restore();
@@ -143,7 +143,7 @@
       if (sel && state.currentFrame >= sel.startFrame && state.currentFrame <= sel.endFrame) {
         ctx.save();
         ctx.translate(0, offsetY);
-        GC.drawSelectionBox(ctx, sel);
+        GC.drawSelectionBox(ctx, sel, state.currentFrame);
         ctx.restore();
       }
     }
@@ -152,12 +152,47 @@
     GC.drawCropOverlay();
   };
 
+  // ── Motion Keyframe Interpolation ────────────
+
+  /**
+   * Interpolate caption position across motion keyframes.
+   * Returns { x, y } (normalised 0–1) for the given frame, or null
+   * if the motion array is empty.
+   */
+  GC.getInterpolatedPosition = function (motion, frame) {
+    if (!motion || motion.length === 0) return null;
+    if (motion.length === 1) return { x: motion[0].x, y: motion[0].y };
+    var sorted = motion.slice().sort(function (a, b) { return a.frame - b.frame; });
+    if (frame <= sorted[0].frame) return { x: sorted[0].x, y: sorted[0].y };
+    var last = sorted[sorted.length - 1];
+    if (frame >= last.frame) return { x: last.x, y: last.y };
+    for (var i = 0; i < sorted.length - 1; i++) {
+      if (frame >= sorted[i].frame && frame < sorted[i + 1].frame) {
+        var t = (frame - sorted[i].frame) / (sorted[i + 1].frame - sorted[i].frame);
+        return {
+          x: sorted[i].x + t * (sorted[i + 1].x - sorted[i].x),
+          y: sorted[i].y + t * (sorted[i + 1].y - sorted[i].y),
+        };
+      }
+    }
+    return { x: last.x, y: last.y };
+  };
+
   // ── On-Image Caption Drawing ─────────────────
 
-  /** Draw a single on-image text caption (stroke outline + fill). */
-  GC.drawCaption = function (context, cap) {
-    var x = cap.x * state.width;
-    var y = cap.y * state.height;
+  /**
+   * Draw a single on-image text caption (stroke outline + fill).
+   * Pass frameIndex to use interpolated motion position; omit for static.
+   */
+  GC.drawCaption = function (context, cap, frameIndex) {
+    var motion = cap.motion || [];
+    var px = cap.x, py = cap.y;
+    if (motion.length > 0 && frameIndex != null) {
+      var interp = GC.getInterpolatedPosition(motion, frameIndex);
+      if (interp) { px = interp.x; py = interp.y; }
+    }
+    var x = px * state.width;
+    var y = py * state.height;
     context.save();
     context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
@@ -196,8 +231,8 @@
   };
 
   /** Draw the dashed selection rectangle + circular corner handles. */
-  GC.drawSelectionBox = function (context, cap) {
-    var bbox = GC.getCaptionBBox(context, cap);
+  GC.drawSelectionBox = function (context, cap, frameIndex) {
+    var bbox = GC.getCaptionBBox(context, cap, frameIndex);
     if (!bbox) return;
 
     context.save();
@@ -222,10 +257,17 @@
   /**
    * Calculate the bounding box of a caption's rendered text.
    * Returns { x, y, w, h } in canvas-pixel coordinates (GIF-area-relative).
+   * Pass frameIndex to account for motion position.
    */
-  GC.getCaptionBBox = function (context, cap) {
-    var x = cap.x * state.width;
-    var y = cap.y * state.height;
+  GC.getCaptionBBox = function (context, cap, frameIndex) {
+    var motion = cap.motion || [];
+    var px = cap.x, py = cap.y;
+    if (motion.length > 0 && frameIndex != null) {
+      var interp = GC.getInterpolatedPosition(motion, frameIndex);
+      if (interp) { px = interp.x; py = interp.y; }
+    }
+    var x = px * state.width;
+    var y = py * state.height;
     context.save();
     context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
@@ -320,7 +362,7 @@
       for (var i = 0; i < state.captions.length; i++) {
         var cap = state.captions[i];
         if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
-          GC.drawCaption(ctx, cap);
+          GC.drawCaption(ctx, cap, state.currentFrame);
         }
       }
       ctx.restore();

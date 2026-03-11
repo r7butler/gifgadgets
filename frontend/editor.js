@@ -33,6 +33,7 @@
     GC.canvas = $('#preview-canvas');
     GC.ctx = GC.canvas.getContext('2d');
     bindEvents();
+    GC.initKfMenu();
     GC.preloadGifWorker();
 
     // Check URL params for a GIF to auto-load
@@ -67,6 +68,7 @@
       align: opts.align || 'center',
       startFrame: opts.startFrame || 0,
       endFrame: opts.endFrame != null ? opts.endFrame : state.frames.length - 1,
+      motion: [],        // Motion keyframes: [{ frame, x, y }] — empty = static position
     };
     state.captions.push(cap);
     state.selectedCaptionId = cap.id;
@@ -178,6 +180,7 @@
   function handleCanvasMouseDown(e) {
     var m = canvasCoords(e);
 
+    // 0. Tracking mode — click picks the object to track
     // 0. Hit-test crop rectangle first when crop is active
     if (state.cropActive && state.cropRect) {
       var cropHit = hitTestCrop(m);
@@ -196,7 +199,7 @@
     if (state.selectedCaptionId) {
       var selCap = GC.findCaption(state.selectedCaptionId);
       if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
-        var bbox = GC.getCaptionBBox(GC.ctx, selCap);
+        var bbox = GC.getCaptionBBox(GC.ctx, selCap, state.currentFrame);
         if (bbox) {
           var corners = GC.getSelectionCorners(bbox);
           var hs = GC.HANDLE_SIZE;
@@ -206,12 +209,18 @@
             var cy = corners[c].y + hs / 2;
             var dx = m.x - cx, dy = m.y - cy;
             if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+              // Use interpolated position for resize distance calculation
+              var rip = (selCap.motion && selCap.motion.length > 0)
+                ? GC.getInterpolatedPosition(selCap.motion, state.currentFrame)
+                : null;
+              var rpx = rip ? rip.x : selCap.x;
+              var rpy = rip ? rip.y : selCap.y;
               state.resizeState = {
                 captionId: selCap.id,
                 startFontSize: selCap.fontSize,
                 startY: m.y,
                 startX: m.x,
-                startDist: Math.sqrt(Math.pow(m.x - selCap.x * state.width, 2) + Math.pow(m.y - selCap.y * state.height, 2)),
+                startDist: Math.sqrt(Math.pow(m.x - rpx * state.width, 2) + Math.pow(m.y - rpy * state.height, 2)),
               };
               GC.canvas.style.cursor = 'nwse-resize';
               return;
@@ -225,15 +234,23 @@
     for (var i = state.captions.length - 1; i >= 0; i--) {
       var cap = state.captions[i];
       if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
-      var bbox = GC.getCaptionBBox(GC.ctx, cap);
+      var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
       if (!bbox) continue;
       if (m.x >= bbox.x - 6 && m.x <= bbox.x + bbox.w + 6 &&
           m.y >= bbox.y - 6 && m.y <= bbox.y + bbox.h + 6) {
         state.selectedCaptionId = cap.id;
+        // For motion captions, offset from interpolated position; otherwise from static
+        var dip = (cap.motion && cap.motion.length > 0)
+          ? GC.getInterpolatedPosition(cap.motion, state.currentFrame)
+          : null;
+        var dpx = dip ? dip.x : cap.x;
+        var dpy = dip ? dip.y : cap.y;
         state.dragState = {
           captionId: cap.id,
-          offsetX: m.x - cap.x * state.width,
-          offsetY: m.y - cap.y * state.height,
+          offsetX: m.x - dpx * state.width,
+          offsetY: m.y - dpy * state.height,
+          motionEnabled: cap.motion && cap.motion.length > 0,
+          motionFrame: state.currentFrame,
         };
         GC.canvas.style.cursor = 'grabbing';
         GC.updateCaptionList();
@@ -301,7 +318,7 @@
       if (state.selectedCaptionId) {
         var selCap = GC.findCaption(state.selectedCaptionId);
         if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
-          var bbox = GC.getCaptionBBox(GC.ctx, selCap);
+          var bbox = GC.getCaptionBBox(GC.ctx, selCap, state.currentFrame);
           if (bbox) {
             var corners = GC.getSelectionCorners(bbox);
             var hs = GC.HANDLE_SIZE;
@@ -321,7 +338,7 @@
       for (var i = state.captions.length - 1; i >= 0; i--) {
         var cap = state.captions[i];
         if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
-        var bbox = GC.getCaptionBBox(GC.ctx, cap);
+        var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
         if (bbox && m.x >= bbox.x - 6 && m.x <= bbox.x + bbox.w + 6 &&
             m.y >= bbox.y - 6 && m.y <= bbox.y + bbox.h + 6) {
           hovering = true; break;
@@ -338,8 +355,25 @@
     // Active position drag
     var cap = GC.findCaption(state.dragState.captionId);
     if (!cap) return;
-    cap.x = Math.max(0, Math.min(1, (m.x - state.dragState.offsetX) / state.width));
-    cap.y = Math.max(0, Math.min(1, (m.y - state.dragState.offsetY) / state.height));
+    var newX = Math.max(0, Math.min(1, (m.x - state.dragState.offsetX) / state.width));
+    var newY = Math.max(0, Math.min(1, (m.y - state.dragState.offsetY) / state.height));
+    if (state.dragState.motionEnabled) {
+      // Update or create a keyframe at the frame where the drag started
+      var mf = state.dragState.motionFrame;
+      var existingKf = null;
+      for (var ki = 0; ki < cap.motion.length; ki++) {
+        if (cap.motion[ki].frame === mf) { existingKf = cap.motion[ki]; break; }
+      }
+      if (existingKf) {
+        existingKf.x = newX;
+        existingKf.y = newY;
+      } else {
+        cap.motion.push({ frame: mf, x: newX, y: newY });
+      }
+    } else {
+      cap.x = newX;
+      cap.y = newY;
+    }
     GC.renderCurrentFrame();
   }
 
@@ -355,8 +389,11 @@
       return;
     }
     if (state.dragState) {
+      var wasMotion = state.dragState.motionEnabled;
       state.dragState = null;
       GC.canvas.style.cursor = 'grab';
+      // Rebuild timeline to show any newly-created keyframe
+      if (wasMotion) GC.buildTimeline();
     }
   }
 
@@ -419,6 +456,16 @@
     $('#cap-stroke-width').value = cap.strokeWidth;
     $('#cap-stroke-width-val').textContent = cap.strokeWidth;
     $('#cap-font').value = cap.fontFamily;
+    // Motion keyframe status
+    var motionCount = cap.motion ? cap.motion.length : 0;
+    var motionInfo = $('#cap-motion-info');
+    if (motionInfo) {
+      motionInfo.textContent = motionCount > 0
+        ? motionCount + ' keyframe' + (motionCount !== 1 ? 's' : '') + ' — drag caption to set position per frame'
+        : 'No motion — drag caption to move (static)';
+    }
+    var btnClear = $('#btn-clear-motion');
+    if (btnClear) btnClear.style.display = motionCount > 0 ? '' : 'none';
   }
 
   /** Update the play/pause button icon, frame counter, and scrubber. */
@@ -633,6 +680,38 @@
       if (state.selectedCaptionId) {
         $('#delete-modal').classList.remove('hidden');
       }
+    });
+
+    // ── Motion keyframe controls ──────────────
+    $('#btn-add-keyframe').addEventListener('click', function () {
+      var cap = GC.findCaption(state.selectedCaptionId);
+      if (!cap) return;
+      var frame = state.currentFrame;
+      // Check if keyframe already exists at this frame
+      for (var ki = 0; ki < cap.motion.length; ki++) {
+        if (cap.motion[ki].frame === frame) return; // already have one here
+      }
+      // Use interpolated position if motion is already active, else static position
+      var px = cap.x, py = cap.y;
+      if (cap.motion.length > 0) {
+        var ip = GC.getInterpolatedPosition(cap.motion, frame);
+        if (ip) { px = ip.x; py = ip.y; }
+      }
+      cap.motion.push({ frame: frame, x: px, y: py });
+      updateCaptionEditor();
+      GC.buildTimeline();
+    });
+
+    $('#btn-clear-motion').addEventListener('click', function () {
+      var cap = GC.findCaption(state.selectedCaptionId);
+      if (!cap || !cap.motion.length) return;
+      // Snap static position to wherever the caption is at the current frame
+      var ip = GC.getInterpolatedPosition(cap.motion, state.currentFrame);
+      if (ip) { cap.x = ip.x; cap.y = ip.y; }
+      cap.motion = [];
+      updateCaptionEditor();
+      GC.buildTimeline();
+      GC.renderCurrentFrame();
     });
     $('#delete-modal-confirm').addEventListener('click', function () {
       if (state.selectedCaptionId) removeCaption(state.selectedCaptionId);
