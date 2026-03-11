@@ -9,8 +9,17 @@
   <meta name="theme-color" content="#0c0c14" />
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Google AdSense -->
+  <!-- Google AdSense (disabled until traffic increases)
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
+  -->
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PNH9WX8YRK');
+  </script>
 </head>
 <body>
   <div class="container">
@@ -31,14 +40,15 @@
       <p>Upload failed: <span id="error-message"></span></p>
     </div>
 
-    <!-- Ad -->
+    <!-- Ad (disabled until traffic increases)
     <div class="ad-container ad-utility">
       <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="6524012174" data-ad-format="auto" data-full-width-responsive="true"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+    -->
   </div>
   <script src="app.js"></script>
-  <script src="cookie-consent.js"></script>
+  <!-- <script src="cookie-consent.js"></script> -->
   <script>
     document.getElementById("upload-form").addEventListener("submit", async (e) => {
       e.preventDefault();

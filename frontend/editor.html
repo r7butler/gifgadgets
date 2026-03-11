@@ -15,8 +15,17 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Google AdSense -->
+  <!-- Google AdSense (disabled until traffic increases)
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
+  -->
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PNH9WX8YRK');
+  </script>
 </head>
 <body class="editor-body">
 
@@ -71,11 +80,12 @@
       </div>
     </div>
 
-    <!-- Ad: shown on upload screen, hidden when editing -->
+    <!-- Ad: shown on upload screen, hidden when editing (disabled until traffic increases)
     <div id="ad-upload" class="ad-container ad-editor-upload">
       <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="7889569317" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+    -->
 
     <!-- ─── Editor Workspace (hidden until GIF loaded) ─── -->
     <div id="editor-workspace" class="editor-workspace hidden" role="main">
@@ -364,11 +374,12 @@
     </div>
   </div>
 
-  <!-- Ad: below editor workspace -->
+  <!-- Ad: below editor workspace (disabled until traffic increases)
   <div id="ad-editor-bottom" class="ad-container ad-editor-bottom hidden">
     <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="6576487641" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
   </div>
+  -->
 
   <!-- Remove Box Caption Confirmation Modal -->
   <div id="remove-box-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Confirm remove box caption">
@@ -487,6 +498,6 @@
   <script src="gif-export.js"></script>
   <script src="editor.js"></script>
   <script src="app.js"></script>
-  <script src="cookie-consent.js"></script>
+  <!-- <script src="cookie-consent.js"></script> -->
 </body>
 </html>
