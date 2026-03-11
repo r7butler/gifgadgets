@@ -179,6 +179,8 @@
 
     $('#editor-workspace').classList.remove('hidden');
     $('#upload-zone').classList.add('hidden');
+    var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.add('hidden');
+    var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
     $('#btn-share').disabled = false;
     $('#btn-download').disabled = false;
   }
@@ -328,6 +330,8 @@
 
         GC.$('#editor-workspace').classList.remove('hidden');
         GC.$('#upload-zone').classList.add('hidden');
+        var adUpload = GC.$('#ad-upload'); if (adUpload) adUpload.classList.add('hidden');
+        var adBottom = GC.$('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
         GC.$('#btn-share').disabled = false;
         GC.$('#btn-download').disabled = false;
 

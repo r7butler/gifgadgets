@@ -531,6 +531,8 @@
         GC.nextCaptionId = 1;
         $('#editor-workspace').classList.add('hidden');
         $('#upload-zone').classList.remove('hidden');
+        var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
+        var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
         $('#btn-share').disabled = true;
         $('#btn-download').disabled = true;
         if ($('#file-input')) $('#file-input').value = '';

@@ -14,6 +14,9 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
 
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
 </head>
 <body class="editor-body">
 
@@ -66,6 +69,12 @@
         <p class="drop-hint">Supports animated GIF and video files</p>
         <input type="file" id="file-input" accept="image/gif,video/mp4,video/webm,video/quicktime,video/x-msvideo" hidden />
       </div>
+    </div>
+
+    <!-- Ad: shown on upload screen, hidden when editing -->
+    <div id="ad-upload" class="ad-container ad-editor-upload">
+      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="7889569317" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
     <!-- ─── Editor Workspace (hidden until GIF loaded) ─── -->
@@ -355,6 +364,12 @@
     </div>
   </div>
 
+  <!-- Ad: below editor workspace -->
+  <div id="ad-editor-bottom" class="ad-container ad-editor-bottom hidden">
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="6576487641" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
   <!-- Remove Box Caption Confirmation Modal -->
   <div id="remove-box-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Confirm remove box caption">
     <div class="modal modal-sm">
@@ -472,5 +487,6 @@
   <script src="gif-export.js"></script>
   <script src="editor.js"></script>
   <script src="app.js"></script>
+  <script src="cookie-consent.js"></script>
 </body>
 </html>

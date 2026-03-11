@@ -619,9 +619,50 @@ input[type="range"]::-moz-range-thumb {
 .skeleton-social { display: flex; gap: .5rem; justify-content: center; }
 .skeleton-social-btn { width: 140px; height: 36px; }
 
-/* ── Responsive ──────────────────────────── */
+/* ── Ad Containers ────────────────────────── */
+.ad-container {
+  display: flex; justify-content: center; align-items: center;
+  overflow: hidden;
+  background: transparent;
+}
+.ad-container ins { max-width: 100%; }
 
-/* Tablets & small desktops */
+/* Landing page ads — sit between content sections */
+.ad-landing {
+  max-width: 600px; width: 100%;
+  margin: 2rem auto 0;
+  min-height: 90px;
+}
+
+/* Editor upload screen ad — below the drop zone */
+.ad-editor-upload {
+  max-width: 520px; width: 100%;
+  margin: 1.5rem auto 0;
+  min-height: 90px;
+}
+
+/* Editor bottom ad — below the workspace */
+.ad-editor-bottom {
+  max-width: 728px; width: 100%;
+  margin: 0 auto;
+  padding: 8px 16px;
+  min-height: 90px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+/* Utility pages ad */
+.ad-utility {
+  margin-top: 1.5rem;
+  min-height: 90px;
+}
+
+/* Don't show ads when they'd be disruptive on very small screens */
+@media (max-width: 400px) {
+  .ad-editor-bottom { display: none; }
+}
+
+/* ── Responsive ──────────────────────────── */
 @media (max-width: 900px) {
   .editor-sidebar { width: 240px; min-width: 240px; }
 }
@@ -695,4 +736,18 @@ input[type="range"]::-moz-range-thumb {
   .landing-header h1 { font-size: 1.7rem; }
   .editor-sidebar { max-height: 50vh; }
   .quick-actions { flex-direction: column; }
+}
+
+/* ── Cookie Consent Banner ────────────────── */
+.cookie-consent {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: 1rem; padding: 12px 20px;
+  background: var(--bg-elevated); border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-secondary);
+  z-index: 9999;
+}
+.cookie-consent p { margin: 0; }
+@media (max-width: 520px) {
+  .cookie-consent { flex-direction: column; text-align: center; gap: .5rem; }
 }
