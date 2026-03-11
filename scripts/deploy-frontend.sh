@@ -38,6 +38,18 @@ echo "==> Injecting API_BASE_URL into app.js..."
 sed -i.bak "s|const API_BASE_URL = \".*\"|const API_BASE_URL = \"${LAMBDA_URL}\"|" "$FRONTEND_DIR/app.js"
 rm -f "$FRONTEND_DIR/app.js.bak"
 
+# Inject TRACKER_BASE_URL into gif-tracker.js (if the tracker has been deployed)
+echo "==> Reading Tracker Function URL from Terraform output (if available)..."
+TRACKER_URL=$(cd "$TF_DIR" && terraform output -raw tracker_function_url 2>/dev/null || echo "")
+TRACKER_URL="${TRACKER_URL%/}"
+if [[ -n "$TRACKER_URL" ]]; then
+  echo "==> Injecting TRACKER_BASE_URL into gif-tracker.js..."
+  sed -i.bak "s|var TRACKER_BASE_URL = '.*'|var TRACKER_BASE_URL = '${TRACKER_URL}'|" "$FRONTEND_DIR/gif-tracker.js"
+  rm -f "$FRONTEND_DIR/gif-tracker.js.bak"
+else
+  echo "==> Tracker not deployed yet — gif-tracker.js left with placeholder URL."
+fi
+
 # Sync to S3
 echo "==> Syncing frontend to s3://$SITE_BUCKET/ ..."
 aws s3 sync "$FRONTEND_DIR/" "s3://$SITE_BUCKET/" --delete

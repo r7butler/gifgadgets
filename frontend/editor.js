@@ -180,8 +180,17 @@
   function handleCanvasMouseDown(e) {
     var m = canvasCoords(e);
 
-    // 0. Tracking mode — click picks the object to track
-    // 0. Hit-test crop rectangle first when crop is active
+    // 0. AI tracking mode — next canvas click picks the object
+    if (state._trackingMode) {
+      GC.handleTrackingClick(
+        m.x / state.width,
+        m.y / state.height,
+        state.currentFrame
+      );
+      return;
+    }
+
+    // 0b. Hit-test crop rectangle first when crop is active
     if (state.cropActive && state.cropRect) {
       var cropHit = hitTestCrop(m);
       if (cropHit) {
@@ -466,6 +475,8 @@
     }
     var btnClear = $('#btn-clear-motion');
     if (btnClear) btnClear.style.display = motionCount > 0 ? '' : 'none';
+    var btnTrack = $('#btn-track-with-ai');
+    if (btnTrack) btnTrack.style.display = GC.trackerAvailable && GC.trackerAvailable() ? '' : 'none';
   }
 
   /** Update the play/pause button icon, frame counter, and scrubber. */
@@ -702,6 +713,18 @@
       GC.buildTimeline();
     });
 
+    $('#btn-track-with-ai').addEventListener('click', function () {
+      var cap = GC.findCaption(state.selectedCaptionId);
+      if (!cap || state.frames.length === 0) return;
+      GC.warmUpTracker();       // fire warm-up request immediately
+      GC.startTrackingMode(cap); // show instruction bar, wait for canvas click
+    });
+    var btnCancelTracking = $('#btn-cancel-tracking');
+    if (btnCancelTracking) {
+      btnCancelTracking.addEventListener('click', function () {
+        GC.stopTrackingMode();
+      });
+    }
     $('#btn-clear-motion').addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap || !cap.motion.length) return;

@@ -753,6 +753,28 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── Keyframe Context Menu ────────────────── */
+/* Tracking instruction bar — floats at the bottom of the canvas area */
+.tracking-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 20, 42, 0.92);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 14px;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+.tracking-bar-text {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
 .kf-context-menu {
   position: fixed;
   z-index: 200;

@@ -95,6 +95,11 @@
         <div class="editor-preview">
           <div class="canvas-container">
             <canvas id="preview-canvas"></canvas>
+            <!-- Tracking instruction bar (shown while tracking mode is active) -->
+            <div id="tracking-bar" class="tracking-bar hidden">
+              <span class="tracking-bar-text">Click on the object you want to track</span>
+              <button id="btn-cancel-tracking" class="btn btn-ghost btn-xs">Cancel</button>
+            </div>
           </div>
           <div class="playback-controls">
             <button id="btn-prev-frame" class="ctrl-btn" title="Previous frame" aria-label="Previous frame">&laquo;</button>
@@ -173,6 +178,7 @@
                   <p id="cap-motion-info" class="sub-hint" style="margin:0 0 6px"></p>
                   <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button id="btn-add-keyframe" class="btn btn-ghost btn-xs">+ Keyframe here</button>
+                    <button id="btn-track-with-ai" class="btn btn-accent btn-xs" style="display:none">Track with AI</button>
                     <button id="btn-clear-motion" class="btn btn-ghost btn-xs" style="display:none">Clear motion</button>
                   </div>
                 </div>
@@ -510,6 +516,7 @@
   <script src="gif-playback.js"></script>
   <script src="gif-timeline.js"></script>
   <script src="gif-export.js"></script>
+  <script src="gif-tracker.js"></script>
   <script src="editor.js"></script>
   <script src="app.js"></script>
   <!-- <script src="cookie-consent.js"></script> -->
