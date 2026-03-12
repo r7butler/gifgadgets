@@ -59,36 +59,17 @@ def _load_predictor():
 
 # ── Response helpers ──────────────────────────────────────────────────────────
 
-def _cors_headers():
-    return {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-    }
-
-
 def _ok(body):
-    return {"statusCode": 200, "headers": _cors_headers(), "body": json.dumps(body)}
+    return {"statusCode": 200, "body": json.dumps(body)}
 
 
 def _err(status, msg):
-    return {"statusCode": status, "headers": _cors_headers(), "body": json.dumps({"error": msg})}
+    return {"statusCode": status, "body": json.dumps({"error": msg})}
 
 
 # ── Main handler ──────────────────────────────────────────────────────────────
 
 def handler(event, context):
-    # CORS preflight
-    method = (
-        event.get("requestContext", {})
-             .get("http", {})
-             .get("method", "")
-             .upper()
-    )
-    if method == "OPTIONS":
-        return _ok({})
-
     # Parse body
     try:
         body = json.loads(event.get("body") or "{}")

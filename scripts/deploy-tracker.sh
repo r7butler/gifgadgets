@@ -42,7 +42,7 @@ echo "==> ECR URL: $ECR_URL"
 # ── Phase 2: build and push Docker image ─────────────────────────────────────
 echo ""
 echo "==> Phase 2: building Docker image..."
-IMAGE_TAG="latest"
+IMAGE_TAG="$(date +%Y%m%d%H%M%S)"
 FULL_IMAGE_URI="${ECR_URL}:${IMAGE_TAG}"
 
 # Authenticate Docker to ECR

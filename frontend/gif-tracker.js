@@ -25,7 +25,7 @@
   'use strict';
 
   // Injected by deploy-frontend.sh — replaced with the real Lambda URL.
-  var TRACKER_BASE_URL = 'TRACKER_URL_PLACEHOLDER';
+  var TRACKER_BASE_URL = 'https://xmd3fo6xovw52j34eckgmnprau0beqvr.lambda-url.us-east-1.on.aws';
 
   var state = GC.state;
 
@@ -137,7 +137,7 @@
     var totalFrames = state.frames.length;
     if (totalFrames === 0) return { frames: [], frameIndices: [] };
 
-    var N = Math.max(1, Math.floor(totalFrames / 30));
+    var N = Math.max(1, Math.floor(totalFrames / 8));
     var indices = [];
     for (var i = 0; i < totalFrames; i += N) indices.push(i);
 
@@ -164,7 +164,7 @@
     var bar = document.getElementById('tracking-bar');
     if (!bar) return;
     bar.classList.remove('hidden');
-    bar.querySelector('.tracking-bar-text').textContent = 'Analyzing… this takes a few seconds';
+    bar.querySelector('.tracking-bar-text').textContent = 'Analyzing… this may take up to a minute';
     var cancelBtn = bar.querySelector('#btn-cancel-tracking');
     if (cancelBtn) cancelBtn.style.display = 'none';
   }

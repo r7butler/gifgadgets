@@ -73,7 +73,7 @@ resource "aws_lambda_function" "tracker" {
   package_type  = "Image"
   image_uri     = var.tracker_image_uri
 
-  timeout     = 30
+  timeout     = 300
   memory_size = 3008
 
   environment {

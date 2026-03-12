@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir \
 
 # Install SAM2 from Meta's GitHub tarball (no git needed) and Pillow
 RUN pip install --no-cache-dir \
-    "https://github.com/facebookresearch/sam3/archive/refs/heads/main.tar.gz" \
+    "https://github.com/facebookresearch/segment-anything-2/archive/refs/heads/main.tar.gz" \
     Pillow
 
 # Download SAM2-tiny checkpoint (~38 MB) — baked into the image at build time
