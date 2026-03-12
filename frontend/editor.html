@@ -95,6 +95,8 @@
         <div class="editor-preview">
           <div class="canvas-container">
             <canvas id="preview-canvas"></canvas>
+            <!-- Shade overlay shown while tracking mode is active (pointer-events:none so canvas still receives clicks) -->
+            <div id="tracking-overlay" class="tracking-overlay hidden"></div>
             <!-- Tracking instruction bar (shown while tracking mode is active) -->
             <div id="tracking-bar" class="tracking-bar hidden">
               <span class="tracking-bar-text">Click on the object you want to track</span>
@@ -126,10 +128,6 @@
               <div class="section-header">
                 <h3>Captions</h3>
                 <button id="btn-add-caption" class="btn btn-small btn-accent">+ Add</button>
-              </div>
-              <div class="quick-actions">
-                <button id="btn-add-top" class="btn btn-ghost btn-xs">+ Top Text</button>
-                <button id="btn-add-bottom" class="btn btn-ghost btn-xs">+ Bottom Text</button>
               </div>
               <div id="caption-list" class="caption-list">
                 <div class="caption-list-empty">No captions yet.<br>Click <strong>+ Add</strong> to start.</div>
@@ -178,7 +176,7 @@
                   <p id="cap-motion-info" class="sub-hint" style="margin:0 0 6px"></p>
                   <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button id="btn-add-keyframe" class="btn btn-ghost btn-xs">+ Keyframe here</button>
-                    <button id="btn-track-with-ai" class="btn btn-accent btn-xs" style="display:none">Track Motion</button>
+                    <button id="btn-track-with-ai" class="btn btn-accent btn-xs" style="display:none" title="Click on an object in the GIF — the caption will automatically follow it across all frames">Follow an Object</button>
                     <button id="btn-clear-motion" class="btn btn-ghost btn-xs" style="display:none">Clear motion</button>
                   </div>
                 </div>

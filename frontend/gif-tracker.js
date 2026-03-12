@@ -107,6 +107,8 @@
     if (state.isPlaying) GC.pause();
     state._trackingMode = { captionId: cap.id };
     GC.canvas.style.cursor = 'crosshair';
+    var overlay = document.getElementById('tracking-overlay');
+    if (overlay) overlay.classList.remove('hidden');
     var bar = document.getElementById('tracking-bar');
     if (bar) bar.classList.remove('hidden');
     _getWorker().postMessage({ type: 'warmup' });
@@ -115,6 +117,8 @@
   GC.stopTrackingMode = function () {
     state._trackingMode = null;
     GC.canvas.style.cursor = '';
+    var overlay = document.getElementById('tracking-overlay');
+    if (overlay) overlay.classList.add('hidden');
     var bar = document.getElementById('tracking-bar');
     if (bar) bar.classList.add('hidden');
   };
@@ -158,7 +162,7 @@
 
   /**
    * Build strided frame list and locate the click frame within it.
-   * Stride: every frame if ≤30 total, every 2nd if <120, every 3rd if ≥120.
+   * Targets ~25 sampled frames: stride = ceil(total/25).
    *
    * Returns { frames: [{data, width, height, frameIndex}], clickFrameIdx }
    * where clickFrameIdx is the index within the returned frames array.
@@ -167,6 +171,7 @@
     var total = state.frames.length;
     if (total === 0) return { frames: [], clickFrameIdx: 0 };
 
+    //var stride = Math.ceil(total / 25);
     var stride = 1;
 
     // Collect strided indices, always including clickFrame.

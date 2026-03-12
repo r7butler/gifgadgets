@@ -53,13 +53,36 @@
    * Create a new on-image caption and add it to the state.
    * All position/style values have sensible defaults.
    */
+  function _pickCaptionPosition() {
+    var caps = state.captions;
+    var hasUpper = caps.some(function (c) { return c.y < 0.40; });
+    var hasLower = caps.some(function (c) { return c.y > 0.60; });
+    var hasMid   = caps.some(function (c) { return c.y >= 0.40 && c.y <= 0.60; });
+    if (!hasUpper) return { x: 0.5, y: 0.07 };
+    if (!hasLower) return { x: 0.5, y: 0.82 };
+    if (!hasMid)   return { x: 0.5, y: 0.50 };
+    // Middle occupied — try a small offset
+    var ox = 0.53, oy = 0.53;
+    var offsetTaken = caps.some(function (c) { return Math.abs(c.x - ox) < 0.03 && Math.abs(c.y - oy) < 0.03; });
+    if (!offsetTaken) return { x: ox, y: oy };
+    // Random fallback — try to find a clear spot
+    for (var i = 0; i < 50; i++) {
+      var rx = 0.1 + Math.random() * 0.8;
+      var ry = 0.1 + Math.random() * 0.8;
+      var tooClose = caps.some(function (c) { return Math.abs(c.x - rx) < 0.1 && Math.abs(c.y - ry) < 0.1; });
+      if (!tooClose) return { x: rx, y: ry };
+    }
+    return { x: 0.5 + Math.random() * 0.1, y: 0.5 + Math.random() * 0.1 };
+  }
+
   function addCaption(opts) {
     opts = opts || {};
+    var pos = (opts.x == null && opts.y == null) ? _pickCaptionPosition() : null;
     var cap = {
       id: 'cap-' + (GC.nextCaptionId++),
       text: opts.text || 'YOUR TEXT HERE',
-      x: opts.x != null ? opts.x : 0.5,
-      y: opts.y != null ? opts.y : 0.1,
+      x: opts.x != null ? opts.x : (pos ? pos.x : 0.5),
+      y: opts.y != null ? opts.y : (pos ? pos.y : 0.15),
       fontSize: opts.fontSize || 40,
       fontFamily: opts.fontFamily || 'Impact',
       color: opts.color || '#ffffff',
@@ -182,6 +205,17 @@
 
     // 0. AI tracking mode — next canvas click picks the object
     if (state._trackingMode) {
+      // Show ripple at click position relative to canvas-container
+      var container = GC.canvas.parentElement;
+      if (container) {
+        var cRect = container.getBoundingClientRect();
+        var dot = document.createElement('div');
+        dot.className = 'tracking-ripple';
+        dot.style.left = (e.clientX - cRect.left) + 'px';
+        dot.style.top  = (e.clientY - cRect.top)  + 'px';
+        container.appendChild(dot);
+        setTimeout(function () { dot.parentNode && dot.parentNode.removeChild(dot); }, 600);
+      }
       GC.handleTrackingClick(
         m.x / state.width,
         m.y / state.height,
@@ -229,6 +263,8 @@
                 startFontSize: selCap.fontSize,
                 startY: m.y,
                 startX: m.x,
+                refX: rpx,
+                refY: rpy,
                 startDist: Math.sqrt(Math.pow(m.x - rpx * state.width, 2) + Math.pow(m.y - rpy * state.height, 2)),
               };
               GC.canvas.style.cursor = 'nwse-resize';
@@ -313,7 +349,7 @@
     if (state.resizeState) {
       var cap = GC.findCaption(state.resizeState.captionId);
       if (!cap) return;
-      var dist = Math.sqrt(Math.pow(m.x - cap.x * state.width, 2) + Math.pow(m.y - cap.y * state.height, 2));
+      var dist = Math.sqrt(Math.pow(m.x - state.resizeState.refX * state.width, 2) + Math.pow(m.y - state.resizeState.refY * state.height, 2));
       var scale = dist / state.resizeState.startDist;
       cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
       GC.renderCurrentFrame();
@@ -681,12 +717,6 @@
 
     // ── On-image caption controls ─────────────
     $('#btn-add-caption').addEventListener('click', function () { addCaption(); });
-    $('#btn-add-top').addEventListener('click', function () {
-      addCaption({ text: 'TOP TEXT', y: 0.05 });
-    });
-    $('#btn-add-bottom').addEventListener('click', function () {
-      addCaption({ text: 'BOTTOM TEXT', y: 0.85 });
-    });
     $('#btn-delete-caption').addEventListener('click', function () {
       if (state.selectedCaptionId) {
         $('#delete-modal').classList.remove('hidden');

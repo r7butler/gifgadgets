@@ -775,6 +775,30 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text-primary);
 }
 
+/* Shade overlay shown while tracking mode is active */
+.tracking-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 40;
+}
+@keyframes tracking-ripple {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 0.9; }
+  to   { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+.tracking-ripple {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #a78bfa;
+  background: rgba(167, 139, 250, 0.25);
+  animation: tracking-ripple 0.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 55;
+}
+
 .kf-context-menu {
   position: fixed;
   z-index: 200;
