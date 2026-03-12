@@ -1,60 +1,107 @@
 /* ==========================================================
-   GifCaption – AI Object Tracker (SAM2 Lambda)
+   GifCaption – Client-side Object Tracker (EdgeSAM via Web Worker)
 
-   Sends sampled GIF frames to the gifcaption-tracker Lambda,
-   receives motion keyframes, and writes them into the caption.
+   Uses EdgeSAM running in a Web Worker via onnxruntime-web (WebGPU/WASM).
+   Model files are served from /models/ on the same origin.
+   Results stream in frame-by-frame as each inference completes.
 
-   Workflow:
-     1. User clicks "Track with AI" → warm-up request fires,
-        tracking instruction bar appears.
-     2. User clicks on the object in the canvas.
-     3. Sampled frames + click coordinates POSTed to Lambda.
-     4. Lambda returns motion[]; caption.motion is replaced.
+   Public API (called from editor.js):
+     GC.trackerAvailable()
+     GC.warmUpTracker()        — pre-loads the model in background
+     GC.startTrackingMode(cap)
+     GC.stopTrackingMode()
+     GC.handleTrackingClick(normX, normY, clickFrame)
 
    Depends on:
      editor-state.js     (GC namespace, state)
      canvas-rendering.js (GC.renderCurrentFrame)
      gif-timeline.js     (GC.buildTimeline)
-     editor.js           (GC.updateCaptionList, updateCaptionEditor
-                          exposed via GC.updateUI)
-
-   TRACKER_BASE_URL is injected by deploy-frontend.sh at deploy time.
+     editor.js           (GC.updateCaptionList, GC.updateUI)
    ========================================================== */
 
 (function () {
   'use strict';
 
-  // Injected by deploy-frontend.sh — replaced with the real Lambda URL.
-  var TRACKER_BASE_URL = 'https://xmd3fo6xovw52j34eckgmnprau0beqvr.lambda-url.us-east-1.on.aws';
-
   var state = GC.state;
+
+  // ── Worker lifecycle ─────────────────────────
+
+  var _worker = null;
+  var _trackingCap = null;   // caption being tracked (set during a run)
+  var _timelineBuilt = false;
+
+  function _getWorker() {
+    if (_worker) return _worker;
+    _worker = new Worker('gif-tracker-worker.js');
+    _worker.onmessage = _handleWorkerMessage;
+    _worker.onerror = function (e) {
+      _hideTrackingProgress();
+      GC.showError('Tracker worker error: ' + e.message);
+      _trackingCap = null;
+    };
+    return _worker;
+  }
+
+  function _handleWorkerMessage(e) {
+    var msg = e.data;
+    if (msg.type === 'progress') {
+      _setProgressText(msg.text);
+
+    } else if (msg.type === 'keyframe') {
+      if (!_trackingCap) return;
+      // Insert / update keyframe in cap.motion and refresh UI incrementally.
+      _upsertKeyframe(_trackingCap, msg.frame, msg.x, msg.y);
+      if (!_timelineBuilt) {
+        GC.buildTimeline();   // first keyframe — build motion row
+        _timelineBuilt = true;
+      }
+      GC.renderCurrentFrame();
+
+    } else if (msg.type === 'done') {
+      if (_trackingCap) {
+        _trackingCap.motion.sort(function (a, b) { return a.frame - b.frame; });
+        GC.buildTimeline();
+        GC.renderCurrentFrame();
+        GC.updateCaptionList();
+        if (GC.updateUI) GC.updateUI();
+      }
+      _hideTrackingProgress();
+      _trackingCap = null;
+
+    } else if (msg.type === 'error') {
+      _hideTrackingProgress();
+      GC.showError('Tracking failed: ' + msg.message);
+      _trackingCap = null;
+    }
+  }
+
+  function _upsertKeyframe(cap, frame, x, y) {
+    if (!cap.motion) cap.motion = [];
+    for (var i = 0; i < cap.motion.length; i++) {
+      if (cap.motion[i].frame === frame) {
+        cap.motion[i].x = x;
+        cap.motion[i].y = y;
+        return;
+      }
+    }
+    cap.motion.push({ frame: frame, x: x, y: y });
+  }
 
   // ── Public API ───────────────────────────────
 
-  /** Returns true if a real tracker URL has been configured. */
-  GC.trackerAvailable = function () {
-    return TRACKER_BASE_URL && TRACKER_BASE_URL !== 'TRACKER_URL_PLACEHOLDER';
-  };
+  GC.trackerAvailable = function () { return true; };
 
   /**
-   * Fire a warm-up POST to wake the Lambda and pre-load the SAM2 model.
-   * Safe to call multiple times — subsequent calls are no-ops if already warming.
+   * Pre-load the SAM model in the background so the first real tracking
+   * request doesn't have to wait for the download.
    */
   GC.warmUpTracker = function () {
-    if (!GC.trackerAvailable()) return;
     if (GC._trackerWarmupSent) return;
     GC._trackerWarmupSent = true;
-    fetch(TRACKER_BASE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ warmup: true }),
-    }).catch(function () { /* warm-up failure is non-fatal */ });
+    // Just instantiate the worker — it will load the model on first 'track' message.
+    _getWorker();
   };
 
-  /**
-   * Show the tracking instruction bar and wait for the user to click
-   * on the canvas.  Stores the active caption in state._trackingMode.
-   */
   GC.startTrackingMode = function (cap) {
     if (!cap) return;
     if (state.isPlaying) GC.pause();
@@ -62,9 +109,9 @@
     GC.canvas.style.cursor = 'crosshair';
     var bar = document.getElementById('tracking-bar');
     if (bar) bar.classList.remove('hidden');
+    _getWorker().postMessage({ type: 'warmup' });
   };
 
-  /** Cancel tracking mode — hides the bar and restores normal cursor. */
   GC.stopTrackingMode = function () {
     state._trackingMode = null;
     GC.canvas.style.cursor = '';
@@ -74,12 +121,10 @@
 
   /**
    * Called from handleCanvasMouseDown when tracking mode is active.
-   * Extracts sampled frames, sends them to the Lambda, and writes
-   * the returned motion keyframes into the caption.
    *
-   * @param {number} normX  Normalised click x (0–1)
-   * @param {number} normY  Normalised click y (0–1)
-   * @param {number} clickFrame  Current GIF frame index at time of click
+   * @param {number} normX       Normalised click x (0–1)
+   * @param {number} normY       Normalised click y (0–1)
+   * @param {number} clickFrame  GIF frame index at time of click
    */
   GC.handleTrackingClick = function (normX, normY, clickFrame) {
     var trackingMode = state._trackingMode;
@@ -89,84 +134,90 @@
     var cap = GC.findCaption(trackingMode.captionId);
     if (!cap) return;
 
-    var sampled = _extractSampledFrames();
+    var sampled = _buildSampledFrames(clickFrame);
     if (sampled.frames.length === 0) return;
 
-    _showTrackingProgress();
+    // Clear existing motion and start fresh.
+    cap.motion = [];
+    _trackingCap = cap;
+    _timelineBuilt = false;
 
-    fetch(TRACKER_BASE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        frames: sampled.frames,
-        frame_indices: sampled.frameIndices,
-        click_x: normX,
-        click_y: normY,
-        click_frame: clickFrame,
-      }),
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error('Tracker returned HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        _hideTrackingProgress();
-        if (!data.motion || data.motion.length === 0) {
-          GC.showError('Tracker returned no motion data.');
-          return;
-        }
-        cap.motion = data.motion;
-        GC.buildTimeline();
-        GC.renderCurrentFrame();
-        GC.updateCaptionList();
-        if (GC.updateUI) GC.updateUI();
-      })
-      .catch(function (err) {
-        _hideTrackingProgress();
-        GC.showError('Tracking failed: ' + err.message);
-      });
+    _showTrackingProgress('Initializing…');
+
+    _getWorker().postMessage({
+      type: 'track',
+      frames: sampled.frames,
+      clickX: normX * state.width,
+      clickY: normY * state.height,
+      clickFrameIdx: sampled.clickFrameIdx,
+      origin: window.location.origin,
+    });
   };
 
-  // ── Frame extraction ─────────────────────────
+  // ── Frame sampling ───────────────────────────
 
   /**
-   * Sample up to 30 frames evenly across the GIF and encode each as a
-   * base64 JPEG.  Returns { frames: string[], frameIndices: number[] }.
+   * Build strided frame list and locate the click frame within it.
+   * Stride: every frame if ≤30 total, every 2nd if <120, every 3rd if ≥120.
+   *
+   * Returns { frames: [{data, width, height, frameIndex}], clickFrameIdx }
+   * where clickFrameIdx is the index within the returned frames array.
    */
-  function _extractSampledFrames() {
-    var totalFrames = state.frames.length;
-    if (totalFrames === 0) return { frames: [], frameIndices: [] };
+  function _buildSampledFrames(clickFrame) {
+    var total = state.frames.length;
+    if (total === 0) return { frames: [], clickFrameIdx: 0 };
 
-    var N = Math.max(1, Math.floor(totalFrames / 8));
+    var stride = 1;
+
+    // Collect strided indices, always including clickFrame.
     var indices = [];
-    for (var i = 0; i < totalFrames; i += N) indices.push(i);
+    for (var i = 0; i < total; i += stride) indices.push(i);
+    // Ensure clickFrame is included (snap to nearest strided index).
+    if (indices.indexOf(clickFrame) === -1) {
+      // Replace the strided index closest to clickFrame with clickFrame.
+      var closest = indices.reduce(function (best, idx) {
+        return Math.abs(idx - clickFrame) < Math.abs(best - clickFrame) ? idx : best;
+      }, indices[0]);
+      indices[indices.indexOf(closest)] = clickFrame;
+      indices.sort(function (a, b) { return a - b; });
+    }
+
+    var clickFrameIdx = indices.indexOf(clickFrame);
 
     var tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = state.width;
     tmpCanvas.height = state.height;
-    var tmpCtx = tmpCanvas.getContext('2d');
+    var ctx = tmpCanvas.getContext('2d');
 
-    var frames = [];
-    var frameIndices = [];
-    for (var j = 0; j < indices.length; j++) {
-      var idx = indices[j];
-      tmpCtx.putImageData(state.frames[idx].imageData, 0, 0);
-      var b64 = tmpCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-      frames.push(b64);
-      frameIndices.push(idx);
-    }
-    return { frames: frames, frameIndices: frameIndices };
+    var frames = indices.map(function (idx) {
+      ctx.putImageData(state.frames[idx].imageData, 0, 0);
+      var imgData = ctx.getImageData(0, 0, state.width, state.height);
+      return {
+        data: imgData.data.buffer,   // ArrayBuffer (cloned on postMessage)
+        width: state.width,
+        height: state.height,
+        frameIndex: idx,
+      };
+    });
+
+    return { frames: frames, clickFrameIdx: clickFrameIdx };
   }
 
-  // ── Progress overlay helpers ─────────────────
+  // ── Progress bar helpers ─────────────────────
 
-  function _showTrackingProgress() {
+  function _showTrackingProgress(text) {
     var bar = document.getElementById('tracking-bar');
     if (!bar) return;
     bar.classList.remove('hidden');
-    bar.querySelector('.tracking-bar-text').textContent = 'Analyzing… this may take up to a minute';
+    bar.querySelector('.tracking-bar-text').textContent = text || 'Tracking…';
     var cancelBtn = bar.querySelector('#btn-cancel-tracking');
     if (cancelBtn) cancelBtn.style.display = 'none';
+  }
+
+  function _setProgressText(text) {
+    var bar = document.getElementById('tracking-bar');
+    if (!bar || bar.classList.contains('hidden')) return;
+    bar.querySelector('.tracking-bar-text').textContent = text;
   }
 
   function _hideTrackingProgress() {
