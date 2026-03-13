@@ -182,6 +182,7 @@
 
     var mobileActions = document.createElement('div');
     mobileActions.className = 'editor-header-mobile-actions';
+    var themeToggle = actions.querySelector('.theme-toggle');
 
     var toggleBtn = document.createElement('button');
     toggleBtn.className = 'editor-header-toggle';
@@ -241,6 +242,7 @@
       if (window.innerWidth > 768) setOpen(false);
     });
 
+    if (themeToggle) mobileActions.appendChild(themeToggle);
     header.appendChild(mobileActions);
     header.appendChild(toggleBtn);
     ensureEditorHeaderObserver();

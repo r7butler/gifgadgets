@@ -1191,8 +1191,7 @@ input[type="range"]::-moz-range-thumb {
   .video-editor-header.is-open .header-actions,
   .vtg-header.is-open .header-actions { display: flex; }
   .header-actions .btn,
-  .header-actions a,
-  .header-actions .theme-toggle {
+  .header-actions a {
     width: 100%; justify-content: flex-start; margin-left: 0;
   }
   .editor-mobile-menu-item { display: inline-flex; }
