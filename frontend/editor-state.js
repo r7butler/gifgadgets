@@ -70,6 +70,20 @@
     panX: 0,                // canvas translate X in screen pixels
     panY: 0,                // canvas translate Y in screen pixels
     panDrag: null,          // active pan drag: { startClientX, startClientY, startPanX, startPanY }
+
+    // Photo adjustments (non-destructive — applied at render + export time)
+    adjustments: {
+      brightness: 0,        // -100 … +100
+      contrast: 0,          // -100 … +100
+      saturation: 0,        // -100 … +100
+      hue: 0,               // 0 … 360
+      filter: 'none',       // 'none' | 'grayscale' | 'sepia' | 'invert' | 'blur' | 'warm'
+    },
+
+    // Still-image mode (image caption tool) — single frame, exports to image not GIF
+    isStillImage: false,
+    exportFormat: 'image/jpeg',   // output format for image export
+    exportQuality: 0.92,          // 0–1 quality for JPEG/WebP
   };
 
   // ── Mutable Shared References ────────────────
@@ -107,6 +121,37 @@
       borderWidth: 0,       // black border thickness around the bar
       fontWeight: 700,      // CSS font-weight (100–900)
     };
+  };
+
+  // ── Adjustment Helpers ───────────────────────
+
+  /** Build a CSS filter string from current adjustment state. */
+  GC.buildAdjFilter = function () {
+    var a = GC.state.adjustments;
+    var b = a.brightness || 0;
+    var c = a.contrast   || 0;
+    var s = a.saturation || 0;
+    var h = a.hue        || 0;
+    var parts = [
+      'brightness(' + (1 + b / 100) + ')',
+      'contrast('   + (1 + c / 100) + ')',
+      'saturate('   + (1 + s / 100) + ')',
+      'hue-rotate(' + h + 'deg)',
+    ];
+    var f = a.filter || 'none';
+    if (f === 'grayscale') parts.push('grayscale(1)');
+    else if (f === 'sepia')     parts.push('sepia(0.8)');
+    else if (f === 'invert')    parts.push('invert(1)');
+    else if (f === 'blur')      parts.push('blur(2px)');
+    else if (f === 'warm')      parts.push('sepia(0.3) saturate(1.4) hue-rotate(-10deg)');
+    return parts.join(' ');
+  };
+
+  /** Return true when any adjustment is non-neutral. */
+  GC.hasAdjustments = function () {
+    var a = GC.state.adjustments;
+    return a.brightness !== 0 || a.contrast !== 0 || a.saturation !== 0 ||
+           a.hue !== 0 || (a.filter && a.filter !== 'none');
   };
 
   // ── Tiny Helpers ─────────────────────────────

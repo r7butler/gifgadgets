@@ -223,7 +223,7 @@
           var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.add('hidden');
           var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
           $('#btn-download').disabled = false;
-          $('#btn-share').disabled = false;
+          var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
           GC.hideLoading();
         };
         img.onerror = function () {

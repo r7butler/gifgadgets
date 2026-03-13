@@ -49,6 +49,8 @@
       GC.loadGifById(gifId);
     } else if (source === 'local') {
       GC.loadGifFromIndexedDB();
+    } else if (source === 'imgcap' && GC.loadImageFromIndexedDB) {
+      GC.loadImageFromIndexedDB();
     }
   }
 
@@ -632,7 +634,7 @@
     if (btnTrack) btnTrack.style.display = GC.trackerAvailable && GC.trackerAvailable() ? '' : 'none';
   }
 
-  /** Update the play/pause button icon, frame counter, and scrubber. */
+  /** Update the play/pause button icon, frame counter, scrubber, and Save Frame state. */
   GC.updatePlaybackUI = function () {
     var btn = $('#btn-play-pause');
     if (btn) {
@@ -647,6 +649,8 @@
       scrubber.max = state.frames.length - 1;
       scrubber.value = state.currentFrame;
     }
+    var btnSF = $('#btn-save-frame');
+    if (btnSF) btnSF.disabled = state.isPlaying || state.frames.length === 0;
   };
 
   // ── Loading & Progress Overlays ──────────────
@@ -707,8 +711,10 @@
           GC.loadHeicAsImage(file);
         } else if (file.type.startsWith('video/')) {
           GC.loadVideoAsGif(file);
+        } else if (file.type.startsWith('image/') && GC.loadImageFile) {
+          GC.loadImageFile(file);
         } else {
-          GC.showError('Please drop a GIF, video, or HEIC file.');
+          GC.showError(GC.dropErrorMessage || 'Please drop a GIF, video, or HEIC file.');
         }
       });
       dropZone.addEventListener('click', function () { $('#file-input').click(); });
@@ -725,6 +731,8 @@
           GC.loadHeicAsImage(file);
         } else if (file.type.startsWith('video/')) {
           GC.loadVideoAsGif(file);
+        } else if (file.type.startsWith('image/') && GC.loadImageFile) {
+          GC.loadImageFile(file);
         }
       });
     }
@@ -750,7 +758,7 @@
         $('#upload-zone').classList.remove('hidden');
         var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
         var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
-        $('#btn-share').disabled = true;
+        var _btnShare = $('#btn-share'); if (_btnShare) _btnShare.disabled = true;
         $('#btn-download').disabled = true;
         if ($('#file-input')) $('#file-input').value = '';
         // Reset Other Options UI
@@ -760,6 +768,11 @@
         if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
         if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
         if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
+        // Reset photo adjustments
+        state.adjustments.brightness = 0; state.adjustments.contrast   = 0;
+        state.adjustments.saturation = 0; state.adjustments.hue        = 0;
+        state.adjustments.filter     = 'none';
+        _resetAdjUI();
       });
     }
 
@@ -1069,36 +1082,74 @@
     // ── Export & Share ─────────────────────────
     var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     $('#btn-download').addEventListener('click', function () {
-      GC.exportGif({ onBlob: showDownloadModal });
+      if (state.isStillImage && GC.exportImage) {
+        GC.exportImage({ onBlob: showDownloadModal });
+      } else {
+        GC.exportGif({ onBlob: showDownloadModal });
+      }
     });
-    $('#btn-share').addEventListener('click', function () {
-      if (state.frames.length === 0 || GC.exportInProgress) return;
-      $('#share-consent-modal').classList.remove('hidden');
-    });
-    $('#share-consent-yes').addEventListener('click', function () {
-      $('#share-consent-modal').classList.add('hidden');
-      GC.shareFlow();
-    });
-    $('#share-consent-no').addEventListener('click', function () {
-      $('#share-consent-modal').classList.add('hidden');
-      GC.exportGif({ onBlob: showDownloadModal });
-    });
-    $('#share-consent-modal').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.add('hidden');
-    });
+    var btnShare = $('#btn-share');
+    if (btnShare) {
+      btnShare.addEventListener('click', function () {
+        if (state.frames.length === 0 || GC.exportInProgress) return;
+        var consentModal = $('#share-consent-modal');
+        if (consentModal) consentModal.classList.remove('hidden');
+      });
+    }
+    var btnConsentYes = $('#share-consent-yes');
+    if (btnConsentYes) {
+      btnConsentYes.addEventListener('click', function () {
+        $('#share-consent-modal').classList.add('hidden');
+        GC.shareFlow();
+      });
+    }
+    var btnConsentNo = $('#share-consent-no');
+    if (btnConsentNo) {
+      btnConsentNo.addEventListener('click', function () {
+        $('#share-consent-modal').classList.add('hidden');
+        GC.exportGif({ onBlob: showDownloadModal });
+      });
+    }
+    var shareConsentModal = $('#share-consent-modal');
+    if (shareConsentModal) {
+      shareConsentModal.addEventListener('click', function (e) {
+        if (e.target === this) this.classList.add('hidden');
+      });
+    }
+
+    // ── Export Frame (GIF editor — exports current frame as JPEG) ──
+    var btnSaveFrame = $('#btn-save-frame');
+    if (btnSaveFrame) {
+      btnSaveFrame.addEventListener('click', function () {
+        if (state.frames.length === 0) return;
+        GC.saveCurrentFrame({ onBlob: showDownloadModal });
+      });
+    }
 
     // Download modal (mobile long-press save flow)
-    function showDownloadModal(blob) {
+    function showDownloadModal(blob, filename) {
       var modal = $('#download-modal');
       modal._blob = blob;
+      modal._filename = filename || null;
+      // Update modal title based on file type
+      var titleEl = modal.querySelector('.modal-title');
+      if (titleEl) {
+        var fn = filename || '';
+        titleEl.textContent = fn.endsWith('.gif') ? 'Your GIF is ready!' :
+                              fn.match(/\.(jpg|jpeg|webp|png)$/i) && fn.includes('-frame-') ? 'Frame exported!' :
+                              'Your image is ready!';
+      }
       var preview = $('#download-preview');
       preview.innerHTML = '';
       var blobUrl = URL.createObjectURL(blob);
       var img = document.createElement('img');
       img.src = blobUrl;
-      img.alt = 'Your captioned GIF';
+      img.alt = 'Your exported image';
       preview.appendChild(img);
       modal._blobUrl = blobUrl;
+      // Update download button label
+      var dlBtn = $('#btn-dl-download');
+      if (dlBtn) dlBtn.textContent = filename && filename.endsWith('.gif') ? 'Download GIF' : 'Download Image';
       modal.classList.remove('hidden');
     }
     function closeDownloadModal() {
@@ -1112,29 +1163,36 @@
       if (e.target === this) closeDownloadModal();
     });
     $('#btn-dl-download').addEventListener('click', function () {
-      var blob = $('#download-modal')._blob;
-      if (blob) GC.downloadBlob(blob, GC.makeCaptionedFilename());
+      var modal = $('#download-modal');
+      var blob = modal._blob;
+      if (blob) GC.downloadBlob(blob, modal._filename || GC.makeCaptionedFilename());
     });
     $('#btn-dl-save-photos').addEventListener('click', function () {
-      var blob = $('#download-modal')._blob;
+      var modal = $('#download-modal');
+      var blob = modal._blob;
       if (!blob) return;
-      var fname = GC.makeCaptionedFilename();
-      var file = new File([blob], fname, { type: 'image/gif' });
+      var fname = modal._filename || GC.makeCaptionedFilename();
+      var mimeType = (blob && blob.type) || (state.isStillImage ? (state.exportFormat || 'image/jpeg') : 'image/gif');
+      var file = new File([blob], fname, { type: mimeType });
+      var title = state.isStillImage ? 'Captioned image' : 'Captioned GIF';
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: 'Captioned GIF' }).catch(function () {});
+        navigator.share({ files: [file], title: title }).catch(function () {});
       } else {
         GC.downloadBlob(blob, fname);
       }
     });
 
-    // Share modal events
-    $('#share-modal-close').addEventListener('click', GC.closeShareModal);
-    $('#share-modal').addEventListener('click', function (e) {
+    // Share modal events (only present in GIF editors, not image-caption)
+    var shareModalClose = $('#share-modal-close');
+    if (shareModalClose) shareModalClose.addEventListener('click', GC.closeShareModal);
+    var shareModal = $('#share-modal');
+    if (shareModal) shareModal.addEventListener('click', function (e) {
       if (e.target === this) GC.closeShareModal();
     });
-    $('#btn-copy-link').addEventListener('click', function () {
+    var btnCopyLink = $('#btn-copy-link');
+    if (btnCopyLink) btnCopyLink.addEventListener('click', function () {
       var input = $('#share-url');
-      if (!input.value) return;
+      if (!input || !input.value) return;
       navigator.clipboard.writeText(input.value).then(function () {
         GC.setShareStatus('Copied!', 'success');
       }).catch(function () {
@@ -1143,9 +1201,10 @@
         GC.setShareStatus('Copied!', 'success');
       });
     });
-    $('#btn-copy-image-url').addEventListener('click', function () {
+    var btnCopyImageUrl = $('#btn-copy-image-url');
+    if (btnCopyImageUrl) btnCopyImageUrl.addEventListener('click', function () {
       var input = $('#share-image-url');
-      if (!input.value) return;
+      if (!input || !input.value) return;
       navigator.clipboard.writeText(input.value).then(function () {
         GC.setShareStatus('Image URL copied!', 'success');
       }).catch(function () {
@@ -1154,9 +1213,10 @@
         GC.setShareStatus('Image URL copied!', 'success');
       });
     });
-    $('#btn-share-download').addEventListener('click', function () {
+    var btnShareDownload = $('#btn-share-download');
+    if (btnShareDownload) btnShareDownload.addEventListener('click', function () {
       var modal = $('#share-modal');
-      if (modal._blob) GC.downloadBlob(modal._blob, GC.makeCaptionedFilename());
+      if (modal && modal._blob) GC.downloadBlob(modal._blob, GC.makeCaptionedFilename());
     });
 
     // Save to Photos (mobile: Web Share API or download fallback)
@@ -1351,7 +1411,212 @@
         if (state.frames.length > 0 && !state._brushActive) GC.buildTimeline();
       }, 200);
     });
+
+    // ── Adjustments section toggle ────────────
+    var adjToggle = $('#adj-toggle');
+    if (adjToggle) {
+      adjToggle.addEventListener('click', function () {
+        var section = $('#adj-section');
+        var collapsed = section.classList.toggle('collapsed');
+        adjToggle.classList.toggle('collapsed', collapsed);
+        adjToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
+    // ── Adjustment sliders ────────────────────
+    [
+      { id: 'adj-brightness', key: 'brightness' },
+      { id: 'adj-contrast',   key: 'contrast'   },
+      { id: 'adj-saturation', key: 'saturation' },
+      { id: 'adj-hue',        key: 'hue'        },
+    ].forEach(function (sl) {
+      var el = $('#' + sl.id);
+      if (!el) return;
+      el.addEventListener('input', function () {
+        state.adjustments[sl.key] = +el.value;
+        var valEl = $('#' + sl.id + '-val');
+        if (valEl) valEl.textContent = el.value;
+        GC.renderCurrentFrame();
+      });
+    });
+
+    // ── Filter preset buttons ─────────────────
+    GC.$$('.adj-filter-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        GC.$$('.adj-filter-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.adjustments.filter = btn.dataset.filter;
+        GC.renderCurrentFrame();
+      });
+    });
+
+    // ── Transform: rotate & flip (destructive) ─
+    function applyRotateToFrames(degrees) {
+      if (state.frames.length === 0) return;
+      GC.pause();
+      var w = state.width, h = state.height;
+      var isSwap = degrees === 90 || degrees === 270;
+      var newW = isSwap ? h : w, newH = isSwap ? w : h;
+      var srcC = document.createElement('canvas'); srcC.width = w; srcC.height = h;
+      var srcX = srcC.getContext('2d');
+      var dstC = document.createElement('canvas'); dstC.width = newW; dstC.height = newH;
+      var dstX = dstC.getContext('2d');
+      for (var i = 0; i < state.frames.length; i++) {
+        srcX.putImageData(state.frames[i].imageData, 0, 0);
+        dstX.clearRect(0, 0, newW, newH);
+        dstX.save();
+        dstX.translate(newW / 2, newH / 2);
+        dstX.rotate(degrees * Math.PI / 180);
+        dstX.drawImage(srcC, -w / 2, -h / 2);
+        dstX.restore();
+        state.frames[i].imageData = dstX.getImageData(0, 0, newW, newH);
+      }
+      state.width = newW; state.height = newH;
+      GC.canvas.width = newW; GC.canvas.height = newH;
+      _updateAdjResizeInputs();
+      GC.renderCurrentFrame();
+      GC.buildTimeline();
+    }
+
+    function applyFlipToFrames(axis) {
+      if (state.frames.length === 0) return;
+      GC.pause();
+      var w = state.width, h = state.height;
+      var srcC = document.createElement('canvas'); srcC.width = w; srcC.height = h;
+      var srcX = srcC.getContext('2d');
+      var dstC = document.createElement('canvas'); dstC.width = w; dstC.height = h;
+      var dstX = dstC.getContext('2d');
+      for (var i = 0; i < state.frames.length; i++) {
+        srcX.putImageData(state.frames[i].imageData, 0, 0);
+        dstX.clearRect(0, 0, w, h);
+        dstX.save();
+        if (axis === 'h') { dstX.translate(w, 0); dstX.scale(-1, 1); }
+        else               { dstX.translate(0, h); dstX.scale(1, -1); }
+        dstX.drawImage(srcC, 0, 0);
+        dstX.restore();
+        state.frames[i].imageData = dstX.getImageData(0, 0, w, h);
+      }
+      GC.renderCurrentFrame();
+    }
+
+    var btnRotCW  = $('#adj-rotate-cw');  if (btnRotCW)  btnRotCW.addEventListener('click',  function () { applyRotateToFrames(90); });
+    var btnRotCCW = $('#adj-rotate-ccw'); if (btnRotCCW) btnRotCCW.addEventListener('click', function () { applyRotateToFrames(270); });
+    var btnFlipH  = $('#adj-flip-h');     if (btnFlipH)  btnFlipH.addEventListener('click',  function () { applyFlipToFrames('h'); });
+    var btnFlipV  = $('#adj-flip-v');     if (btnFlipV)  btnFlipV.addEventListener('click',  function () { applyFlipToFrames('v'); });
+
+    // ── Resize GIF / image ────────────────────
+    var adjLockState = { locked: true };
+    var adjLockBtn = $('#adj-lock-ratio');
+    if (adjLockBtn) {
+      adjLockBtn.addEventListener('click', function () {
+        adjLockState.locked = !adjLockState.locked;
+        adjLockBtn.classList.toggle('locked', adjLockState.locked);
+        adjLockBtn.textContent = adjLockState.locked ? '🔒' : '🔓';
+      });
+    }
+    var adjWInput = $('#adj-resize-width');
+    var adjHInput = $('#adj-resize-height');
+    if (adjWInput) {
+      adjWInput.addEventListener('input', function () {
+        if (adjLockState.locked && state.width > 0) {
+          adjHInput.value = Math.round(+adjWInput.value * state.height / state.width);
+        }
+      });
+    }
+    if (adjHInput) {
+      adjHInput.addEventListener('input', function () {
+        if (adjLockState.locked && state.height > 0) {
+          adjWInput.value = Math.round(+adjHInput.value * state.width / state.height);
+        }
+      });
+    }
+    var btnApplyResize = $('#adj-apply-resize');
+    if (btnApplyResize) {
+      btnApplyResize.addEventListener('click', function () {
+        var newW = parseInt(adjWInput.value, 10);
+        var newH = parseInt(adjHInput.value, 10);
+        if (!newW || !newH || newW < 1 || newH < 1) return;
+        if (state.frames.length === 0) return;
+        GC.pause();
+        var srcC = document.createElement('canvas'); srcC.width = state.width; srcC.height = state.height;
+        var srcX = srcC.getContext('2d');
+        var dstC = document.createElement('canvas'); dstC.width = newW; dstC.height = newH;
+        var dstX = dstC.getContext('2d');
+        for (var i = 0; i < state.frames.length; i++) {
+          srcX.putImageData(state.frames[i].imageData, 0, 0);
+          dstX.clearRect(0, 0, newW, newH);
+          dstX.drawImage(srcC, 0, 0, newW, newH);
+          state.frames[i].imageData = dstX.getImageData(0, 0, newW, newH);
+        }
+        state.width = newW; state.height = newH;
+        GC.canvas.width = newW; GC.canvas.height = newH;
+        _updateAdjResizeInputs();
+        GC.renderCurrentFrame();
+        GC.buildTimeline();
+      });
+    }
+
+    // ── Reset adjustments ─────────────────────
+    var btnAdjReset = $('#adj-reset');
+    if (btnAdjReset) {
+      btnAdjReset.addEventListener('click', function () {
+        state.adjustments.brightness = 0;
+        state.adjustments.contrast   = 0;
+        state.adjustments.saturation = 0;
+        state.adjustments.hue        = 0;
+        state.adjustments.filter     = 'none';
+        _resetAdjUI();
+        GC.renderCurrentFrame();
+      });
+    }
+
+    // ── Export format / quality (image caption tool) ──
+    var selExportFmt = $('#sel-export-format');
+    if (selExportFmt) {
+      selExportFmt.addEventListener('change', function () {
+        state.exportFormat = selExportFmt.value;
+        var qg = $('#export-quality-group');
+        if (qg) qg.style.display = selExportFmt.value === 'image/png' ? 'none' : '';
+      });
+    }
+    var slExportQuality = $('#sl-export-quality');
+    if (slExportQuality) {
+      slExportQuality.addEventListener('input', function () {
+        state.exportQuality = +slExportQuality.value / 100;
+        var valEl = $('#export-quality-val');
+        if (valEl) valEl.textContent = slExportQuality.value;
+      });
+    }
   }
+
+  // ── Adjustment UI helpers ─────────────────────
+  function _resetAdjUI() {
+    ['adj-brightness', 'adj-contrast', 'adj-saturation', 'adj-hue'].forEach(function (id) {
+      var el = $('#' + id); if (el) el.value = 0;
+      var v  = $('#' + id + '-val'); if (v) v.textContent = '0';
+    });
+    GC.$$('.adj-filter-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.filter === 'none');
+    });
+  }
+
+  function _updateAdjResizeInputs() {
+    var rw = $('#adj-resize-width');  if (rw) rw.value = state.width;
+    var rh = $('#adj-resize-height'); if (rh) rh.value = state.height;
+    var os = $('#adj-original-size'); if (os) os.textContent = state.width + ' × ' + state.height;
+  }
+
+  // Expose so gif-playback.js + image-caption.js can call it after load
+  GC._updateAdjResizeInputs = _updateAdjResizeInputs;
+
+  // Patch updateUI to also refresh resize inputs and Save Frame button state
+  var _origUpdateUI = GC.updateUI;
+  GC.updateUI = function () {
+    _origUpdateUI();
+    _updateAdjResizeInputs();
+    var btnSF = $('#btn-save-frame');
+    if (btnSF) btnSF.disabled = state.isPlaying || state.frames.length === 0;
+  };
 
   // ── Boot ─────────────────────────────────────
   if (document.readyState === 'loading') {

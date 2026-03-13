@@ -106,6 +106,29 @@
   // ── Frame + Caption Compositing ──────────────
 
   /**
+   * Draw a frame's ImageData to ctx at (x, y), applying photo adjustments.
+   * ctx.putImageData ignores the canvas filter, so we route through a temp
+   * canvas + ctx.drawImage when any adjustment is active.
+   */
+  function drawFrameAdjusted(ctx, frame, x, y) {
+    if (GC.hasAdjustments()) {
+      var s = state;
+      // Reuse a cached temp canvas when possible (invalidate on dimension change)
+      if (!s._adjTmpCanvas || s._adjTmpCanvas.width !== s.width || s._adjTmpCanvas.height !== s.height) {
+        s._adjTmpCanvas = document.createElement('canvas');
+        s._adjTmpCanvas.width  = s.width;
+        s._adjTmpCanvas.height = s.height;
+      }
+      s._adjTmpCanvas.getContext('2d').putImageData(frame.imageData, 0, 0);
+      ctx.filter = GC.buildAdjFilter();
+      ctx.drawImage(s._adjTmpCanvas, x, y);
+      ctx.filter = 'none';
+    } else {
+      ctx.putImageData(frame.imageData, x, y);
+    }
+  }
+
+  /**
    * Render the current frame onto the preview canvas.
    * Composites: GIF frame → overlay captions → box bars → selection box.
    */
@@ -119,7 +142,7 @@
 
     // Clear and draw the raw frame at the correct vertical offset
     ctx.clearRect(0, 0, size.w, size.h);
-    ctx.putImageData(state.frames[state.currentFrame].imageData, 0, offsetY);
+    drawFrameAdjusted(ctx, state.frames[state.currentFrame], 0, offsetY);
 
     // Overlay on-image captions (coordinates are relative to the GIF area)
     ctx.save();

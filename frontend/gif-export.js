@@ -57,6 +57,15 @@
     expCanvas.height = compSize.h;
     var expCtx = expCanvas.getContext('2d');
 
+    // Reusable temp canvas for adjustment filter pass (drawImage respects ctx.filter; putImageData does not)
+    var adjTmpCanvas = null, adjTmpCtx = null;
+    if (GC.hasAdjustments()) {
+      adjTmpCanvas = document.createElement('canvas');
+      adjTmpCanvas.width  = state.width;
+      adjTmpCanvas.height = state.height;
+      adjTmpCtx = adjTmpCanvas.getContext('2d');
+    }
+
     // Separate canvas for cropped output (if cropping)
     var cropCanvas, cropCtx;
     if (crop) {
@@ -86,7 +95,14 @@
     // Composite every frame: raw pixels → overlay captions → box bars → watermark
     for (var i = 0; i < state.frames.length; i++) {
       expCtx.clearRect(0, 0, compSize.w, compSize.h);
-      expCtx.putImageData(state.frames[i].imageData, 0, offsetY);
+      if (adjTmpCanvas) {
+        adjTmpCtx.putImageData(state.frames[i].imageData, 0, 0);
+        expCtx.filter = GC.buildAdjFilter();
+        expCtx.drawImage(adjTmpCanvas, 0, offsetY);
+        expCtx.filter = 'none';
+      } else {
+        expCtx.putImageData(state.frames[i].imageData, 0, offsetY);
+      }
 
       expCtx.save();
       expCtx.translate(0, offsetY);
@@ -244,6 +260,84 @@
     if (reddit) reddit.href = 'https://www.reddit.com/submit?url=' + enc(shareUrl) + '&title=' + enc(title);
     var twitter = $('#btn-share-twitter');
     if (twitter) twitter.href = 'https://twitter.com/intent/tweet?url=' + enc(shareUrl) + '&text=' + enc(title + ' — made with GifCaption');
+  };
+
+  // ── Still-Image Export ───────────────────────
+
+  /**
+   * Render the current frame with all captions onto a temp canvas and
+   * return it. Shared by exportImage() and saveCurrentFrame().
+   */
+  function renderFrameToCanvas() {
+    var compSize = GC.getCompositeSize();
+    var offsetY  = GC.getFrameOffsetY();
+    var saveCanvas = document.createElement('canvas');
+    saveCanvas.width  = compSize.w;
+    saveCanvas.height = compSize.h;
+    var saveCtx = saveCanvas.getContext('2d');
+    var frame = state.frames[state.currentFrame];
+
+    if (GC.hasAdjustments()) {
+      var tmpC = document.createElement('canvas');
+      tmpC.width  = state.width;
+      tmpC.height = state.height;
+      tmpC.getContext('2d').putImageData(frame.imageData, 0, 0);
+      saveCtx.filter = GC.buildAdjFilter();
+      saveCtx.drawImage(tmpC, 0, offsetY);
+      saveCtx.filter = 'none';
+    } else {
+      saveCtx.putImageData(frame.imageData, 0, offsetY);
+    }
+
+    saveCtx.save();
+    saveCtx.translate(0, offsetY);
+    for (var i = 0; i < state.captions.length; i++) {
+      var cap = state.captions[i];
+      if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
+        GC.drawCaption(saveCtx, cap, state.currentFrame);
+      }
+    }
+    saveCtx.restore();
+    GC.drawBoxCaption(saveCtx, compSize.w, compSize.h);
+    GC.drawWatermark(saveCtx);
+    return saveCanvas;
+  }
+
+  /**
+   * Export the current frame as a still image (used by the image-caption tool).
+   * Format and quality come from state.exportFormat / state.exportQuality.
+   */
+  GC.exportImage = function (opts) {
+    if (state.frames.length === 0) return;
+    var onBlob  = opts && opts.onBlob;
+    var fmt     = state.exportFormat  || 'image/jpeg';
+    var quality = state.exportQuality != null ? state.exportQuality : 0.92;
+    var ext     = fmt === 'image/jpeg' ? '.jpg' : fmt === 'image/webp' ? '.webp' : '.png';
+    var base    = (state.gifFilename || 'image').replace(/\.[^.]+$/, '');
+    var id      = Math.random().toString(36).slice(2, 5);
+    var canvas  = renderFrameToCanvas();
+    canvas.toBlob(function (blob) {
+      if (onBlob) {
+        onBlob(blob, base + '-captioned-' + id + ext);
+      } else {
+        GC.downloadBlob(blob, base + '-captioned-' + id + ext);
+      }
+    }, fmt, quality);
+  };
+
+  /**
+   * Save the current GIF frame as a JPEG (the "Save Frame" button in the GIF editor).
+   */
+  GC.saveCurrentFrame = function (opts) {
+    if (state.frames.length === 0) return;
+    var onBlob = opts && opts.onBlob;
+    var id     = Math.random().toString(36).slice(2, 5);
+    var base   = (state.gifFilename || 'frame').replace(/\.gif$/i, '');
+    var fname  = base + '-frame-' + id + '.jpg';
+    var canvas = renderFrameToCanvas();
+    canvas.toBlob(function (blob) {
+      if (onBlob) { onBlob(blob, fname); } else { GC.downloadBlob(blob, fname); }
+    }, 'image/jpeg', 0.92);
   };
 
   /**
