@@ -30,3 +30,5 @@ Thumbs.db
 backend/package/*
 
 node_modules
+
+.claude

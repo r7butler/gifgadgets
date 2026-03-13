@@ -582,7 +582,7 @@
       item.querySelector('.caption-item-remove').addEventListener('click', function (e) {
         e.stopPropagation();
         state.selectedCaptionId = cap.id;
-        $('#delete-modal').classList.remove('hidden');
+        GC.showDeleteModal();
       });
       list.appendChild(item);
     });
@@ -830,11 +830,15 @@
     });
 
     // ── On-image caption controls ─────────────
+    GC.skipDeleteConfirm = false;
+    GC.showDeleteModal = function () {
+      if (GC.skipDeleteConfirm) { removeCaption(state.selectedCaptionId); return; }
+      $('#delete-modal-skip').checked = false;
+      $('#delete-modal').classList.remove('hidden');
+    };
     $('#btn-add-caption').addEventListener('click', function () { addCaption(); });
     $('#btn-delete-caption').addEventListener('click', function () {
-      if (state.selectedCaptionId) {
-        $('#delete-modal').classList.remove('hidden');
-      }
+      if (state.selectedCaptionId) GC.showDeleteModal();
     });
 
     // ── Motion keyframe controls ──────────────
@@ -881,6 +885,7 @@
       GC.renderCurrentFrame();
     });
     $('#delete-modal-confirm').addEventListener('click', function () {
+      if ($('#delete-modal-skip').checked) GC.skipDeleteConfirm = true;
       if (state.selectedCaptionId) removeCaption(state.selectedCaptionId);
       $('#delete-modal').classList.add('hidden');
     });
@@ -962,15 +967,17 @@
     $('#btn-add-box-bottom').addEventListener('click', function () { addBoxCaption('bottom'); });
 
     var pendingBoxRemove = null;
-    $('#btn-remove-box-top').addEventListener('click', function () {
-      pendingBoxRemove = 'top';
+    var skipRemoveBoxConfirm = false;
+    function showRemoveBoxModal(pos) {
+      if (skipRemoveBoxConfirm) { removeBoxCaption(pos); return; }
+      pendingBoxRemove = pos;
+      $('#remove-box-modal-skip').checked = false;
       $('#remove-box-modal').classList.remove('hidden');
-    });
-    $('#btn-remove-box-bottom').addEventListener('click', function () {
-      pendingBoxRemove = 'bottom';
-      $('#remove-box-modal').classList.remove('hidden');
-    });
+    }
+    $('#btn-remove-box-top').addEventListener('click', function () { showRemoveBoxModal('top'); });
+    $('#btn-remove-box-bottom').addEventListener('click', function () { showRemoveBoxModal('bottom'); });
     $('#remove-box-modal-confirm').addEventListener('click', function () {
+      if ($('#remove-box-modal-skip').checked) skipRemoveBoxConfirm = true;
       if (pendingBoxRemove) removeBoxCaption(pendingBoxRemove);
       pendingBoxRemove = null;
       $('#remove-box-modal').classList.add('hidden');
