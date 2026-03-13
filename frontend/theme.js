@@ -22,6 +22,61 @@
     }
   }
 
+  function setupMobileNav(nav) {
+    var links = nav.querySelector('.site-nav-links');
+    if (!links) return;
+
+    var actions = document.createElement('div');
+    actions.className = 'site-nav-actions';
+
+    var menuBtn = document.createElement('button');
+    menuBtn.className = 'site-nav-toggle';
+    menuBtn.type = 'button';
+    menuBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.setAttribute('aria-controls', 'site-nav-links');
+    menuBtn.innerHTML =
+      '<span class="site-nav-toggle-bar" aria-hidden="true"></span>' +
+      '<span class="site-nav-toggle-bar" aria-hidden="true"></span>' +
+      '<span class="site-nav-toggle-bar" aria-hidden="true"></span>';
+
+    if (!links.id) links.id = 'site-nav-links';
+    menuBtn.setAttribute('aria-controls', links.id);
+
+    function setOpen(isOpen) {
+      nav.classList.toggle('is-open', isOpen);
+      menuBtn.classList.toggle('is-open', isOpen);
+      menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    menuBtn.addEventListener('click', function () {
+      setOpen(!nav.classList.contains('is-open'));
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!nav.classList.contains('is-open')) return;
+      if (nav.contains(event.target)) return;
+      setOpen(false);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') setOpen(false);
+    });
+
+    links.addEventListener('click', function (event) {
+      if (event.target.closest('a')) setOpen(false);
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 768) setOpen(false);
+    });
+
+    nav.appendChild(actions);
+    actions.appendChild(menuBtn);
+
+    return actions;
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     var btn = document.createElement('button');
     btn.className = 'theme-toggle';
@@ -33,7 +88,12 @@
     // Landing pages — append to .site-nav
     var nav = document.querySelector('.site-nav');
     if (nav) {
-      nav.appendChild(btn);
+      var actions = setupMobileNav(nav);
+      if (actions) {
+        actions.insertBefore(btn, actions.firstChild);
+      } else {
+        nav.appendChild(btn);
+      }
       return;
     }
 
