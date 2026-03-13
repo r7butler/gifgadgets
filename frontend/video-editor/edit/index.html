@@ -56,8 +56,14 @@
   <header class="video-editor-header">
     <a href="/video-editor/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Video Editor</span></a>
     <div class="header-actions">
-      <button id="btn-new" class="btn btn-ghost btn-small">New Video</button>
-      <button id="btn-export" class="ve-export-btn" disabled>Export Clip</button>
+      <button id="btn-new" class="btn btn-ghost btn-small" aria-label="Load new video">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        New Video
+      </button>
+      <button id="btn-export" class="ve-export-btn" disabled aria-label="Export clip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Clip
+      </button>
     </div>
   </header>
 
