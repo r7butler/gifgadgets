@@ -150,9 +150,10 @@
                   <label for="cap-text">Text</label>
                   <textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea>
                 </div>
-                <div class="form-group">
-                  <label for="cap-font">Font</label>
-                  <select id="cap-font">
+                <div class="form-row">
+                  <div class="form-group" style="flex:1">
+                    <label for="cap-font">Font</label>
+                    <select id="cap-font">
                     <option value="Impact">Impact</option>
                     <option value="Arial Black">Arial Black</option>
                     <option value="Comic Sans MS">Comic Sans MS</option>
@@ -161,6 +162,11 @@
                     <option value="Courier New">Courier New</option>
                     <option value="Times New Roman">Times New Roman</option>
                   </select>
+                  </div>
+                  <div class="form-group" id="cap-bold-group">
+                    <label for="cap-bold">Bold</label>
+                    <input type="checkbox" id="cap-bold" checked />
+                  </div>
                 </div>
                 <div class="form-group">
                   <label>Size: <span id="cap-font-size-val">40</span>px</label>

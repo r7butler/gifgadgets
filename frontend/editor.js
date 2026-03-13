@@ -85,6 +85,7 @@
       y: opts.y != null ? opts.y : (pos ? pos.y : 0.15),
       fontSize: opts.fontSize || 40,
       fontFamily: opts.fontFamily || 'Impact',
+      fontWeight: opts.fontWeight != null ? opts.fontWeight : 700,
       color: opts.color || '#ffffff',
       strokeColor: opts.strokeColor || '#000000',
       strokeWidth: opts.strokeWidth != null ? opts.strokeWidth : 3,
@@ -603,6 +604,8 @@
     $('#cap-stroke-width').value = cap.strokeWidth;
     $('#cap-stroke-width-val').textContent = cap.strokeWidth;
     $('#cap-font').value = cap.fontFamily;
+    $('#cap-bold').checked = (cap.fontWeight || 700) >= 700;
+    toggleCapBoldOption(cap.fontFamily);
     // Motion keyframe status
     var motionCount = cap.motion ? cap.motion.length : 0;
     var motionInfo = $('#cap-motion-info');
@@ -920,8 +923,18 @@
       $('#cap-stroke-width-val').textContent = v;
       updateSelectedCaption({ strokeWidth: v });
     });
+    var SINGLE_WEIGHT_FONTS_CAP = ['Impact', 'Arial Black'];
+    function toggleCapBoldOption(fontFamily) {
+      var group = $('#cap-bold-group');
+      if (!group) return;
+      group.style.display = SINGLE_WEIGHT_FONTS_CAP.indexOf(fontFamily) !== -1 ? 'none' : '';
+    }
     $('#cap-font').addEventListener('change', function (e) {
       updateSelectedCaption({ fontFamily: e.target.value });
+      toggleCapBoldOption(e.target.value);
+    });
+    $('#cap-bold').addEventListener('change', function (e) {
+      updateSelectedCaption({ fontWeight: e.target.checked ? 700 : 400 });
     });
 
     // ── Box caption controls ──────────────────

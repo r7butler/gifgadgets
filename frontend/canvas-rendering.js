@@ -194,7 +194,7 @@
     var x = px * state.width;
     var y = py * state.height;
     context.save();
-    context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
+    context.font = (cap.fontWeight || 700) + ' ' + cap.fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
     context.textBaseline = 'top';
 
@@ -269,7 +269,7 @@
     var x = px * state.width;
     var y = py * state.height;
     context.save();
-    context.font = 'bold ' + cap.fontSize + 'px ' + cap.fontFamily;
+    context.font = (cap.fontWeight || 700) + ' ' + cap.fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
 
     var lines = GC.wrapText(context, cap.text, state.width * 0.92);
