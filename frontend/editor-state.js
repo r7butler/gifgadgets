@@ -49,6 +49,7 @@
     cropDrag: null,         // Active crop drag: { edge, startX, startY, origRect }
     gifId: null,            // Backend GIF ID (when loaded via ?id= URL param)
     gifFilename: null,      // Original filename of the uploaded GIF file
+    originalFileSize: 0,    // Byte size of the originally-uploaded file (0 = unknown)
 
     // Box captions — solid-colour bars above/below the GIF.
     // null = not yet added; object = active (see GC.makeBoxCaption).
@@ -155,6 +156,14 @@
   };
 
   // ── Tiny Helpers ─────────────────────────────
+
+  /** Format a byte count as a human-readable string (e.g. "1.2 MB", "345 KB"). */
+  GC.formatBytes = function (bytes) {
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
 
   /** HTML-escape a string (safe for injecting into innerHTML). */
   GC.escapeHtml = function (s) {

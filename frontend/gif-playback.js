@@ -41,6 +41,7 @@
   /** Load a GIF from a File object (drag-drop or file picker). */
   GC.loadGifFromFile = function (file) {
     state.gifFilename = file.name || null;
+    state.originalFileSize = file.size || 0;
     GC.showLoading('Parsing GIF frames…');
     var reader = new FileReader();
     reader.onload = function () {
@@ -289,6 +290,7 @@
    */
   GC.loadVideoAsGif = function (file) {
     state.gifFilename = (file.name || 'video').replace(/\.[^.]+$/, '') + '.gif';
+    state.originalFileSize = 0; // Video→GIF conversion: original size not comparable
     GC.showLoading('Converting video to GIF frames…');
 
     var url = URL.createObjectURL(file);

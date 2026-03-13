@@ -132,10 +132,11 @@
     gif.on('finished', function (blob) {
       GC.hideExportProgress();
       GC.exportInProgress = false;
+      var fname = GC.makeCaptionedFilename();
       if (opts.onBlob) {
-        opts.onBlob(blob);
+        opts.onBlob(blob, fname);
       } else {
-        GC.downloadBlob(blob, GC.makeCaptionedFilename());
+        GC.downloadBlob(blob, fname);
       }
     });
 
@@ -177,7 +178,7 @@
   };
 
   /** Populate and show the share modal, uploading the blob in the background. */
-  function showShareModal(blob) {
+  function showShareModal(blob, fname) {
     var modal = $('#share-modal');
     if (!modal) return;
 
@@ -190,8 +191,30 @@
     img.alt = 'Your captioned GIF';
     preview.appendChild(img);
 
+    // Show original → exported file size when compression was used
+    var sizeInfo = modal.querySelector('.dl-size-info');
+    if (!sizeInfo) {
+      sizeInfo = document.createElement('p');
+      sizeInfo.className = 'dl-size-info';
+      preview.parentNode.insertBefore(sizeInfo, preview.nextSibling);
+    }
+    if (state.compressGif && state.originalFileSize > 0) {
+      var origSize = state.originalFileSize;
+      var newSize  = blob.size;
+      var pct      = Math.round((1 - newSize / origSize) * 100);
+      var pctStr   = pct > 0 ? '−' + pct + '%' : (pct < 0 ? '+' + Math.abs(pct) + '%' : 'no change');
+      sizeInfo.innerHTML = '<span class="dl-size-orig">' + GC.formatBytes(origSize) + '</span>' +
+        ' <span class="dl-size-arrow">→</span> ' +
+        '<span class="dl-size-new">' + GC.formatBytes(newSize) + '</span>' +
+        ' <span class="dl-size-pct ' + (pct > 0 ? 'dl-size-savings' : '') + '">(' + pctStr + ')</span>';
+      sizeInfo.style.display = '';
+    } else {
+      sizeInfo.style.display = 'none';
+    }
+
     // Stash blob for the download button inside the modal
     modal._blob = blob;
+    modal._filename = fname || null;
     modal._blobUrl = blobUrl;
 
     // Reset UI to "uploading" state (skeleton placeholders)
