@@ -245,13 +245,21 @@
   });
 
   document.getElementById('btn-new').addEventListener('click', function () {
-    video.pause();
-    video.src = '';
-    document.getElementById('editor-screen').classList.add('hidden');
-    document.getElementById('upload-screen').classList.remove('hidden');
-    exportBtn.disabled = true;
-    videoFile = null;
-    duration = 0;
+    if (document.getElementById('editor-screen').classList.contains('hidden')) return;
+    window.GWConfirmAction({
+      title: 'Start a new video?',
+      message: 'Your current trim selection will be lost if you continue.',
+      confirmLabel: 'Start New',
+      onConfirm: function () {
+        video.pause();
+        video.src = '';
+        document.getElementById('editor-screen').classList.add('hidden');
+        document.getElementById('upload-screen').classList.remove('hidden');
+        exportBtn.disabled = true;
+        videoFile = null;
+        duration = 0;
+      }
+    });
   });
 
   // Upload

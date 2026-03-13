@@ -1153,12 +1153,47 @@ input[type="range"]::-moz-range-thumb {
   /* Image/video editors */
   .image-editor-workspace { flex-direction: column; }
   .image-editor-sidebar { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
+  .video-editor-workspace { flex-direction: column; }
+  .video-preview-area {
+    min-height: 240px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .video-controls-panel {
+    width: 100%;
+    min-width: 0;
+    max-height: 45vh;
+  }
+  .vtg-body { flex-direction: column; }
+  .vtg-preview {
+    min-width: 0;
+    min-height: 240px;
+  }
+  .vtg-sidebar {
+    width: 100%;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 45vh;
+  }
 }
 
 @media (max-width: 520px) {
   .tool-grid { grid-template-columns: 1fr; }
   .home-hero-logo { font-size: 2.4rem; }
   .tool-features { grid-template-columns: 1fr; }
+  .ve-time-inputs {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ve-time-input {
+    width: calc(50% - 32px);
+    min-width: 110px;
+  }
+  #ve-status-text {
+    width: 100%;
+    margin-left: 0 !important;
+  }
 }
 
 @media (max-width: 400px) {

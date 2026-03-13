@@ -741,40 +741,48 @@
     var btnNew = $('#btn-new');
     if (btnNew) {
       btnNew.addEventListener('click', function () {
-        GC.pause();
-        state.frames = [];
-        state.captions = [];
-        state.selectedCaptionId = null;
-        state.currentFrame = 0;
-        state.cropActive = false;
-        state.cropRect = null;
-        state.zoom = 1; state.panX = 0; state.panY = 0;
-        _applyZoom();
-        state.compressGif = false;
-        state.gifQuality = 10;
-        state.lossyCompress = false;
-        state.originalFileSize = 0;
-        state.isStillImage = false;
-        GC.nextCaptionId = 1;
-        $('#editor-workspace').classList.add('hidden');
-        $('#upload-zone').classList.remove('hidden');
-        var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
-        var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
-        var _btnShare = $('#btn-share'); if (_btnShare) _btnShare.disabled = true;
-        $('#btn-download').disabled = true;
-        if ($('#file-input')) $('#file-input').value = '';
-        // Reset Other Options UI
-        if ($('#chk-crop')) { $('#chk-crop').checked = false; }
-        if ($('#crop-settings')) { $('#crop-settings').classList.add('hidden'); }
-        if ($('#chk-compress')) { $('#chk-compress').checked = false; }
-        if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
-        if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
-        if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
-        // Reset photo adjustments
-        state.adjustments.brightness = 0; state.adjustments.contrast   = 0;
-        state.adjustments.saturation = 0; state.adjustments.hue        = 0;
-        state.adjustments.filter     = 'none';
-        _resetAdjUI();
+        if ($('#editor-workspace').classList.contains('hidden')) return;
+        window.GWConfirmAction({
+          title: 'Start a new file?',
+          message: 'Your current edits will be lost if you continue.',
+          confirmLabel: 'Start New',
+          onConfirm: function () {
+            GC.pause();
+            state.frames = [];
+            state.captions = [];
+            state.selectedCaptionId = null;
+            state.currentFrame = 0;
+            state.cropActive = false;
+            state.cropRect = null;
+            state.zoom = 1; state.panX = 0; state.panY = 0;
+            _applyZoom();
+            state.compressGif = false;
+            state.gifQuality = 10;
+            state.lossyCompress = false;
+            state.originalFileSize = 0;
+            state.isStillImage = false;
+            GC.nextCaptionId = 1;
+            $('#editor-workspace').classList.add('hidden');
+            $('#upload-zone').classList.remove('hidden');
+            var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
+            var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
+            var _btnShare = $('#btn-share'); if (_btnShare) _btnShare.disabled = true;
+            $('#btn-download').disabled = true;
+            if ($('#file-input')) $('#file-input').value = '';
+            // Reset Other Options UI
+            if ($('#chk-crop')) { $('#chk-crop').checked = false; }
+            if ($('#crop-settings')) { $('#crop-settings').classList.add('hidden'); }
+            if ($('#chk-compress')) { $('#chk-compress').checked = false; }
+            if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
+            if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
+            if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
+            // Reset photo adjustments
+            state.adjustments.brightness = 0; state.adjustments.contrast   = 0;
+            state.adjustments.saturation = 0; state.adjustments.hue        = 0;
+            state.adjustments.filter     = 'none';
+            _resetAdjUI();
+          }
+        });
       });
     }
 

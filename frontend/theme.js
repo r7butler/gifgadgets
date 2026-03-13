@@ -10,6 +10,7 @@
 
   var SUN = '<svg class="theme-icon icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   var MOON = '<svg class="theme-icon icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var confirmModal;
 
   function toggle() {
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -76,6 +77,79 @@
 
     return actions;
   }
+
+  function ensureConfirmModal() {
+    if (confirmModal) return confirmModal;
+    if (!document.body) return null;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay hidden';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Confirm action');
+    overlay.innerHTML =
+      '<div class="modal modal-sm">' +
+        '<h2 class="modal-title">Discard progress?</h2>' +
+        '<p class="modal-body-text">Starting a new file will remove your current edits.</p>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn btn-ghost" data-confirm-cancel>Cancel</button>' +
+          '<button type="button" class="btn btn-danger" data-confirm-accept>Start New</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    confirmModal = {
+      overlay: overlay,
+      title: overlay.querySelector('.modal-title'),
+      body: overlay.querySelector('.modal-body-text'),
+      cancel: overlay.querySelector('[data-confirm-cancel]'),
+      accept: overlay.querySelector('[data-confirm-accept]'),
+      onConfirm: null
+    };
+
+    function closeConfirm() {
+      confirmModal.overlay.classList.add('hidden');
+      confirmModal.onConfirm = null;
+    }
+
+    confirmModal.close = closeConfirm;
+
+    confirmModal.cancel.addEventListener('click', closeConfirm);
+    confirmModal.overlay.addEventListener('click', function (event) {
+      if (event.target === confirmModal.overlay) closeConfirm();
+    });
+    confirmModal.accept.addEventListener('click', function () {
+      var onConfirm = confirmModal.onConfirm;
+      closeConfirm();
+      if (onConfirm) onConfirm();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && confirmModal && !confirmModal.overlay.classList.contains('hidden')) {
+        closeConfirm();
+      }
+    });
+
+    return confirmModal;
+  }
+
+  window.GWConfirmAction = function (opts) {
+    var modal = ensureConfirmModal();
+    if (!modal) {
+      if (!opts || !opts.onConfirm) return;
+      if (window.confirm((opts.title ? opts.title + '\n\n' : '') + (opts.message || 'Are you sure?'))) {
+        opts.onConfirm();
+      }
+      return;
+    }
+
+    opts = opts || {};
+    modal.title.textContent = opts.title || 'Discard progress?';
+    modal.body.textContent = opts.message || 'Starting a new file will remove your current edits.';
+    modal.accept.textContent = opts.confirmLabel || 'Start New';
+    modal.onConfirm = opts.onConfirm || null;
+    modal.overlay.classList.remove('hidden');
+  };
 
   document.addEventListener('DOMContentLoaded', function () {
     var btn = document.createElement('button');

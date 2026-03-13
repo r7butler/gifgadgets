@@ -13,7 +13,8 @@
     .vtg-app { display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden; }
     .vtg-header { display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;min-height:48px;background:var(--bg-secondary);border-bottom:1px solid var(--border); }
     .vtg-body { display:flex;flex:1;overflow:hidden; }
-    .vtg-preview { flex:1;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;min-width:0; }
+    .vtg-preview { flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden;min-width:0; }
+    .vtg-preview-stage { flex:1;display:flex;align-items:center;justify-content:center;min-height:0; }
     .vtg-preview video { max-width:100%;max-height:100%;display:block; }
     .vtg-preview canvas { max-width:100%;max-height:100%;display:block; }
     .vtg-sidebar { width:280px;min-width:280px;background:var(--bg-secondary);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column; }
@@ -29,6 +30,14 @@
     .vtg-result img { max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px; }
     .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;text-decoration:none; }
     .vtg-dl-btn:hover { opacity:.9;color:#fff;text-decoration:none; }
+    @media (max-width: 768px) {
+      .vtg-body { flex-direction:column; }
+      .vtg-preview { min-height:240px;min-width:0; }
+      .vtg-sidebar {
+        width:100%;min-width:0;max-height:45vh;
+        border-left:none;border-top:1px solid var(--border);
+      }
+    }
   </style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
@@ -64,7 +73,19 @@
   <!-- Editor workspace -->
   <div id="editor-screen" class="vtg-body hidden">
     <div class="vtg-preview" id="preview-area">
-      <video id="preview-video" muted playsinline preload="auto"></video>
+      <div class="vtg-preview-stage">
+        <video id="preview-video" muted playsinline preload="auto"></video>
+      </div>
+      <div class="playback-controls">
+        <button id="btn-prev-frame" class="ctrl-btn" title="Previous frame" aria-label="Previous frame">&laquo;</button>
+        <button id="btn-play-pause" class="ctrl-btn ctrl-btn-play" title="Play / Pause" aria-label="Play or pause">
+          <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+          <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button id="btn-next-frame" class="ctrl-btn" title="Next frame" aria-label="Next frame">&raquo;</button>
+        <input type="range" id="frame-scrubber" class="frame-scrubber" min="0" max="0" value="0" step="1" />
+        <span id="frame-counter" class="frame-counter">0 / 0</span>
+      </div>
     </div>
     <div class="vtg-sidebar">
       <div class="vtg-section">
@@ -124,6 +145,13 @@
   var valWidth = document.getElementById('val-width');
   var convertBtn = document.getElementById('btn-convert');
   var convertStatus = document.getElementById('convert-status');
+  var btnPrevFrame = document.getElementById('btn-prev-frame');
+  var btnPlayPause = document.getElementById('btn-play-pause');
+  var btnNextFrame = document.getElementById('btn-next-frame');
+  var frameScrubber = document.getElementById('frame-scrubber');
+  var frameCounter = document.getElementById('frame-counter');
+  var playIcon = document.getElementById('play-icon');
+  var pauseIcon = document.getElementById('pause-icon');
   var loadingOverlay = document.getElementById('loading-overlay');
   var loadingText = document.getElementById('loading-text');
   var progressFill = document.getElementById('progress-fill');
@@ -133,6 +161,7 @@
   var dlBtn = document.getElementById('btn-download');
   var videoFilename = 'video';
   var workerBlobUrl = null;
+  var wasPlayingBeforeSeek = false;
 
   // Preload gif.js worker
   fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
@@ -146,6 +175,53 @@
     return (b/1024/1024).toFixed(1) + ' MB';
   }
 
+  function getPreviewFps() {
+    return Math.max(1, parseInt(slFps.value, 10) || 10);
+  }
+
+  function updatePlayPauseIcon() {
+    var paused = video.paused || video.ended;
+    playIcon.classList.toggle('hidden', !paused);
+    pauseIcon.classList.toggle('hidden', paused);
+  }
+
+  function updateFrameCounter() {
+    var duration = video.duration || 0;
+    if (!duration) {
+      frameCounter.textContent = '0 / 0';
+      frameScrubber.max = 0;
+      frameScrubber.value = 0;
+      return;
+    }
+
+    var fps = getPreviewFps();
+    var totalFrames = Math.max(1, Math.ceil(duration * fps));
+    var currentFrame = Math.min(totalFrames, Math.floor(video.currentTime * fps) + 1);
+    frameCounter.textContent = currentFrame + ' / ' + totalFrames;
+    frameScrubber.max = totalFrames - 1;
+    frameScrubber.value = Math.max(0, currentFrame - 1);
+  }
+
+  function seekToFrame(frameIndex) {
+    var duration = video.duration || 0;
+    if (!duration) return;
+    var fps = getPreviewFps();
+    var totalFrames = Math.max(1, Math.ceil(duration * fps));
+    var clampedIndex = Math.max(0, Math.min(frameIndex, totalFrames - 1));
+    var targetTime = Math.min(clampedIndex / fps, Math.max(0, duration - 0.001));
+    video.currentTime = targetTime;
+  }
+
+  function stepFrame(direction) {
+    var duration = video.duration || 0;
+    if (!duration) return;
+    video.pause();
+    var fps = getPreviewFps();
+    var currentIndex = Math.floor(video.currentTime * fps);
+    seekToFrame(currentIndex + direction);
+    updatePlayPauseIcon();
+  }
+
   slStart.addEventListener('input', function () {
     var v = parseFloat(slStart.value);
     valStart.textContent = v.toFixed(1) + 's';
@@ -157,8 +233,45 @@
     valEnd.textContent = v.toFixed(1) + 's';
     if (v <= parseFloat(slStart.value)) { slStart.value = Math.max(v - 0.5, 0); valStart.textContent = parseFloat(slStart.value).toFixed(1) + 's'; }
   });
-  slFps.addEventListener('input', function () { valFps.textContent = slFps.value; });
+  slFps.addEventListener('input', function () {
+    valFps.textContent = slFps.value;
+    updateFrameCounter();
+  });
   slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
+
+  btnPlayPause.addEventListener('click', function () {
+    if (video.paused || video.ended) {
+      video.play();
+    } else {
+      video.pause();
+    }
+  });
+
+  btnPrevFrame.addEventListener('click', function () { stepFrame(-1); });
+  btnNextFrame.addEventListener('click', function () { stepFrame(1); });
+
+  frameScrubber.addEventListener('input', function () {
+    if (!video.duration) return;
+    wasPlayingBeforeSeek = !video.paused && !video.ended;
+    video.pause();
+    seekToFrame(parseInt(frameScrubber.value, 10) || 0);
+    updatePlayPauseIcon();
+  });
+
+  frameScrubber.addEventListener('change', function () {
+    if (wasPlayingBeforeSeek) video.play();
+    wasPlayingBeforeSeek = false;
+  });
+
+  video.addEventListener('loadedmetadata', updateFrameCounter);
+  video.addEventListener('timeupdate', updateFrameCounter);
+  video.addEventListener('seeked', updateFrameCounter);
+  video.addEventListener('play', updatePlayPauseIcon);
+  video.addEventListener('pause', updatePlayPauseIcon);
+  video.addEventListener('ended', function () {
+    updatePlayPauseIcon();
+    updateFrameCounter();
+  });
 
   function loadVideo(file) {
     videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
@@ -171,6 +284,8 @@
       var endDefault = Math.min(5, dur);
       slEnd.value = endDefault; valEnd.textContent = endDefault.toFixed(1) + 's';
       convertStatus.textContent = 'Duration: ' + video.duration.toFixed(1) + 's (max 20s per conversion)';
+      updateFrameCounter();
+      updatePlayPauseIcon();
       document.getElementById('upload-screen').classList.add('hidden');
       document.getElementById('editor-screen').classList.remove('hidden');
       convertBtn.disabled = false;
@@ -253,11 +368,23 @@
   }
 
   document.getElementById('btn-new').addEventListener('click', function () {
-    video.pause(); video.src = '';
-    document.getElementById('editor-screen').classList.add('hidden');
-    document.getElementById('upload-screen').classList.remove('hidden');
-    convertBtn.disabled = true;
-    resultSection.classList.add('hidden');
+    if (document.getElementById('editor-screen').classList.contains('hidden')) return;
+    window.GWConfirmAction({
+      title: 'Start a new video?',
+      message: 'Your current trim, playback position, and GIF result will be lost if you continue.',
+      confirmLabel: 'Start New',
+      onConfirm: function () {
+        video.pause(); video.src = '';
+        document.getElementById('editor-screen').classList.add('hidden');
+        document.getElementById('upload-screen').classList.remove('hidden');
+        convertBtn.disabled = true;
+        resultSection.classList.add('hidden');
+        frameScrubber.value = 0;
+        frameScrubber.max = 0;
+        frameCounter.textContent = '0 / 0';
+        updatePlayPauseIcon();
+      }
+    });
   });
 
   var dropZone = document.getElementById('drop-zone');
