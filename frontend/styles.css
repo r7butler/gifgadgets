@@ -705,6 +705,7 @@ input[type="range"]::-moz-range-thumb {
     flex-wrap: wrap; gap: 6px; padding: 6px 10px;
   }
   .speed-control { display: none; } /* hide speed on mobile — save space */
+  .zoom-controls { display: none; } /* pinch-to-zoom used instead on mobile */
   .frame-counter { font-size: 11px; min-width: 50px; }
 
   /* Larger touch targets for controls */

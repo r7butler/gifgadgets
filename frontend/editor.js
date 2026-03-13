@@ -509,6 +509,50 @@
     };
   }
 
+  // ── Pinch-to-zoom (multi-touch) ───────────────
+  var _pinchState = null;
+
+  function _touchDist(t1, t2) {
+    var dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function handleCanvasTouchStart(e) {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      var t1 = e.touches[0], t2 = e.touches[1];
+      _pinchState = {
+        dist:   _touchDist(t1, t2),
+        pivotX: (t1.clientX + t2.clientX) / 2,
+        pivotY: (t1.clientY + t2.clientY) / 2,
+      };
+      return;
+    }
+    _pinchState = null;
+    var t = e.touches[0];
+    handleCanvasMouseDown({ clientX: t.clientX, clientY: t.clientY });
+  }
+
+  function handleCanvasTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 2 && _pinchState) {
+      var t1 = e.touches[0], t2 = e.touches[1];
+      var newDist = _touchDist(t1, t2);
+      _setZoom(state.zoom * (newDist / _pinchState.dist), _pinchState.pivotX, _pinchState.pivotY);
+      _pinchState.dist = newDist;
+      return;
+    }
+    if (!_pinchState) {
+      var t = e.touches[0];
+      handleCanvasMouseMove({ clientX: t.clientX, clientY: t.clientY });
+    }
+  }
+
+  function handleCanvasTouchEnd(e) {
+    _pinchState = null;
+    handleCanvasMouseUp();
+  }
+
   // ── UI Updates ───────────────────────────────
 
   /** Refresh all UI panels (caption list, editor, playback controls). */
@@ -705,9 +749,9 @@
     GC.canvas.addEventListener('mousemove', handleCanvasMouseMove);
     GC.canvas.addEventListener('mouseup', handleCanvasMouseUp);
     GC.canvas.addEventListener('mouseleave', handleCanvasMouseUp);
-    GC.canvas.addEventListener('touchstart', touchToMouse(handleCanvasMouseDown), { passive: false });
-    GC.canvas.addEventListener('touchmove', touchToMouse(handleCanvasMouseMove), { passive: false });
-    GC.canvas.addEventListener('touchend', function () { handleCanvasMouseUp(); });
+    GC.canvas.addEventListener('touchstart', handleCanvasTouchStart, { passive: false });
+    GC.canvas.addEventListener('touchmove',  handleCanvasTouchMove,  { passive: false });
+    GC.canvas.addEventListener('touchend',   handleCanvasTouchEnd,   { passive: false });
 
     // ── Zoom (mouse wheel + buttons) ──────────
     GC.canvas.parentElement.addEventListener('wheel', function (e) {
