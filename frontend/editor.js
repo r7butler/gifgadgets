@@ -152,6 +152,40 @@
     return { x: rawX, y: rawY - offsetY };
   }
 
+  // ── Zoom & Pan ────────────────────────────────
+
+  function _applyZoom() {
+    var s = state.zoom, px = state.panX, py = state.panY;
+    GC.canvas.style.transform = (s === 1 && px === 0 && py === 0)
+      ? '' : 'translate(' + px + 'px,' + py + 'px) scale(' + s + ')';
+    var label = $('#zoom-label');
+    if (label) label.textContent = s === 1 ? '1×' : (Math.round(s * 10) / 10) + '×';
+  }
+
+  function _clampPan() {
+    if (state.zoom <= 1) { state.panX = 0; state.panY = 0; return; }
+    var maxX = GC.canvas.offsetWidth  * (state.zoom - 1) / 2;
+    var maxY = GC.canvas.offsetHeight * (state.zoom - 1) / 2;
+    state.panX = Math.max(-maxX, Math.min(maxX, state.panX));
+    state.panY = Math.max(-maxY, Math.min(maxY, state.panY));
+  }
+
+  function _setZoom(newZoom, pivotViewportX, pivotViewportY) {
+    newZoom = Math.max(1, Math.min(8, newZoom));
+    if (pivotViewportX !== undefined) {
+      var rect = GC.canvas.getBoundingClientRect();
+      var origCX = rect.left + rect.width  / 2;
+      var origCY = rect.top  + rect.height / 2;
+      var factor = newZoom / state.zoom;
+      state.panX += (pivotViewportX - origCX) * (1 - factor);
+      state.panY += (pivotViewportY - origCY) * (1 - factor);
+    }
+    state.zoom = newZoom;
+    if (newZoom === 1) { state.panX = 0; state.panY = 0; }
+    else _clampPan();
+    _applyZoom();
+  }
+
   /**
    * Hit-test the crop rectangle edges/interior.
    * Returns null or { edge: 'n'|'s'|'e'|'w'|'ne'|'nw'|'se'|'sw'|'move' }
@@ -304,10 +338,26 @@
         return;
       }
     }
+
+    // Nothing else hit — start pan drag when zoomed in
+    if (state.zoom > 1) {
+      state.panDrag = { startClientX: e.clientX, startClientY: e.clientY,
+                        startPanX: state.panX, startPanY: state.panY };
+      GC.canvas.style.cursor = 'grabbing';
+    }
   }
 
   function handleCanvasMouseMove(e) {
     var m = canvasCoords(e);
+
+    // Active pan drag
+    if (state.panDrag) {
+      state.panX = state.panDrag.startPanX + (e.clientX - state.panDrag.startClientX);
+      state.panY = state.panDrag.startPanY + (e.clientY - state.panDrag.startClientY);
+      _clampPan();
+      _applyZoom();
+      return;
+    }
 
     // Active crop drag/resize
     if (state.cropDrag) {
@@ -393,7 +443,10 @@
 
       // Crop hover cursor
       var cropHit = hitTestCrop(m);
-      GC.canvas.style.cursor = cropHit ? (CROP_CURSOR_MAP[cropHit.edge] || 'default') : 'default';
+      if (state._trackingMode) { /* keep crosshair set by startTrackingMode */ }
+      else if (cropHit) { GC.canvas.style.cursor = CROP_CURSOR_MAP[cropHit.edge] || 'default'; }
+      else if (state.zoom > 1) { GC.canvas.style.cursor = 'grab'; }
+      else { GC.canvas.style.cursor = 'default'; }
       return;
     }
 
@@ -423,6 +476,11 @@
   }
 
   function handleCanvasMouseUp() {
+    if (state.panDrag) {
+      state.panDrag = null;
+      GC.canvas.style.cursor = state.zoom > 1 ? 'grab' : 'default';
+      return;
+    }
     if (state.cropDrag) {
       state.cropDrag = null;
       GC.canvas.style.cursor = 'default';
@@ -619,6 +677,8 @@
         state.currentFrame = 0;
         state.cropActive = false;
         state.cropRect = null;
+        state.zoom = 1; state.panX = 0; state.panY = 0;
+        _applyZoom();
         state.compressGif = false;
         state.gifQuality = 10;
         state.lossyCompress = false;
@@ -648,6 +708,16 @@
     GC.canvas.addEventListener('touchstart', touchToMouse(handleCanvasMouseDown), { passive: false });
     GC.canvas.addEventListener('touchmove', touchToMouse(handleCanvasMouseMove), { passive: false });
     GC.canvas.addEventListener('touchend', function () { handleCanvasMouseUp(); });
+
+    // ── Zoom (mouse wheel + buttons) ──────────
+    GC.canvas.parentElement.addEventListener('wheel', function (e) {
+      if (state.frames.length === 0) return;
+      e.preventDefault();
+      var factor = e.deltaY < 0 ? 1.18 : (1 / 1.18);
+      _setZoom(state.zoom * factor, e.clientX, e.clientY);
+    }, { passive: false });
+    $('#btn-zoom-in').addEventListener('click', function () { _setZoom(state.zoom * 1.5); });
+    $('#btn-zoom-out').addEventListener('click', function () { _setZoom(state.zoom / 1.5); });
 
     // ── Mobile sidebar toggle ─────────────────
     var sidebarToggle = $('#sidebar-toggle');

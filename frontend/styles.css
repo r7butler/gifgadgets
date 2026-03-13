@@ -336,6 +336,9 @@ input[type="range"]::-moz-range-thumb {
 .speed-control { display: flex; align-items: center; gap: 4px; }
 .speed-control input[type="range"] { width: 60px; }
 .speed-label { font-size: 12px; color: var(--text-muted); min-width: 24px; }
+.zoom-controls { display: flex; align-items: center; gap: 4px; margin-left: 4px; border-left: 1px solid var(--border); padding-left: 8px; }
+.zoom-btn { width: 28px; height: 28px; font-size: 16px; line-height: 1; padding: 0; }
+.zoom-label { font-size: 12px; color: var(--text-muted); min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* Sidebar */
 .editor-sidebar {

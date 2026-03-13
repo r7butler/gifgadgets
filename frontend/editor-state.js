@@ -64,6 +64,12 @@
     // Crop
     cropActive: false,      // true = crop mode enabled
     cropRect: null,         // { x, y, w, h } in GIF pixel coords (null = no crop)
+
+    // Zoom & pan (canvas CSS transform only — does not affect export)
+    zoom: 1,                // current zoom level (1 = fit, max 8)
+    panX: 0,                // canvas translate X in screen pixels
+    panY: 0,                // canvas translate Y in screen pixels
+    panDrag: null,          // active pan drag: { startClientX, startClientY, startPanX, startPanY }
   };
 
   // ── Mutable Shared References ────────────────

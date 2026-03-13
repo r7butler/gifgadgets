@@ -171,8 +171,8 @@
     var total = state.frames.length;
     if (total === 0) return { frames: [], clickFrameIdx: 0 };
 
-    //var stride = Math.ceil(total / 25);
     var stride = 1;
+    // var stride = Math.ceil(total / 25);
 
     // Collect strided indices, always including clickFrame.
     var indices = [];
