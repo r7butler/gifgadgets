@@ -27,6 +27,7 @@
    */
   GC.buildTimeline = function () {
     var container = document.getElementById('timeline');
+    if (!container) return;   // no timeline in still-image mode
     container.innerHTML = '';
 
     if (state.frames.length === 0) return;

@@ -754,6 +754,7 @@
         state.gifQuality = 10;
         state.lossyCompress = false;
         state.originalFileSize = 0;
+        state.isStillImage = false;
         GC.nextCaptionId = 1;
         $('#editor-workspace').classList.add('hidden');
         $('#upload-zone').classList.remove('hidden');
@@ -846,20 +847,26 @@
       });
     }
 
-    // ── Playback controls ─────────────────────
-    $('#btn-prev-frame').addEventListener('click', function () {
+    // ── Playback controls (absent in still-image mode) ────────
+    var btnPrev = $('#btn-prev-frame');
+    if (btnPrev) btnPrev.addEventListener('click', function () {
       GC.seekFrame((state.currentFrame - 1 + state.frames.length) % state.frames.length);
     });
-    $('#btn-play-pause').addEventListener('click', GC.togglePlayPause);
-    $('#btn-next-frame').addEventListener('click', function () {
+    var btnPlayPause = $('#btn-play-pause');
+    if (btnPlayPause) btnPlayPause.addEventListener('click', GC.togglePlayPause);
+    var btnNext = $('#btn-next-frame');
+    if (btnNext) btnNext.addEventListener('click', function () {
       GC.seekFrame((state.currentFrame + 1) % state.frames.length);
     });
-    $('#frame-scrubber').addEventListener('input', function (e) {
+    var frameScrubber = $('#frame-scrubber');
+    if (frameScrubber) frameScrubber.addEventListener('input', function (e) {
       GC.seekFrame(parseInt(e.target.value, 10));
     });
-    $('#speed-slider').addEventListener('input', function (e) {
+    var speedSlider = $('#speed-slider');
+    if (speedSlider) speedSlider.addEventListener('input', function (e) {
       state.speed = parseFloat(e.target.value);
-      $('#speed-label').textContent = state.speed + '×';
+      var speedLabel = $('#speed-label');
+      if (speedLabel) speedLabel.textContent = state.speed + '×';
     });
 
     // ── On-image caption controls ─────────────
@@ -874,16 +881,15 @@
       if (state.selectedCaptionId) GC.showDeleteModal();
     });
 
-    // ── Motion keyframe controls ──────────────
-    $('#btn-add-keyframe').addEventListener('click', function () {
+    // ── Motion keyframe controls (absent in still-image mode) ─
+    var btnAddKeyframe = $('#btn-add-keyframe');
+    if (btnAddKeyframe) btnAddKeyframe.addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap) return;
       var frame = state.currentFrame;
-      // Check if keyframe already exists at this frame
       for (var ki = 0; ki < cap.motion.length; ki++) {
-        if (cap.motion[ki].frame === frame) return; // already have one here
+        if (cap.motion[ki].frame === frame) return;
       }
-      // Use interpolated position if motion is already active, else static position
       var px = cap.x, py = cap.y;
       if (cap.motion.length > 0) {
         var ip = GC.getInterpolatedPosition(cap.motion, frame);
@@ -893,12 +899,12 @@
       updateCaptionEditor();
       GC.buildTimeline();
     });
-
-    $('#btn-track-with-ai').addEventListener('click', function () {
+    var btnTrackAI = $('#btn-track-with-ai');
+    if (btnTrackAI) btnTrackAI.addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap || state.frames.length === 0) return;
-      GC.warmUpTracker();       // fire warm-up request immediately
-      GC.startTrackingMode(cap); // show instruction bar, wait for canvas click
+      GC.warmUpTracker();
+      GC.startTrackingMode(cap);
     });
     var btnCancelTracking = $('#btn-cancel-tracking');
     if (btnCancelTracking) {
@@ -906,10 +912,10 @@
         GC.stopTrackingMode();
       });
     }
-    $('#btn-clear-motion').addEventListener('click', function () {
+    var btnClearMotion = $('#btn-clear-motion');
+    if (btnClearMotion) btnClearMotion.addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap || !cap.motion.length) return;
-      // Snap static position to wherever the caption is at the current frame
       var ip = GC.getInterpolatedPosition(cap.motion, state.currentFrame);
       if (ip) { cap.x = ip.x; cap.y = ip.y; }
       cap.motion = [];

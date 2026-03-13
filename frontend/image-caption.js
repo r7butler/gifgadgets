@@ -28,6 +28,17 @@
   /** Tell the drop handler what file types are expected. */
   GC.dropErrorMessage = 'Please drop a JPEG, PNG, WebP, or HEIC image.';
 
+  /**
+   * Wrap loadHeicAsImage so that direct HEIC drops (not via IndexedDB)
+   * also get state.isStillImage = true before loading.
+   */
+  var _origLoadHeicAsImage = GC.loadHeicAsImage;
+  GC.loadHeicAsImage = function (file) {
+    state.isStillImage = true;
+    state.gifFilename = state.gifFilename || file.name || null;
+    _origLoadHeicAsImage(file);
+  };
+
   // ── Image loading ──────────────────────────────────────
 
   function isHeicFile(file) {
