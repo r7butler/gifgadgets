@@ -37,13 +37,13 @@ async function doTracking(msg) {
   var frames = msg.frames;
   var total  = frames.length;
 
-  post({ type: 'progress', text: 'Preparing frames…' });
+  post({ type: 'progress', text: 'Preparing…' });
   var framesB64 = [];
   for (var i = 0; i < total; i++) {
     framesB64.push(await frameToJpegB64(frames[i]));
   }
 
-  post({ type: 'progress', text: 'Tracking with SAM2…' });
+  post({ type: 'progress', text: 'Creating motion keyframes…' });
 
   var resp = await fetch(MODAL_ENDPOINT, {
     method:  'POST',

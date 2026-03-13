@@ -214,7 +214,7 @@
         dot.style.left = (e.clientX - cRect.left) + 'px';
         dot.style.top  = (e.clientY - cRect.top)  + 'px';
         container.appendChild(dot);
-        setTimeout(function () { dot.parentNode && dot.parentNode.removeChild(dot); }, 600);
+        setTimeout(function () { dot.parentNode && dot.parentNode.removeChild(dot); }, 1400);
       }
       GC.handleTrackingClick(
         m.x / state.width,

@@ -97,6 +97,11 @@
             <canvas id="preview-canvas"></canvas>
             <!-- Shade overlay shown while tracking mode is active (pointer-events:none so canvas still receives clicks) -->
             <div id="tracking-overlay" class="tracking-overlay hidden"></div>
+            <!-- Loading screen shown while SAM2 inference is running -->
+            <div id="tracking-loading" class="tracking-loading hidden">
+              <div class="tracking-loading-spinner"></div>
+              <div class="tracking-loading-label">Creating motion keyframes…</div>
+            </div>
             <!-- Tracking instruction bar (shown while tracking mode is active) -->
             <div id="tracking-bar" class="tracking-bar hidden">
               <span class="tracking-bar-text">Click on the object you want to track</span>

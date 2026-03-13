@@ -210,29 +210,25 @@
 
   // ── Progress bar helpers ─────────────────────
 
-  function _showTrackingProgress(text) {
-    var bar = document.getElementById('tracking-bar');
-    if (!bar) return;
-    bar.classList.remove('hidden');
-    bar.querySelector('.tracking-bar-text').textContent = text || 'Tracking…';
-    var cancelBtn = bar.querySelector('#btn-cancel-tracking');
-    if (cancelBtn) cancelBtn.style.display = 'none';
+  function _showTrackingProgress() {
+    // Loading overlay is intentionally not shown yet — the ripple animation
+    // plays during frame prep. The overlay appears once the fetch starts.
   }
 
   function _setProgressText(text) {
-    var bar = document.getElementById('tracking-bar');
-    if (!bar || bar.classList.contains('hidden')) return;
-    bar.querySelector('.tracking-bar-text').textContent = text;
+    // Only show the loading overlay once the Modal fetch has started
+    // (i.e. after the fast local frame-prep phase is done).
+    if (text === 'Preparing…') return;
+    var el = document.getElementById('tracking-loading');
+    if (!el) return;
+    var label = el.querySelector('.tracking-loading-label');
+    if (label) label.textContent = text || 'Creating motion keyframes…';
+    el.classList.remove('hidden');
   }
 
   function _hideTrackingProgress() {
-    var bar = document.getElementById('tracking-bar');
-    if (!bar) return;
-    bar.classList.add('hidden');
-    bar.querySelector('.tracking-bar-text').textContent =
-      'Click on the object you want to track';
-    var cancelBtn = bar.querySelector('#btn-cancel-tracking');
-    if (cancelBtn) cancelBtn.style.display = '';
+    var el = document.getElementById('tracking-loading');
+    if (el) el.classList.add('hidden');
   }
 
 })();
