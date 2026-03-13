@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JPG to WebP Converter — Free Online | GifWidgets</title>
+  <meta name="description" content="Convert JPG images to WebP format online for free. Smaller file sizes, better web performance. Runs entirely in your browser — no upload, no signup." />
+  <meta name="keywords" content="jpg to webp, jpeg to webp converter, convert jpg to webp online, jpg webp converter free" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/jpg-to-webp/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="JPG to WebP Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Convert JPG images to modern WebP format for smaller file sizes and better web performance. Free, instant, runs in your browser." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/jpg-to-webp/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="JPG to WebP Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert JPG to WebP instantly in your browser. Smaller files, no upload, free." />
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "JPG to WebP Converter",
+    "url": "https://gifwidgets.com/photo-converter/jpg-to-webp/",
+    "description": "Free browser-based tool to convert JPG and JPEG images to WebP format with adjustable quality. No file upload required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "Adjustable quality 0-100", "No file upload", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How much smaller will my WebP file be compared to JPG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "WebP files are typically 25–35% smaller than equivalent quality JPG files. The exact savings depend on the image content."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is WebP supported by all browsers?",
+        "acceptedAnswer": {"@type": "Answer", "text": "WebP is supported by all modern browsers including Chrome, Firefox, Safari 14+, and Edge. It covers over 95% of global web users."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does WebP support transparency?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes, WebP supports alpha transparency. However, since JPG images have no transparency, the output WebP from this converter will also be fully opaque."}
+      },
+      {
+        "@type": "Question",
+        "name": "What quality setting should I use for web images?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Quality 80–85 is ideal for web images — it produces excellent visual quality at significantly reduced file sizes. For high-quality output use 90+."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is my file uploaded to a server?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The entire conversion happens in your browser using the Canvas API. Your files never leave your device."}
+      }
+    ]
+  }
+  </script>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body>
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/photo-converter/" class="active">Photo Converters</a>
+      <a href="/video-converter/">Video Converters</a>
+    </div>
+  </nav>
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">JPG to WebP Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop a JPG image here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h2>Drop a JPG image here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .jpg, .jpeg files</p>
+      <input type="file" id="file-input" accept="image/jpeg,.jpg,.jpeg" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <div class="conv-options">
+        <div class="conv-option-row">
+          <label for="quality-slider">Quality: <strong id="quality-val">85</strong></label>
+          <input type="range" id="quality-slider" min="0" max="100" value="85" style="width:140px" />
+        </div>
+      </div>
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Convert to WebP</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Converting…</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Converted WebP image" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download WebP
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>25–35% Smaller Files</h3>
+          <p>WebP produces significantly smaller files than JPG at comparable quality — ideal for improving page load times.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Adjustable Quality</h3>
+          <p>Quality 85 is the default — great balance of size and fidelity for most web images.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Modern Format</h3>
+          <p>WebP is supported by all major browsers and is recommended by Google for web performance.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>No Upload Needed</h3>
+          <p>Conversion happens entirely in your browser. Your image never leaves your device.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert JPG to WebP</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Select your JPG</h3><p>Drag a .jpg or .jpeg file onto the drop zone, or click to browse.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Adjust quality</h3><p>Set the quality slider. 85 is optimal for web use; raise to 90–95 for high-fidelity output.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Convert and download</h3><p>Click "Convert to WebP" and download the result. Done!</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>How much smaller will my WebP be compared to the JPG?</dt>
+            <dd>WebP files are typically 25–35% smaller than equivalent-quality JPG files. Actual savings depend on image content.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is WebP supported everywhere?</dt>
+            <dd>WebP is supported by all modern browsers — Chrome, Firefox, Safari 14+, and Edge. It covers over 95% of global web users.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Does WebP support transparency?</dt>
+            <dd>Yes, WebP supports transparency. However, because JPG has no transparency, the WebP output from this converter will be fully opaque.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>What quality should I use for website images?</dt>
+            <dd>Quality 80–85 is ideal for web images — excellent visual quality with significantly reduced file size. Use 90+ for high-fidelity output.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is my file uploaded to a server?</dt>
+            <dd>No. Everything happens in your browser using the Canvas API. Your files never leave your device.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related converters</h2>
+        <div class="related-tools">
+          <a href="/photo-converter/webp-to-jpg/" class="related-tool-link">WebP to JPG</a>
+          <a href="/photo-converter/png-to-webp/" class="related-tool-link">PNG to WebP</a>
+          <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links" aria-label="Footer navigation">
+        <a href="/">All Tools</a>
+        <a href="/photo-converter/">Photo Converters</a>
+        <a href="/video-converter/">Video Converters</a>
+      </nav>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+  var qualitySlider = document.getElementById('quality-slider');
+  var qualityVal = document.getElementById('quality-val');
+
+  var currentFile = null;
+
+  qualitySlider.addEventListener('input', function() {
+    qualityVal.textContent = qualitySlider.value;
+  });
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function showFile(file) {
+    if (!file.type.match(/image\/(jpeg|jpg)/) && !file.name.match(/\.(jpg|jpeg)$/i)) {
+      alert('Please select a JPG or JPEG image.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    var quality = parseInt(qualitySlider.value, 10) / 100;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '30%';
+
+    var img = new Image();
+    var url = URL.createObjectURL(currentFile);
+    img.onload = function() {
+      fill.style.width = '70%';
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob) {
+        if (!blob) {
+          alert('WebP encoding is not supported in your browser. Try Chrome or Firefox.');
+          progressEl.classList.add('hidden');
+          return;
+        }
+        fill.style.width = '100%';
+        var outUrl = URL.createObjectURL(blob);
+        resultImg.src = outUrl;
+        resultInfoEl.textContent = formatSize(blob.size) + ' — ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.webp';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      }, 'image/webp', quality);
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      alert('Could not load the image. Please try another file.');
+      progressEl.classList.add('hidden');
+    };
+    img.src = url;
+  });
+})();
+</script>
+</body>
+</html>

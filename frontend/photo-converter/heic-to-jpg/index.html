@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HEIC to JPG Converter — Free Online | GifWidgets</title>
+  <meta name="description" content="Convert HEIC and HEIF iPhone photos to JPG format online for free. Instant browser-based conversion using heic2any — no upload, no signup, no app required." />
+  <meta name="keywords" content="heic to jpg, heic to jpeg converter, convert iphone photos to jpg, heic jpg online free, heif to jpg" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/heic-to-jpg/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Convert iPhone HEIC photos to universally compatible JPG. Free, browser-based, no upload required." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/heic-to-jpg/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert iPhone HEIC photos to JPG. Free, private, runs in your browser using heic2any." />
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <!-- heic2any library for HEIC decoding in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "HEIC to JPG Converter",
+    "url": "https://gifwidgets.com/photo-converter/heic-to-jpg/",
+    "description": "Free browser-based tool to convert iPhone HEIC and HEIF photos to JPG format with adjustable quality. Powered by heic2any. No file upload required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "HEIC and HEIF support", "Adjustable quality 0-100", "No file upload", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is HEIC format?",
+        "acceptedAnswer": {"@type": "Answer", "text": "HEIC (High Efficiency Image Container) is the default photo format on iPhones running iOS 11 and later. It provides better compression than JPG but is not universally supported by all apps and platforms."}
+      },
+      {
+        "@type": "Question",
+        "name": "Why convert HEIC to JPG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "JPG is supported by virtually every app, website, printer, and device. Converting HEIC to JPG ensures your iPhone photos can be opened, shared, and edited anywhere."}
+      },
+      {
+        "@type": "Question",
+        "name": "How do I get HEIC files off my iPhone?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Connect your iPhone to a computer, or AirDrop/email photos to yourself. Alternatively, in iPhone Settings > Photos, set 'Transfer to Mac or PC' to 'Keep Originals' to get HEIC files when transferring via USB."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is my HEIC file uploaded to a server?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The heic2any library runs entirely in your browser. Your HEIC photos never leave your device."}
+      },
+      {
+        "@type": "Question",
+        "name": "What quality setting should I use for iPhone photos?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Quality 90 is recommended — it produces excellent JPG output very close to the original HEIC quality. Lower values like 70–80 are fine for web sharing where file size matters."}
+      }
+    ]
+  }
+  </script>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body>
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/photo-converter/" class="active">Photo Converters</a>
+      <a href="/video-converter/">Video Converters</a>
+    </div>
+  </nav>
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">HEIC to JPG Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop a HEIC image here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h2>Drop an iPhone HEIC photo here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .heic, .heif files</p>
+      <input type="file" id="file-input" accept=".heic,.heif,image/heic,image/heif" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <div class="conv-options">
+        <div class="conv-option-row">
+          <label for="quality-slider">Quality: <strong id="quality-val">90</strong></label>
+          <input type="range" id="quality-slider" min="0" max="100" value="90" style="width:140px" />
+        </div>
+      </div>
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Convert to JPG</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Converting HEIC… this may take a moment</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Converted JPG image" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download JPG
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>iPhone Photo Support</h3>
+          <p>Converts HEIC and HEIF files shot on any iPhone running iOS 11 or later.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Universal JPG Output</h3>
+          <p>JPG works on every platform — Windows, Android, web, email, printers, and social apps.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Quality Control</h3>
+          <p>Adjust quality from 0–100 to balance file size against visual fidelity.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Private &amp; Free</h3>
+          <p>heic2any runs entirely in your browser. Your photos never leave your device.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert HEIC to JPG</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Get your HEIC file</h3><p>Transfer HEIC photos from your iPhone via USB, AirDrop, or email. Select "Keep Originals" when transferring to preserve .heic files.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Drop the file here</h3><p>Drag the .heic or .heif file onto the drop zone, or click to browse.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Set quality and convert</h3><p>Choose a quality level (90 recommended) then click "Convert to JPG".</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">4</div>
+            <div class="tool-step-body"><h3>Download your JPG</h3><p>Preview the result and click Download. HEIC conversion may take a few seconds for large photos.</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>What is HEIC format?</dt>
+            <dd>HEIC (High Efficiency Image Container) is the default photo format on iPhones running iOS 11 and later. It uses advanced compression to produce smaller files than JPG with similar quality, but is not universally supported.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Why convert HEIC to JPG?</dt>
+            <dd>JPG is supported by virtually every app, website, printer, and device. Converting ensures your iPhone photos work everywhere.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>How do I get HEIC files off my iPhone?</dt>
+            <dd>Connect via USB and set "Transfer to Mac or PC" to "Keep Originals" in iPhone Settings > Photos. You can also AirDrop photos to a Mac, or email them to yourself.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is my HEIC file uploaded to a server?</dt>
+            <dd>No. The heic2any library runs entirely in your browser using WebAssembly. Your photos never leave your device.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>What quality should I use for iPhone photos?</dt>
+            <dd>Quality 90 is recommended — excellent JPG output very close to the original. For web sharing, 70–80 is fine and produces much smaller files.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related converters</h2>
+        <div class="related-tools">
+          <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+          <a href="/photo-converter/jpg-to-webp/" class="related-tool-link">JPG to WebP</a>
+          <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links" aria-label="Footer navigation">
+        <a href="/">All Tools</a>
+        <a href="/photo-converter/">Photo Converters</a>
+        <a href="/video-converter/">Video Converters</a>
+      </nav>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+  var qualitySlider = document.getElementById('quality-slider');
+  var qualityVal = document.getElementById('quality-val');
+
+  var currentFile = null;
+
+  qualitySlider.addEventListener('input', function() {
+    qualityVal.textContent = qualitySlider.value;
+  });
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function isHeic(file) {
+    return file.name.match(/\.(heic|heif)$/i) ||
+           file.type === 'image/heic' ||
+           file.type === 'image/heif';
+  }
+
+  function showFile(file) {
+    if (!isHeic(file)) {
+      alert('Please select a HEIC or HEIF image.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    if (typeof heic2any === 'undefined') {
+      alert('The HEIC conversion library failed to load. Please check your internet connection and try refreshing the page.');
+      return;
+    }
+
+    var quality = parseInt(qualitySlider.value, 10) / 100;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    convertBtn.disabled = true;
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '20%';
+
+    heic2any({
+      blob: currentFile,
+      toType: 'image/jpeg',
+      quality: quality
+    }).then(function(resultBlob) {
+      fill.style.width = '90%';
+      // resultBlob may be an array for burst/sequence photos; take first
+      var blob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob;
+      var outUrl = URL.createObjectURL(blob);
+
+      // Load converted blob as image to get dimensions
+      var img = new Image();
+      img.onload = function() {
+        fill.style.width = '100%';
+        resultImg.src = outUrl;
+        resultInfoEl.textContent = formatSize(blob.size) + ' — ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        convertBtn.disabled = false;
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.jpg';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      };
+      img.onerror = function() {
+        // Still allow download even if preview fails
+        fill.style.width = '100%';
+        resultImg.src = '';
+        resultInfoEl.textContent = formatSize(blob.size);
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        convertBtn.disabled = false;
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.jpg';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      };
+      img.src = outUrl;
+    }).catch(function(err) {
+      console.error('HEIC conversion error:', err);
+      alert('Could not convert this HEIC file. Please make sure the file is a valid HEIC/HEIF image.');
+      progressEl.classList.add('hidden');
+      convertBtn.disabled = false;
+    });
+  });
+})();
+</script>
+</body>
+</html>

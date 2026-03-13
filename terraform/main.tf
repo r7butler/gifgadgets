@@ -177,6 +177,29 @@ resource "aws_lambda_permission" "function_url_invoke" {
   principal     = "*"
 }
 
+# ---------- CloudFront Function: Directory Index Rewrite ----------
+
+resource "aws_cloudfront_function" "rewrite_index" {
+  name    = "gifwidgets-rewrite-index"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite /path/ and /path to /path/index.html for S3 static site"
+  publish = true
+
+  code = <<-EOF
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      // Append index.html if URI ends with '/' or has no file extension
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.includes('.', uri.lastIndexOf('/'))) {
+        request.uri = uri + '/index.html';
+      }
+      return request;
+    }
+  EOF
+}
+
 # ---------- CloudFront ----------
 
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -314,6 +337,11 @@ resource "aws_cloudfront_distribution" "site" {
       cookies {
         forward = "none"
       }
+    }
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_index.arn
     }
 
     min_ttl     = 0

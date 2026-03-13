@@ -3,318 +3,256 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GifCaption — Add Captions to GIFs Online, Free | GIF Text Editor</title>
-  <meta name="description" content="Add frame-perfect captions and text overlays to any GIF for free. Drag text anywhere, time it to specific frames with a visual timeline, style fonts and colors, and export instantly. No signup, no watermark — the best free online GIF caption maker and text editor." />
-  <meta name="keywords" content="gif caption, add text to gif, gif editor, gif text overlay, caption gif online, gif meme maker, free gif editor, animated gif text, gif caption maker" />
+  <title>GifWidgets — Free Online GIF, Image & Video Tools</title>
+  <meta name="description" content="GifWidgets is a free suite of browser-based media tools: GIF editors, image editor, video editor, video-to-GIF converter, photo format converters, and video converters. No signup, no watermark." />
+  <meta name="keywords" content="gif editor online, image editor free, video to gif, photo converter, video converter, gif caption maker, free online tools" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#6366f1" />
-  <link rel="canonical" href="https://gifcaption.com/" />
-
-  <!-- Favicon -->
+  <link rel="canonical" href="https://gifwidgets.com/" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="GifCaption — Add Captions to GIFs Online, Free" />
-  <meta property="og:description" content="The easiest way to add text and captions to GIFs. Frame-precise timing, drag-and-drop positioning, custom fonts and colors. No signup, no watermark. Free online GIF editor." />
-  <meta property="og:site_name" content="GifCaption" />
-  <meta property="og:url" content="https://gifcaption.com/" />
+  <meta property="og:title" content="GifWidgets — Free Online GIF, Image & Video Tools" />
+  <meta property="og:description" content="Every media tool you need, right in your browser. GIF editors, image editor, video converter, photo format converters and more — all free, no signup." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="GifCaption — Add Captions to GIFs Online, Free" />
-  <meta name="twitter:description" content="The easiest way to add text and captions to GIFs. Frame-precise timing, drag-and-drop positioning, custom fonts. Free, no signup, no watermark." />
+  <meta name="twitter:title" content="GifWidgets — Free Online GIF, Image & Video Tools" />
+  <meta name="twitter:description" content="Every media tool you need, right in your browser. Free, no signup, no watermark." />
 
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
 
-  <!-- Google AdSense (disabled until traffic increases)
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
-  -->
-
-  <!-- Structured Data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "GifCaption",
-    "url": "https://gifcaption.com/",
-    "description": "Add frame-perfect captions and text overlays to any GIF. Drag text anywhere, time it to specific frames with a visual timeline, style fonts and colors, and export instantly. Free, no signup, no watermark.",
-    "applicationCategory": "MultimediaApplication",
-    "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "browserRequirements": "Requires a modern browser with JavaScript and Canvas support",
-    "featureList": ["Add text captions to GIFs", "Frame-precise timing control", "Drag-and-drop text positioning", "Custom fonts, colors, and sizes", "Multiple simultaneous captions", "Visual frame timeline", "Instant GIF export", "No signup required", "No watermark"],
-    "screenshot": "https://gifcaption.com/og-image.png"
+    "@type": "WebSite",
+    "name": "GifWidgets",
+    "url": "https://gifwidgets.com/",
+    "description": "Free suite of browser-based media editing tools including GIF editors, image editor, video tools, and format converters.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://gifwidgets.com/",
+      "query-input": "required name=search_term_string"
+    }
   }
   </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "How do I add text to a GIF?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Upload your GIF to GifCaption, click 'Add Caption', type your text, and drag it to position. Use the visual timeline to control exactly which frames the caption appears on, then export your captioned GIF."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Is GifCaption free?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes, GifCaption is completely free to use. There is no signup required, no watermark added to your GIFs, and no limit on how many GIFs you can caption."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I add multiple captions to a GIF?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. You can add as many text captions as you want, each with independent timing, positioning, font, color, and size settings."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Does GifCaption work on mobile?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes, GifCaption works in any modern mobile browser. You can upload GIFs, add captions, and export directly from your phone or tablet."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What file formats does GifCaption support?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "GifCaption supports animated GIF files as well as video files (MP4, WebM, MOV, AVI) which are converted to GIF for captioning."
-        }
-      }
-    ]
-  }
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PNH9WX8YRK');
   </script>
 </head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-PNH9WX8YRK');
-</script>
 <body>
-  <main class="landing">
-    <header class="landing-header">
-      <h1>Gif<span style="color:var(--accent)">Caption</span></h1>
-      <p class="tagline">Add frame-perfect captions to any GIF.</p>
-      <p class="sub">Free online GIF caption maker — no signup, no watermark.</p>
-    </header>
+<div class="home-page">
 
-    <section class="landing-upload" id="landing-drop" role="button" tabindex="0" aria-label="Upload a GIF file">
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
-      </svg>
-      <h2>Drop a GIF or video here to get started</h2>
-      <p>or tap to browse</p>
-      <input type="file" id="landing-file" accept="image/gif,video/mp4,video/webm,video/quicktime,video/x-msvideo" hidden />
-    </section>
-
-    <section class="landing-features" aria-label="Features">
-      <div class="feature-card">
-        <h3>Multiple captions</h3>
-        <p>Add as many text overlays as you want, each independently timed.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Frame-precise timing</h3>
-        <p>Use the visual timeline to control exactly when each caption appears.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Drag to position</h3>
-        <p>Tap and drag text anywhere on the canvas. Resize and style freely.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Instant download</h3>
-        <p>Everything runs in your browser. Export a captioned GIF in seconds.</p>
-      </div>
-    </section>
-
-    <!-- Ad: between features and about (disabled until traffic increases)
-    <div class="ad-container ad-landing">
-      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="2828814321" data-ad-format="auto" data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/video-editor/">Video Editor</a>
+      <a href="/photo-converter/">Photo Converters</a>
+      <a href="/video-converter/">Video Converters</a>
     </div>
-    -->
+  </nav>
 
-    <!-- About section -->
-    <section class="landing-about" aria-label="About GifCaption">
-      <h2>The Easiest Way to Add Text to GIFs</h2>
-      <p>
-        GifCaption is a free online tool that lets you add text captions and overlays to any animated GIF.
-        Unlike other GIF editors, GifCaption gives you <strong>frame-level precision</strong> — you control
-        exactly which frames each caption appears on using a visual timeline. Drag text anywhere on the image,
-        customize fonts, colors, sizes, and alignment, and export a perfectly captioned GIF in seconds.
-      </p>
-      <p>
-        All editing and exporting runs entirely in your browser — your files stay on your device. If you choose
-        to share your GIF via a public link, you'll be asked for consent first; only then is it uploaded to our
-        servers and made publicly accessible. There's no account to create, no watermark on your exports, and no
-        limit on how many GIFs you can edit.
-      </p>
-    </section>
+  <section class="home-hero" aria-label="GifWidgets — free browser media tools">
+    <h1 class="home-hero-logo">Gif<span class="logo-accent">Widgets</span></h1>
+    <p class="home-hero-tagline">Every media tool you need, right in your browser.</p>
+    <p class="home-hero-sub">Free. No signup. No watermark. Nothing to install.</p>
+    <div class="home-hero-badges">
+      <span class="home-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        100% In-Browser
+      </span>
+      <span class="home-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        No File Uploads Required
+      </span>
+      <span class="home-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        Always Free
+      </span>
+    </div>
+  </section>
 
-    <!-- How it works -->
-    <section class="landing-steps" aria-label="How it works">
-      <h2>How It Works</h2>
-      <ol class="steps-list">
-        <li class="step-item">
-          <span class="step-number">1</span>
-          <div>
-            <h3>Upload your GIF or video</h3>
-            <p>Drag and drop a GIF or video file, or click to browse. Videos are automatically converted to GIF format.</p>
-          </div>
-        </li>
-        <li class="step-item">
-          <span class="step-number">2</span>
-          <div>
-            <h3>Add and position captions</h3>
-            <p>Type your text, then drag it anywhere on the image. Customize the font, size, color, background, and alignment.</p>
-          </div>
-        </li>
-        <li class="step-item">
-          <span class="step-number">3</span>
-          <div>
-            <h3>Set timing with the timeline</h3>
-            <p>Use the visual frame timeline to choose exactly when each caption appears and disappears — down to the individual frame.</p>
-          </div>
-        </li>
-        <li class="step-item">
-          <span class="step-number">4</span>
-          <div>
-            <h3>Export and share</h3>
-            <p>Download your captioned GIF instantly, or share it with a link. The entire process takes seconds.</p>
-          </div>
-        </li>
-      </ol>
-    </section>
+  <main class="home-tools">
 
-    <!-- Use cases -->
-    <section class="landing-usecases" aria-label="Use cases">
-      <h2>What You Can Do with GifCaption</h2>
-      <div class="usecases-grid">
-        <div class="usecase-card">
-          <h3>Memes &amp; Reactions</h3>
-          <p>Add funny captions, dialogue, and punchlines to reaction GIFs for social media, group chats, or forums.</p>
-        </div>
-        <div class="usecase-card">
-          <h3>Tutorials &amp; Demos</h3>
-          <p>Annotate screen recordings and product demos with step-by-step instructions that appear at the right moment.</p>
-        </div>
-        <div class="usecase-card">
-          <h3>Accessibility</h3>
-          <p>Add subtitles or descriptive text to GIFs so that spoken or contextual content is readable by everyone.</p>
-        </div>
-        <div class="usecase-card">
-          <h3>Marketing &amp; Social</h3>
-          <p>Create eye-catching captioned GIFs for email campaigns, social posts, and presentations without any design tools.</p>
-        </div>
+    <!-- GIF Tools -->
+    <section class="home-section" aria-label="GIF editing tools">
+      <div class="home-section-header">
+        <div class="cat-dot" style="background:var(--cat-gif)"></div>
+        <span class="home-section-title">GIF Tools</span>
+      </div>
+      <div class="tool-grid">
+        <a href="/gif-editor/" class="tool-card gif">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
+          </div>
+          <div class="tool-card-title">GIF Editor</div>
+          <div class="tool-card-desc">Add captions, text overlays, and box captions to any GIF. Export instantly.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/gif-editor-advanced/" class="tool-card gif">
+          <div class="tool-card-badge">Advanced</div>
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/><circle cx="18" cy="6" r="3"/></svg>
+          </div>
+          <div class="tool-card-title">GIF Editor Advanced</div>
+          <div class="tool-card-desc">Everything in GIF Editor plus motion keyframes, object tracking, crop, zoom, and compression.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
       </div>
     </section>
 
-    <!-- Ad: between use cases and FAQ (disabled until traffic increases)
-    <div class="ad-container ad-landing">
-      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="7354382699" data-ad-format="auto" data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-    -->
-
-    <!-- FAQ -->
-    <section class="landing-faq" aria-label="Frequently asked questions">
-      <h2>Frequently Asked Questions</h2>
-      <dl class="faq-list">
-        <div class="faq-item">
-          <dt>How do I add text to a GIF?</dt>
-          <dd>Upload your GIF to GifCaption, click "Add Caption", type your text, and drag it to position. Use the visual timeline to control exactly which frames the caption appears on, then export your captioned GIF.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Is GifCaption free?</dt>
-          <dd>Yes, GifCaption is completely free to use. There is no signup required, no watermark added to your GIFs, and no limit on how many GIFs you can caption.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Can I add multiple captions to a GIF?</dt>
-          <dd>Yes. You can add as many text captions as you want, each with independent timing, positioning, font, color, and size settings.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Does GifCaption work on mobile?</dt>
-          <dd>Yes, GifCaption works in any modern mobile browser. You can upload GIFs, add captions, and export directly from your phone or tablet.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>What file formats does GifCaption support?</dt>
-          <dd>GifCaption supports animated GIF files as well as video files (MP4, WebM, MOV, AVI) which are converted to GIF for captioning.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Are my GIFs uploaded to a server?</dt>
-          <dd>Editing and exporting happens entirely in your browser — nothing is uploaded automatically. If you choose to share your GIF via a public link, you'll be asked for your consent first; only then is the GIF uploaded to our servers and made publicly accessible on the web.</dd>
-        </div>
-      </dl>
+    <!-- Image Tools -->
+    <section class="home-section" aria-label="Image editing tools">
+      <div class="home-section-header">
+        <div class="cat-dot" style="background:var(--cat-image)"></div>
+        <span class="home-section-title">Image Tools</span>
+      </div>
+      <div class="tool-grid">
+        <a href="/image-editor/" class="tool-card image">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </div>
+          <div class="tool-card-title">Image Editor</div>
+          <div class="tool-card-desc">Adjust brightness, contrast, saturation, apply filters, crop, resize, rotate, and export in any format.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+      </div>
     </section>
 
-    <footer class="landing-footer">
-      <p>Keyboard shortcuts: <kbd>Space</kbd> play/pause &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> step frames &nbsp; <kbd>Del</kbd> remove caption</p>
-      <p class="footer-byline">GifCaption — Free online GIF caption maker and text editor.</p>
-    </footer>
+    <!-- Video Tools -->
+    <section class="home-section" aria-label="Video editing and conversion tools">
+      <div class="home-section-header">
+        <div class="cat-dot" style="background:var(--cat-video)"></div>
+        <span class="home-section-title">Video Tools</span>
+      </div>
+      <div class="tool-grid">
+        <a href="/video-editor/" class="tool-card video">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          </div>
+          <div class="tool-card-title">Video Editor</div>
+          <div class="tool-card-desc">Trim and cut videos in your browser. Set in/out points and export the trimmed clip.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/video-to-gif/" class="tool-card video">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/><path d="M8 12h4m-2-2v4" stroke-width="1.5"/></svg>
+          </div>
+          <div class="tool-card-title">Video to GIF</div>
+          <div class="tool-card-desc">Convert any video file to an animated GIF. Control FPS, size, and time range.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/live-photo-to-gif/" class="tool-card video">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><path d="M4.9 4.9l2.1 2.1m9 9l2.1 2.1M4.9 19.1l2.1-2.1m9-9l2.1-2.1"/></svg>
+          </div>
+          <div class="tool-card-title">Live Photo to GIF</div>
+          <div class="tool-card-desc">Convert iPhone Live Photos (.mov) to animated GIFs. Export Live Photos from your iPhone first.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Photo Converters -->
+    <section class="home-section" aria-label="Photo format converters">
+      <div class="home-section-header">
+        <div class="cat-dot" style="background:var(--cat-photo-conv)"></div>
+        <span class="home-section-title">Photo Format Converters</span>
+      </div>
+      <div class="tool-grid">
+        <a href="/photo-converter/" class="tool-card photo-conv">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          </div>
+          <div class="tool-card-title">All Photo Converters</div>
+          <div class="tool-card-desc">JPG↔PNG, WebP, HEIC→JPG, SVG→PNG, GIF→PNG and more. All client-side, instant.</div>
+          <div class="tool-card-arrow">See all converters →</div>
+        </a>
+        <a href="/photo-converter/jpg-to-png/" class="tool-card photo-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:13px;font-weight:800">JPG→PNG</span></div>
+          <div class="tool-card-title">JPG to PNG</div>
+          <div class="tool-card-desc">Convert JPEG images to lossless PNG format instantly in your browser.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/photo-converter/png-to-jpg/" class="tool-card photo-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:13px;font-weight:800">PNG→JPG</span></div>
+          <div class="tool-card-title">PNG to JPG</div>
+          <div class="tool-card-desc">Convert PNG images to JPG to reduce file size. Choose quality level.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/photo-converter/webp-to-jpg/" class="tool-card photo-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:13px;font-weight:800">WebP→JPG</span></div>
+          <div class="tool-card-title">WebP to JPG</div>
+          <div class="tool-card-desc">Convert WebP images to universally compatible JPG format.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Video Converters -->
+    <section class="home-section" aria-label="Video format converters">
+      <div class="home-section-header">
+        <div class="cat-dot" style="background:var(--cat-video-conv)"></div>
+        <span class="home-section-title">Video Format Converters</span>
+      </div>
+      <div class="tool-grid">
+        <a href="/video-converter/" class="tool-card video-conv">
+          <div class="tool-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          </div>
+          <div class="tool-card-title">All Video Converters</div>
+          <div class="tool-card-desc">MP4↔WebM, MOV→MP4, AVI→MP4, and more. Powered by FFmpeg in your browser.</div>
+          <div class="tool-card-arrow">See all converters →</div>
+        </a>
+        <a href="/video-converter/mp4-to-webm/" class="tool-card video-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:12px;font-weight:800">MP4→WebM</span></div>
+          <div class="tool-card-title">MP4 to WebM</div>
+          <div class="tool-card-desc">Convert MP4 videos to WebM format for web use.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/video-converter/mov-to-mp4/" class="tool-card video-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:12px;font-weight:800">MOV→MP4</span></div>
+          <div class="tool-card-title">MOV to MP4</div>
+          <div class="tool-card-desc">Convert Apple QuickTime MOV files to compatible MP4.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+        <a href="/video-converter/mp4-to-gif/" class="tool-card video-conv">
+          <div class="tool-card-icon" aria-hidden="true"><span style="font-size:12px;font-weight:800">MP4→GIF</span></div>
+          <div class="tool-card-title">MP4 to GIF</div>
+          <div class="tool-card-desc">Convert MP4 video clips to animated GIF format.</div>
+          <div class="tool-card-arrow">Open tool →</div>
+        </a>
+      </div>
+    </section>
+
   </main>
 
-  <script>
-    // Landing page: drag-drop or file select → redirect to editor with file via IndexedDB
-    (function () {
-      var dropZone = document.getElementById('landing-drop');
-      var fileInput = document.getElementById('landing-file');
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links" aria-label="Footer navigation">
+        <a href="/gif-editor/">GIF Editor</a>
+        <a href="/gif-editor-advanced/">GIF Editor Advanced</a>
+        <a href="/image-editor/">Image Editor</a>
+        <a href="/video-editor/">Video Editor</a>
+        <a href="/video-to-gif/">Video to GIF</a>
+        <a href="/photo-converter/">Photo Converters</a>
+        <a href="/video-converter/">Video Converters</a>
+      </nav>
+    </div>
+  </footer>
 
-      function handleFile(file) {
-        if (!file) return;
-        var isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
-        var isVideo = file.type.startsWith('video/');
-        if (!isGif && !isVideo) {
-          alert('Please select a GIF or video file.');
-          return;
-        }
-        // Store file in IndexedDB so editor.html can read it
-        var req = indexedDB.open('gifcaption', 1);
-        req.onupgradeneeded = function (e) {
-          e.target.result.createObjectStore('files');
-        };
-        req.onsuccess = function (e) {
-          var db = e.target.result;
-          // Ensure object store exists (handles existing DBs without the store)
-          if (!db.objectStoreNames.contains('files')) {
-            db.close();
-            var delReq = indexedDB.deleteDatabase('gifcaption');
-            delReq.onsuccess = function () { handleFile(file); };
-            return;
-          }
-          var tx = db.transaction('files', 'readwrite');
-          tx.objectStore('files').put(file, 'pending');
-          tx.oncomplete = function () {
-            window.location.href = 'editor.html?source=local';
-          };
-        };
-      }
-
-      dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
-      dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
-      dropZone.addEventListener('drop', function (e) {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        handleFile(e.dataTransfer.files[0]);
-      });
-      dropZone.addEventListener('click', function () { fileInput.click(); });
-      dropZone.addEventListener('keydown', function (e) { if (e.key === 'Enter') fileInput.click(); });
-      fileInput.addEventListener('change', function () { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
-    })();
-  </script>
-  <!-- <script src="cookie-consent.js"></script> -->
+</div>
 </body>
 </html>

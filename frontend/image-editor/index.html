@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Online Image Editor — Adjust, Filter, Crop & Convert | GifWidgets</title>
+  <meta name="description" content="Edit images in your browser for free. Adjust brightness, contrast, saturation, apply filters, crop, resize, rotate, and export as JPG, PNG, or WebP. No signup required." />
+  <meta name="keywords" content="online image editor free, photo editor browser, adjust brightness contrast online, image filter online, crop image online, resize image online, image converter" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="canonical" href="https://gifwidgets.com/image-editor/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Free Online Image Editor — Adjust, Filter, Crop & Convert | GifWidgets" />
+  <meta property="og:description" content="Edit images free in your browser. Brightness, contrast, saturation, filters, crop, resize, rotate. Export as JPG, PNG, or WebP." />
+  <meta property="og:url" content="https://gifwidgets.com/image-editor/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Free Online Image Editor — GifWidgets" />
+  <meta name="twitter:description" content="Adjust, filter, crop, resize, rotate images in your browser. Free, no signup." />
+  <link rel="stylesheet" href="/styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GifWidgets Image Editor",
+    "url": "https://gifwidgets.com/image-editor/",
+    "description": "Free online image editor. Adjust brightness, contrast, saturation, apply filters, crop, resize, rotate, and export as JPG, PNG, or WebP.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "featureList": ["Brightness and contrast adjustments", "Saturation and hue controls", "Grayscale, sepia, invert filters", "Crop with drag handles", "Resize with aspect ratio lock", "Rotate and flip", "Export as JPG, PNG, WebP"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What image formats does the image editor support?", "acceptedAnswer": { "@type": "Answer", "text": "The editor accepts JPG, PNG, WebP, and GIF files. You can export the edited image as JPG, PNG, or WebP." } },
+      { "@type": "Question", "name": "Is the image editor free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, completely free. No signup, no subscription, no watermark." } },
+      { "@type": "Question", "name": "Does editing happen in my browser?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. All adjustments, filters, and exports happen entirely in your browser using the Canvas API. Your images never leave your device." } },
+      { "@type": "Question", "name": "Can I resize images to specific dimensions?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Enter target width and height in pixels, with an optional aspect ratio lock to prevent distortion." } }
+    ]
+  }
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PNH9WX8YRK');
+  </script>
+</head>
+<body style="--hero-color:var(--cat-image);--hero-icon-bg:var(--cat-image-dim);--hero-glow:rgba(14,165,233,.12)">
+<div class="tool-page">
+
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/image-editor/" class="active">Image Editor</a>
+      <a href="/video-editor/">Video Editor</a>
+      <a href="/photo-converter/">Photo Converters</a>
+    </div>
+  </nav>
+
+  <header class="tool-hero">
+    <div class="tool-hero-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    </div>
+    <h1>Image Editor</h1>
+    <p class="tool-hero-tagline">Adjust, filter, crop, resize, and export images — all in your browser, for free.</p>
+    <a href="/image-editor/edit/" class="tool-hero-cta" id="upload-cta">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload an image to get started
+    </a>
+    <input type="file" id="hero-file-input" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden />
+  </header>
+
+  <main class="tool-content">
+    <div class="tool-features">
+      <div class="tool-feature"><h3>Adjustments</h3><p>Brightness, contrast, saturation, and hue — non-destructive sliders with real-time preview.</p></div>
+      <div class="tool-feature"><h3>Filters</h3><p>One-click filters: grayscale, sepia, invert, blur, and more.</p></div>
+      <div class="tool-feature"><h3>Crop & resize</h3><p>Drag crop handles on the canvas or enter exact pixel dimensions with optional aspect ratio lock.</p></div>
+      <div class="tool-feature"><h3>Transform</h3><p>Rotate 90° clockwise or counter-clockwise, flip horizontal or vertical.</p></div>
+      <div class="tool-feature"><h3>Export formats</h3><p>Download as JPG, PNG, or WebP with adjustable quality settings.</p></div>
+      <div class="tool-feature"><h3>100% in-browser</h3><p>All processing uses the Canvas API. Your images never leave your device.</p></div>
+    </div>
+
+    <section class="tool-section">
+      <h2>How to Edit an Image Online</h2>
+      <ol class="tool-steps">
+        <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your image</h3><p>Click the upload button above or drag an image onto it. Supports JPG, PNG, WebP, and GIF.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Adjust and apply filters</h3><p>Use the sidebar sliders to adjust brightness, contrast, saturation, and hue. Click a filter name to apply it instantly.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Crop, resize, or transform</h3><p>Drag crop handles on the canvas, enter target dimensions for resize, or use the rotate/flip buttons.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Export and download</h3><p>Choose output format (JPG, PNG, WebP) and quality. Click Download to save to your device.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="tool-section">
+      <h2>Frequently Asked Questions</h2>
+      <dl class="tool-faq">
+        <div class="tool-faq-item"><dt>What image formats are supported?</dt><dd>Upload JPG, PNG, WebP, or GIF. Export as JPG, PNG, or WebP with adjustable quality.</dd></div>
+        <div class="tool-faq-item"><dt>Is the image editor free?</dt><dd>Yes — completely free. No account, no watermark, no limits.</dd></div>
+        <div class="tool-faq-item"><dt>Does my image get uploaded?</dt><dd>No. All editing runs in your browser via the Canvas API. Your files never leave your device.</dd></div>
+        <div class="tool-faq-item"><dt>Can I resize an image to specific dimensions?</dt><dd>Yes. Enter width and height in pixels in the resize panel, with an aspect ratio lock option to avoid distortion.</dd></div>
+      </dl>
+    </section>
+
+    <section class="tool-section">
+      <h2>Related Tools</h2>
+      <div class="related-tools">
+        <a href="/gif-editor/" class="related-tool-link">GIF Editor</a>
+        <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+        <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
+        <a href="/photo-converter/jpg-to-webp/" class="related-tool-link">JPG to WebP</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links">
+        <a href="/">All Tools</a>
+        <a href="/gif-editor/">GIF Editor</a>
+        <a href="/photo-converter/">Photo Converters</a>
+      </nav>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function () {
+  var cta = document.getElementById('upload-cta');
+  var fileInput = document.getElementById('hero-file-input');
+  function storeAndGo(file) {
+    if (!file) return;
+    var req = indexedDB.open('gifwidgets_image', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(file, 'pending');
+      tx.oncomplete = function () { window.location.href = '/image-editor/edit/'; };
+    };
+  }
+  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) storeAndGo(fileInput.files[0]); });
+  document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.querySelector('.tool-hero').addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) storeAndGo(e.dataTransfer.files[0]);
+  });
+})();
+</script>
+</body>
+</html>

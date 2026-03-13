@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video to GIF Converter — GifWidgets</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .vtg-app { display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden; }
+    .vtg-header { display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;min-height:48px;background:var(--bg-secondary);border-bottom:1px solid var(--border); }
+    .vtg-body { display:flex;flex:1;overflow:hidden; }
+    .vtg-preview { flex:1;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;min-width:0; }
+    .vtg-preview video { max-width:100%;max-height:100%;display:block; }
+    .vtg-preview canvas { max-width:100%;max-height:100%;display:block; }
+    .vtg-sidebar { width:280px;min-width:280px;background:var(--bg-secondary);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column; }
+    .vtg-section { padding:12px;border-bottom:1px solid var(--border); }
+    .vtg-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px; }
+    .vtg-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
+    .vtg-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
+    .vtg-drop-zone:hover,.vtg-drop-zone.dragover { border-color:var(--cat-video);background:var(--cat-video-dim); }
+    .vtg-convert-btn { width:100%;padding:12px;background:var(--cat-video);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
+    .vtg-convert-btn:disabled { opacity:.4;cursor:not-allowed; }
+    .vtg-convert-btn:hover:not(:disabled) { opacity:.9; }
+    .vtg-result { text-align:center;padding:12px; }
+    .vtg-result img { max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px; }
+    .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;text-decoration:none; }
+    .vtg-dl-btn:hover { opacity:.9;color:#fff;text-decoration:none; }
+  </style>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body class="editor-body">
+<div class="vtg-app" id="app">
+  <header class="vtg-header">
+    <a href="/video-to-gif/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Video to GIF</span></a>
+    <button id="btn-new" class="btn btn-ghost btn-small">New Video</button>
+  </header>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="overlay hidden">
+    <div class="overlay-content">
+      <p class="progress-text" id="loading-text">Converting…</p>
+      <div class="progress-bar" style="margin-top:12px"><div class="progress-bar-fill" id="progress-fill" style="background:var(--cat-video)"></div></div>
+    </div>
+  </div>
+
+  <!-- Upload screen -->
+  <div id="upload-screen" class="vtg-body" style="flex-direction:column;justify-content:center;align-items:center">
+    <div class="vtg-upload-zone" style="width:100%">
+      <div class="vtg-drop-zone" id="drop-zone">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-muted);margin-bottom:1rem"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <h2>Drop a video here</h2>
+        <p style="color:var(--text-secondary)">or click to browse</p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Supports MP4, WebM, MOV, AVI</p>
+        <input type="file" id="file-input" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.webm,.mov,.avi" hidden />
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor workspace -->
+  <div id="editor-screen" class="vtg-body hidden">
+    <div class="vtg-preview" id="preview-area">
+      <video id="preview-video" muted playsinline preload="auto"></video>
+    </div>
+    <div class="vtg-sidebar">
+      <div class="vtg-section">
+        <div class="vtg-section-title">Time Range</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Start: <span id="val-start">0.0s</span></label>
+          <input type="range" id="sl-start" min="0" max="20" step="0.1" value="0" style="accent-color:var(--cat-video)" />
+        </div>
+        <div class="form-group">
+          <label>End: <span id="val-end">5.0s</span></label>
+          <input type="range" id="sl-end" min="0" max="20" step="0.1" value="5" style="accent-color:var(--cat-video)" />
+        </div>
+      </div>
+      <div class="vtg-section">
+        <div class="vtg-section-title">Settings</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>FPS: <span id="val-fps">10</span></label>
+          <input type="range" id="sl-fps" min="1" max="20" step="1" value="10" style="accent-color:var(--cat-video)" />
+        </div>
+        <div class="form-group">
+          <label>Max width: <span id="val-width">480</span>px</label>
+          <input type="range" id="sl-width" min="120" max="960" step="40" value="480" style="accent-color:var(--cat-video)" />
+        </div>
+      </div>
+      <div class="vtg-section">
+        <p id="convert-status" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
+        <button class="vtg-convert-btn" id="btn-convert">Convert to GIF</button>
+      </div>
+      <div class="vtg-section vtg-result hidden" id="result-section">
+        <div class="vtg-section-title">Result</div>
+        <img id="result-gif" alt="Converted GIF" />
+        <p id="result-info" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
+        <a class="vtg-dl-btn" id="btn-download" href="#">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download GIF
+        </a>
+        <div style="margin-top:10px">
+          <a href="/gif-editor-advanced/" style="font-size:12px;color:var(--cat-gif)">→ Add captions in GIF Editor</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+  var video = document.getElementById('preview-video');
+  var slStart = document.getElementById('sl-start');
+  var slEnd = document.getElementById('sl-end');
+  var slFps = document.getElementById('sl-fps');
+  var slWidth = document.getElementById('sl-width');
+  var valStart = document.getElementById('val-start');
+  var valEnd = document.getElementById('val-end');
+  var valFps = document.getElementById('val-fps');
+  var valWidth = document.getElementById('val-width');
+  var convertBtn = document.getElementById('btn-convert');
+  var convertStatus = document.getElementById('convert-status');
+  var loadingOverlay = document.getElementById('loading-overlay');
+  var loadingText = document.getElementById('loading-text');
+  var progressFill = document.getElementById('progress-fill');
+  var resultSection = document.getElementById('result-section');
+  var resultGif = document.getElementById('result-gif');
+  var resultInfo = document.getElementById('result-info');
+  var dlBtn = document.getElementById('btn-download');
+  var videoFilename = 'video';
+  var workerBlobUrl = null;
+
+  // Preload gif.js worker
+  fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+    .then(function(r){ return r.blob(); })
+    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
+    .catch(function(){});
+
+  function formatSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    return (b/1024/1024).toFixed(1) + ' MB';
+  }
+
+  slStart.addEventListener('input', function () {
+    var v = parseFloat(slStart.value);
+    valStart.textContent = v.toFixed(1) + 's';
+    if (v >= parseFloat(slEnd.value)) { slEnd.value = Math.min(v + 0.5, parseFloat(slEnd.max)); valEnd.textContent = parseFloat(slEnd.value).toFixed(1) + 's'; }
+    video.currentTime = v;
+  });
+  slEnd.addEventListener('input', function () {
+    var v = parseFloat(slEnd.value);
+    valEnd.textContent = v.toFixed(1) + 's';
+    if (v <= parseFloat(slStart.value)) { slStart.value = Math.max(v - 0.5, 0); valStart.textContent = parseFloat(slStart.value).toFixed(1) + 's'; }
+  });
+  slFps.addEventListener('input', function () { valFps.textContent = slFps.value; });
+  slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
+
+  function loadVideo(file) {
+    videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
+    var url = URL.createObjectURL(file);
+    video.src = url;
+    video.onloadedmetadata = function () {
+      var dur = Math.min(video.duration, 20);
+      slStart.max = dur; slEnd.max = dur;
+      slStart.value = 0; valStart.textContent = '0.0s';
+      var endDefault = Math.min(5, dur);
+      slEnd.value = endDefault; valEnd.textContent = endDefault.toFixed(1) + 's';
+      convertStatus.textContent = 'Duration: ' + video.duration.toFixed(1) + 's (max 20s per conversion)';
+      document.getElementById('upload-screen').classList.add('hidden');
+      document.getElementById('editor-screen').classList.remove('hidden');
+      convertBtn.disabled = false;
+    };
+  }
+
+  convertBtn.addEventListener('click', function () {
+    var startTime = parseFloat(slStart.value);
+    var endTime = parseFloat(slEnd.value);
+    var fps = parseInt(slFps.value);
+    var maxWidth = parseInt(slWidth.value);
+    if (endTime <= startTime) { alert('End time must be after start time.'); return; }
+
+    convertBtn.disabled = true;
+    resultSection.classList.add('hidden');
+    loadingOverlay.classList.remove('hidden');
+    progressFill.style.width = '0%';
+    loadingText.textContent = 'Extracting frames…';
+
+    var frameInterval = 1 / fps;
+    var times = [];
+    for (var t = startTime; t < endTime; t += frameInterval) times.push(t);
+
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var frames = [];
+    var frameIndex = 0;
+
+    function extractNextFrame() {
+      if (frameIndex >= times.length) {
+        encodeGif(frames, canvas.width, canvas.height, fps);
+        return;
+      }
+      var pct = (frameIndex / times.length) * 60;
+      progressFill.style.width = pct + '%';
+      loadingText.textContent = 'Extracting frame ' + (frameIndex+1) + ' / ' + times.length + '…';
+      video.currentTime = times[frameIndex];
+    }
+
+    video.onseeked = function () {
+      if (frameIndex === 0) {
+        var scale = Math.min(1, maxWidth / video.videoWidth);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      frames.push(imgData);
+      frameIndex++;
+      extractNextFrame();
+    };
+
+    extractNextFrame();
+  });
+
+  function encodeGif(frames, w, h, fps) {
+    loadingText.textContent = 'Encoding GIF…';
+    progressFill.style.width = '70%';
+    var delay = Math.round(100 / fps) * 10;
+    var gifOptions = { workers: 2, quality: 10, width: w, height: h, repeat: 0 };
+    if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
+    var gif = new GIF(gifOptions);
+    frames.forEach(function (f) { gif.addFrame(f, { delay: delay, copy: true }); });
+    gif.on('progress', function (p) {
+      loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 30 + 70) + '%';
+      progressFill.style.width = (p * 30 + 70) + '%';
+    });
+    gif.on('finished', function (blob) {
+      progressFill.style.width = '100%';
+      loadingOverlay.classList.add('hidden');
+      convertBtn.disabled = false;
+      var url = URL.createObjectURL(blob);
+      resultGif.src = url;
+      resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
+      dlBtn.href = url;
+      dlBtn.download = videoFilename + '.gif';
+      resultSection.classList.remove('hidden');
+    });
+    gif.render();
+  }
+
+  document.getElementById('btn-new').addEventListener('click', function () {
+    video.pause(); video.src = '';
+    document.getElementById('editor-screen').classList.add('hidden');
+    document.getElementById('upload-screen').classList.remove('hidden');
+    convertBtn.disabled = true;
+    resultSection.classList.add('hidden');
+  });
+
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  dropZone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) loadVideo(fileInput.files[0]); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) loadVideo(e.dataTransfer.files[0]);
+  });
+
+  // Load from IndexedDB (redirected from landing page)
+  (function () {
+    var req = indexedDB.open('gifcaption', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) return;
+      var tx = db.transaction('files', 'readonly');
+      var get = tx.objectStore('files').get('pending');
+      get.onsuccess = function () {
+        var file = get.result;
+        if (!file) return;
+        db.transaction('files', 'readwrite').objectStore('files').delete('pending');
+        if (file.type && file.type.startsWith('video/')) loadVideo(file);
+      };
+    };
+  })();
+
+})();
+</script>
+</body>
+</html>

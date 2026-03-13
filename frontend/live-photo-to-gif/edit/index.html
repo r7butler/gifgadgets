@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Photo to GIF — GifWidgets</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .vtg-app { display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden; }
+    .vtg-header { display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;min-height:48px;background:var(--bg-secondary);border-bottom:1px solid var(--border); }
+    .vtg-body { display:flex;flex:1;overflow:hidden; }
+    .vtg-preview { flex:1;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden; }
+    .vtg-preview video { max-width:100%;max-height:100%;display:block; }
+    .vtg-sidebar { width:280px;min-width:280px;background:var(--bg-secondary);border-left:1px solid var(--border);overflow-y:auto; }
+    .vtg-section { padding:12px;border-bottom:1px solid var(--border); }
+    .vtg-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px; }
+    .vtg-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
+    .vtg-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
+    .vtg-drop-zone:hover,.vtg-drop-zone.dragover { border-color:var(--cat-video);background:var(--cat-video-dim); }
+    .vtg-convert-btn { width:100%;padding:12px;background:var(--cat-video);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
+    .vtg-convert-btn:disabled { opacity:.4;cursor:not-allowed; }
+    .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;text-decoration:none; }
+    .vtg-dl-btn:hover { opacity:.9;color:#fff;text-decoration:none; }
+    .vtg-info-box { background:rgba(139,92,246,.1);border:1px solid var(--cat-video);border-radius:var(--radius-md);padding:10px 12px;font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px; }
+  </style>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body class="editor-body">
+<div class="vtg-app" id="app">
+  <header class="vtg-header">
+    <a href="/live-photo-to-gif/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Live Photo to GIF</span></a>
+    <button id="btn-new" class="btn btn-ghost btn-small">New File</button>
+  </header>
+
+  <div id="loading-overlay" class="overlay hidden">
+    <div class="overlay-content">
+      <p class="progress-text" id="loading-text">Converting…</p>
+      <div class="progress-bar" style="margin-top:12px"><div class="progress-bar-fill" id="progress-fill" style="background:var(--cat-video)"></div></div>
+    </div>
+  </div>
+
+  <div id="upload-screen" class="vtg-body" style="flex-direction:column;justify-content:center;align-items:center">
+    <div class="vtg-upload-zone" style="width:100%">
+      <div class="vtg-drop-zone" id="drop-zone">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-muted);margin-bottom:1rem"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9 9l2.1 2.1M4.9 19.1l2.1-2.1m9-9l2.1-2.1"/></svg>
+        <h2>Drop your Live Photo (.mov) here</h2>
+        <p style="color:var(--text-secondary)">or click to browse</p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Upload the .mov video from your Live Photo</p>
+        <input type="file" id="file-input" accept="video/quicktime,.mov,video/mp4,.mp4" hidden />
+      </div>
+    </div>
+  </div>
+
+  <div id="editor-screen" class="vtg-body hidden">
+    <div class="vtg-preview">
+      <video id="preview-video" muted playsinline loop autoplay preload="auto"></video>
+    </div>
+    <div class="vtg-sidebar">
+      <div class="vtg-section">
+        <div class="vtg-info-box" id="duration-info">Live Photos are typically ~3 seconds long.</div>
+      </div>
+      <div class="vtg-section">
+        <div class="vtg-section-title">Settings</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>FPS: <span id="val-fps">10</span></label>
+          <input type="range" id="sl-fps" min="1" max="20" step="1" value="10" style="accent-color:var(--cat-video)" />
+        </div>
+        <div class="form-group">
+          <label>Max width: <span id="val-width">480</span>px</label>
+          <input type="range" id="sl-width" min="120" max="800" step="40" value="480" style="accent-color:var(--cat-video)" />
+        </div>
+      </div>
+      <div class="vtg-section">
+        <button class="vtg-convert-btn" id="btn-convert">Convert to GIF</button>
+      </div>
+      <div class="vtg-section hidden" id="result-section">
+        <div class="vtg-section-title">Result</div>
+        <img id="result-gif" alt="Converted GIF" style="max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px;display:block" />
+        <p id="result-info" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
+        <a class="vtg-dl-btn" id="btn-download" href="#">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download GIF
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+  var video = document.getElementById('preview-video');
+  var slFps = document.getElementById('sl-fps');
+  var slWidth = document.getElementById('sl-width');
+  var valFps = document.getElementById('val-fps');
+  var valWidth = document.getElementById('val-width');
+  var convertBtn = document.getElementById('btn-convert');
+  var loadingOverlay = document.getElementById('loading-overlay');
+  var loadingText = document.getElementById('loading-text');
+  var progressFill = document.getElementById('progress-fill');
+  var resultSection = document.getElementById('result-section');
+  var resultGif = document.getElementById('result-gif');
+  var resultInfo = document.getElementById('result-info');
+  var dlBtn = document.getElementById('btn-download');
+  var videoFilename = 'live-photo';
+  var workerBlobUrl = null;
+
+  fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+    .then(function(r){ return r.blob(); }).then(function(b){ workerBlobUrl = URL.createObjectURL(b); }).catch(function(){});
+
+  function formatSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    return (b/1024/1024).toFixed(1) + ' MB';
+  }
+
+  slFps.addEventListener('input', function () { valFps.textContent = slFps.value; });
+  slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
+
+  function loadVideo(file) {
+    videoFilename = file.name.replace(/\.[^.]+$/, '') || 'live-photo';
+    var url = URL.createObjectURL(file);
+    video.src = url;
+    video.onloadedmetadata = function () {
+      var dur = video.duration;
+      document.getElementById('duration-info').textContent = 'Duration: ' + dur.toFixed(2) + 's — entire clip will be converted.';
+      document.getElementById('upload-screen').classList.add('hidden');
+      document.getElementById('editor-screen').classList.remove('hidden');
+      convertBtn.disabled = false;
+    };
+  }
+
+  convertBtn.addEventListener('click', function () {
+    var fps = parseInt(slFps.value);
+    var maxWidth = parseInt(slWidth.value);
+    var duration = video.duration;
+    convertBtn.disabled = true;
+    resultSection.classList.add('hidden');
+    loadingOverlay.classList.remove('hidden');
+    progressFill.style.width = '0%';
+
+    var frameInterval = 1 / fps;
+    var times = [];
+    for (var t = 0; t < duration; t += frameInterval) times.push(t);
+
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var frames = [];
+    var frameIndex = 0;
+
+    function extractNextFrame() {
+      if (frameIndex >= times.length) { encodeGif(frames, canvas.width, canvas.height, fps); return; }
+      loadingText.textContent = 'Extracting frame ' + (frameIndex+1) + ' / ' + times.length + '…';
+      progressFill.style.width = ((frameIndex / times.length) * 60) + '%';
+      video.currentTime = times[frameIndex];
+    }
+
+    video.onseeked = function () {
+      if (frameIndex === 0) {
+        var scale = Math.min(1, maxWidth / video.videoWidth);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      frameIndex++;
+      extractNextFrame();
+    };
+
+    extractNextFrame();
+  });
+
+  function encodeGif(frames, w, h, fps) {
+    loadingText.textContent = 'Encoding GIF…';
+    var delay = Math.round(100 / fps) * 10;
+    var gifOptions = { workers: 2, quality: 10, width: w, height: h, repeat: 0 };
+    if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
+    var gif = new GIF(gifOptions);
+    frames.forEach(function (f) { gif.addFrame(f, { delay: delay, copy: true }); });
+    gif.on('progress', function (p) { progressFill.style.width = (p * 30 + 70) + '%'; });
+    gif.on('finished', function (blob) {
+      loadingOverlay.classList.add('hidden');
+      convertBtn.disabled = false;
+      var url = URL.createObjectURL(blob);
+      resultGif.src = url;
+      resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
+      dlBtn.href = url;
+      dlBtn.download = videoFilename + '.gif';
+      resultSection.classList.remove('hidden');
+    });
+    gif.render();
+  }
+
+  document.getElementById('btn-new').addEventListener('click', function () {
+    video.pause(); video.src = '';
+    document.getElementById('editor-screen').classList.add('hidden');
+    document.getElementById('upload-screen').classList.remove('hidden');
+    convertBtn.disabled = true; resultSection.classList.add('hidden');
+  });
+
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  dropZone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) loadVideo(fileInput.files[0]); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) loadVideo(e.dataTransfer.files[0]);
+  });
+
+  // Load from IndexedDB
+  (function () {
+    var req = indexedDB.open('gifwidgets_livephoto', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) return;
+      var tx = db.transaction('files', 'readonly');
+      var get = tx.objectStore('files').get('pending');
+      get.onsuccess = function () {
+        var file = get.result;
+        if (!file) return;
+        db.transaction('files', 'readwrite').objectStore('files').delete('pending');
+        loadVideo(file);
+      };
+    };
+  })();
+
+})();
+</script>
+</body>
+</html>

@@ -32,7 +32,7 @@
 
   function _getWorker() {
     if (_worker) return _worker;
-    _worker = new Worker('gif-tracker-worker.js');
+    _worker = new Worker('/gif-tracker-worker.js');
     _worker.onmessage = _handleWorkerMessage;
     _worker.onerror = function (e) {
       _hideTrackingProgress();

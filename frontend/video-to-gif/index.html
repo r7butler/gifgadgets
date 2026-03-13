@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Online Video to GIF Converter — MP4, WebM, MOV to GIF | GifWidgets</title>
+  <meta name="description" content="Convert video to GIF online for free. Upload any MP4, WebM, MOV, or AVI file, set start/end time, choose FPS and size, and download an animated GIF instantly. No signup." />
+  <meta name="keywords" content="video to gif converter, mp4 to gif, convert video to gif online free, make gif from video, webm to gif, mov to gif" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#8b5cf6" />
+  <link rel="canonical" href="https://gifwidgets.com/video-to-gif/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Free Online Video to GIF Converter | GifWidgets" />
+  <meta property="og:description" content="Convert MP4, WebM, MOV to animated GIF online for free. Control FPS, size, and time range." />
+  <meta property="og:url" content="https://gifwidgets.com/video-to-gif/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Video to GIF Converter — GifWidgets" />
+  <meta name="twitter:description" content="Convert any video to GIF online free. Set time range, FPS, and size. No signup." />
+  <link rel="stylesheet" href="/styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GifWidgets Video to GIF Converter",
+    "url": "https://gifwidgets.com/video-to-gif/",
+    "description": "Free online video to GIF converter. Upload MP4, WebM, MOV, or AVI and download an animated GIF with full control over time range, FPS, and size.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How do I convert a video to GIF online?", "acceptedAnswer": { "@type": "Answer", "text": "Upload your video (MP4, WebM, MOV, or AVI), set the start and end time of the clip you want, choose FPS (frames per second) and maximum size, then click Convert. Your GIF will be ready to download in seconds." } },
+      { "@type": "Question", "name": "What video formats are supported?", "acceptedAnswer": { "@type": "Answer", "text": "The converter accepts MP4, WebM, MOV (QuickTime), and AVI files. Browser support for specific codecs may vary." } },
+      { "@type": "Question", "name": "Is there a limit on video length?", "acceptedAnswer": { "@type": "Answer", "text": "For practical reasons, the converter processes up to 20 seconds of video. For longer clips, set in/out points to select the section you want." } },
+      { "@type": "Question", "name": "How can I reduce the GIF file size?", "acceptedAnswer": { "@type": "Answer", "text": "Lower the FPS (5-10 is often enough for GIFs), reduce the max width, and shorten the clip duration. These three factors have the largest impact on file size." } }
+    ]
+  }
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body style="--hero-color:var(--cat-video);--hero-icon-bg:var(--cat-video-dim);--hero-glow:rgba(139,92,246,.12)">
+<div class="tool-page">
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/video-to-gif/" class="active">Video to GIF</a>
+      <a href="/live-photo-to-gif/">Live Photo to GIF</a>
+      <a href="/video-editor/">Video Editor</a>
+    </div>
+  </nav>
+  <header class="tool-hero">
+    <div class="tool-hero-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    </div>
+    <h1>Video to GIF Converter</h1>
+    <p class="tool-hero-tagline">Convert any video to an animated GIF online, for free. Control time range, FPS, and output size.</p>
+    <a href="/video-to-gif/edit/" class="tool-hero-cta" id="upload-cta">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload a video to get started
+    </a>
+    <input type="file" id="hero-file-input" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.webm,.mov,.avi" hidden />
+  </header>
+  <main class="tool-content">
+    <div class="tool-features">
+      <div class="tool-feature"><h3>Set time range</h3><p>Choose exactly which portion of the video to convert with start/end time controls.</p></div>
+      <div class="tool-feature"><h3>Control FPS & size</h3><p>Adjust frames per second (1–20) and max output width to balance quality and file size.</p></div>
+      <div class="tool-feature"><h3>In-browser conversion</h3><p>Frames are extracted and encoded entirely in your browser using gif.js. No upload required.</p></div>
+      <div class="tool-feature"><h3>All video formats</h3><p>Supports MP4, WebM, MOV, and AVI — any format your browser can play.</p></div>
+    </div>
+    <section class="tool-section">
+      <h2>How to Convert a Video to GIF</h2>
+      <ol class="tool-steps">
+        <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your video</h3><p>Click upload or drag an MP4, WebM, MOV, or AVI file onto the button.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Set start and end time</h3><p>Use the time sliders to select the portion of the video to convert. Keep it under 10–15 seconds for best results.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Choose FPS and size</h3><p>Lower FPS (8–10) reduces file size. Reduce max width for smaller files. Click Convert to start.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Download your GIF</h3><p>Once conversion is complete, download your GIF. You can also open it in the GIF Editor to add captions.</p></div></li>
+      </ol>
+    </section>
+    <section class="tool-section">
+      <h2>Frequently Asked Questions</h2>
+      <dl class="tool-faq">
+        <div class="tool-faq-item"><dt>How do I convert a video to GIF?</dt><dd>Upload your video, set the time range, choose FPS and size, and click Convert. Download the GIF when ready.</dd></div>
+        <div class="tool-faq-item"><dt>What video formats are supported?</dt><dd>MP4, WebM, MOV (QuickTime), and AVI. Playback depends on your browser's codec support.</dd></div>
+        <div class="tool-faq-item"><dt>Is there a video length limit?</dt><dd>The converter handles up to 20 seconds at a time. Use the time range controls to select a specific section of longer videos.</dd></div>
+        <div class="tool-faq-item"><dt>How do I make the GIF file smaller?</dt><dd>Lower the FPS, reduce the max width, and shorten the clip. These are the biggest levers for GIF file size.</dd></div>
+        <div class="tool-faq-item"><dt>Can I add captions to the GIF after converting?</dt><dd>Yes! Open the downloaded GIF in the <a href="/gif-editor-advanced/">GIF Editor Advanced</a> to add text, captions, and more.</dd></div>
+      </dl>
+    </section>
+    <section class="tool-section">
+      <h2>Related Tools</h2>
+      <div class="related-tools">
+        <a href="/live-photo-to-gif/" class="related-tool-link">Live Photo to GIF</a>
+        <a href="/gif-editor-advanced/" class="related-tool-link">GIF Editor Advanced</a>
+        <a href="/video-editor/" class="related-tool-link">Video Editor</a>
+        <a href="/video-converter/mp4-to-gif/" class="related-tool-link">MP4 to GIF</a>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links">
+        <a href="/">All Tools</a>
+        <a href="/gif-editor-advanced/">GIF Editor</a>
+        <a href="/live-photo-to-gif/">Live Photo to GIF</a>
+      </nav>
+    </div>
+  </footer>
+</div>
+<script>
+(function () {
+  var cta = document.getElementById('upload-cta');
+  var fileInput = document.getElementById('hero-file-input');
+  function storeAndGo(file) {
+    if (!file) return;
+    var req = indexedDB.open('gifcaption', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) {
+        db.close(); indexedDB.deleteDatabase('gifcaption').onsuccess = function(){ storeAndGo(file); }; return;
+      }
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(file, 'pending');
+      tx.oncomplete = function () { window.location.href = '/video-to-gif/edit/'; };
+    };
+  }
+  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) storeAndGo(fileInput.files[0]); });
+  document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.querySelector('.tool-hero').addEventListener('drop', function (e) {
+    e.preventDefault(); if (e.dataTransfer.files[0]) storeAndGo(e.dataTransfer.files[0]);
+  });
+})();
+</script>
+</body>
+</html>

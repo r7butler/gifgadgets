@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JPG to PNG Converter — Free Online | GifWidgets</title>
+  <meta name="description" content="Convert JPG and JPEG images to PNG format instantly in your browser. Free, no upload to server, no signup. Lossless PNG output every time." />
+  <meta name="keywords" content="jpg to png, jpeg to png converter, convert jpg to png online free, jpg png converter" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/jpg-to-png/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="JPG to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Convert JPG and JPEG images to lossless PNG format instantly in your browser. No upload, no signup." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/jpg-to-png/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="JPG to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert JPG images to lossless PNG instantly in your browser. Free, private, no signup." />
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "JPG to PNG Converter",
+    "url": "https://gifwidgets.com/photo-converter/jpg-to-png/",
+    "description": "Free browser-based tool to convert JPG and JPEG images to lossless PNG format. No file upload, no signup required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "No file upload", "Lossless PNG output", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Does converting JPG to PNG improve quality?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The conversion preserves your existing image as lossless PNG, but it cannot recover quality already lost during JPG compression. The output will be at least as good as your original JPG."}
+      },
+      {
+        "@type": "Question",
+        "name": "Why is the PNG file larger than the original JPG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "PNG is a lossless format that stores pixel data without compression artifacts, so files are naturally larger than JPG equivalents. The size increase is expected and normal."}
+      },
+      {
+        "@type": "Question",
+        "name": "Will the PNG have a transparent background?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. JPG images have no transparency information, so the converted PNG will have an opaque background matching the original JPG."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is this converter safe to use for private photos?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes. The conversion happens entirely in your browser. Your images are never uploaded to any server."}
+      },
+      {
+        "@type": "Question",
+        "name": "What file types does this accept?",
+        "acceptedAnswer": {"@type": "Answer", "text": "This converter accepts .jpg and .jpeg files (JPEG images). For other formats, use one of the other converters on GifWidgets."}
+      }
+    ]
+  }
+  </script>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body>
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/photo-converter/" class="active">Photo Converters</a>
+      <a href="/video-converter/">Video Converters</a>
+    </div>
+  </nav>
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">JPG to PNG Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop a JPG image here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h2>Drop a JPG image here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .jpg, .jpeg files</p>
+      <input type="file" id="file-input" accept="image/jpeg,.jpg,.jpeg" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <!-- PNG is always lossless — no quality options needed -->
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Convert to PNG</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Converting…</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Converted PNG image" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PNG
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>Lossless Output</h3>
+          <p>PNG is a lossless format — your image data is preserved pixel-perfect with no compression artifacts.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Transparency Ready</h3>
+          <p>PNG supports alpha transparency. Use this converter when you need a format that can hold transparent pixels.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>100% Private</h3>
+          <p>Your file never leaves your browser. The conversion runs entirely on your device using the Canvas API.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>No Limits</h3>
+          <p>No file size cap, no daily limit, no watermark on output. Convert as many images as you need.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert JPG to PNG</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Select your JPG</h3><p>Drag a .jpg or .jpeg file onto the drop zone above, or click to open the file picker.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Click "Convert to PNG"</h3><p>No options needed — PNG is always lossless. Just hit the button.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Download your PNG</h3><p>The result appears instantly. Click the download button to save the .png file.</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>Does converting JPG to PNG improve quality?</dt>
+            <dd>No. The PNG output will be at least as good as your JPG, but it cannot recover quality lost during JPEG compression. For a true quality improvement you would need the original source image.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Why is the PNG larger than the JPG?</dt>
+            <dd>PNG stores full pixel data without lossy compression, so files are naturally larger than JPG equivalents. That's a trade-off for higher quality.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Will the converted PNG have a transparent background?</dt>
+            <dd>No. JPG files have no transparency channel, so the PNG output will have an opaque background matching the original image.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is this safe to use for private or sensitive photos?</dt>
+            <dd>Yes. The entire conversion happens locally in your browser. No image data is ever sent to any server.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Can I convert multiple JPG files at once?</dt>
+            <dd>Currently each conversion is one file at a time. Select a file, convert it, download, then repeat for the next image.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related converters</h2>
+        <div class="related-tools">
+          <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
+          <a href="/photo-converter/jpg-to-webp/" class="related-tool-link">JPG to WebP</a>
+          <a href="/photo-converter/webp-to-jpg/" class="related-tool-link">WebP to JPG</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links" aria-label="Footer navigation">
+        <a href="/">All Tools</a>
+        <a href="/photo-converter/">Photo Converters</a>
+        <a href="/video-converter/">Video Converters</a>
+      </nav>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+
+  var currentFile = null;
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function showFile(file) {
+    if (!file.type.match(/image\/(jpeg|jpg)/) && !file.name.match(/\.(jpg|jpeg)$/i)) {
+      alert('Please select a JPG or JPEG image.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '30%';
+
+    var img = new Image();
+    var url = URL.createObjectURL(currentFile);
+    img.onload = function() {
+      fill.style.width = '70%';
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob) {
+        fill.style.width = '100%';
+        var outUrl = URL.createObjectURL(blob);
+        resultImg.src = outUrl;
+        resultInfoEl.textContent = formatSize(blob.size) + ' — ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.png';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      }, 'image/png');
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      alert('Could not load the image. Please try another file.');
+      progressEl.classList.add('hidden');
+    };
+    img.src = url;
+  });
+})();
+</script>
+</body>
+</html>

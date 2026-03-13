@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Editor — GifWidgets</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .ve-upload-zone {
+      flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem;
+    }
+    .ve-drop-zone {
+      width: 100%; max-width: 500px;
+      background: var(--bg-secondary); border: 2px dashed var(--border);
+      border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center;
+      cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    .ve-drop-zone:hover, .ve-drop-zone.dragover { border-color: var(--cat-video); background: var(--cat-video-dim); }
+    .ve-drop-zone svg { color: var(--text-muted); margin-bottom: 1rem; }
+    .ve-trim-track {
+      position: relative; height: 40px;
+      background: var(--bg-tertiary); border-radius: 6px; overflow: hidden; cursor: pointer;
+    }
+    .ve-trim-fill {
+      position: absolute; top: 0; height: 100%;
+      background: rgba(139, 92, 246, 0.35); border-left: 3px solid var(--cat-video); border-right: 3px solid var(--cat-video);
+      pointer-events: none;
+    }
+    .ve-trim-playhead {
+      position: absolute; top: 0; width: 2px; height: 100%;
+      background: #fff; opacity: .7; pointer-events: none;
+    }
+    .ve-time-inputs { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+    .ve-time-input {
+      padding: 5px 8px; background: var(--bg-primary); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; width: 90px;
+    }
+    .ve-export-btn {
+      padding: 11px 24px; background: var(--cat-video); color: #fff;
+      border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .ve-export-btn:hover { opacity: .9; }
+    .ve-export-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .ve-status { font-size: 13px; color: var(--text-muted); }
+  </style>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body class="editor-body">
+
+<div class="video-editor-app" id="app">
+  <header class="video-editor-header">
+    <a href="/video-editor/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Video Editor</span></a>
+    <div class="header-actions">
+      <button id="btn-new" class="btn btn-ghost btn-small">New Video</button>
+      <button id="btn-export" class="ve-export-btn" disabled>Export Clip</button>
+    </div>
+  </header>
+
+  <!-- Upload screen -->
+  <div id="upload-screen" class="video-editor-workspace" style="flex-direction:column;justify-content:center;align-items:center;flex:1">
+    <div class="ve-upload-zone" style="width:100%">
+      <div class="ve-drop-zone" id="drop-zone">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <h2>Drop a video here</h2>
+        <p>or click to browse</p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Supports MP4, WebM, MOV, AVI</p>
+        <input type="file" id="file-input" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.webm,.mov,.avi" hidden />
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor workspace -->
+  <div id="editor-screen" class="video-editor-workspace hidden">
+    <div class="video-preview-area">
+      <video id="preview-video" controls preload="metadata" style="max-width:100%;max-height:100%"></video>
+    </div>
+    <div class="video-controls-panel">
+
+      <!-- Trim bar -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">Trim</span>
+          <span id="clip-duration" class="ve-status">–</span>
+        </div>
+        <div class="ve-trim-track" id="trim-track">
+          <div class="ve-trim-fill" id="trim-fill"></div>
+          <div class="ve-trim-playhead" id="trim-playhead"></div>
+        </div>
+        <div class="ve-time-inputs" style="margin-top:10px">
+          <label style="margin:0;font-size:12px;font-weight:600;color:var(--text-muted)">IN</label>
+          <input type="text" id="inp-in" class="ve-time-input" placeholder="0:00.000" />
+          <label style="margin:0;font-size:12px;font-weight:600;color:var(--text-muted)">OUT</label>
+          <input type="text" id="inp-out" class="ve-time-input" placeholder="–" />
+          <span id="ve-status-text" class="ve-status" style="margin-left:auto"></span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <p style="font-size:12px;color:var(--text-muted);flex:1">
+          Output format: WebM · <a href="/video-converter/webm-to-mp4/" style="color:var(--cat-video-conv)">Convert WebM→MP4</a> after export if needed.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var video = document.getElementById('preview-video');
+  var trimTrack = document.getElementById('trim-track');
+  var trimFill = document.getElementById('trim-fill');
+  var trimPlayhead = document.getElementById('trim-playhead');
+  var inpIn = document.getElementById('inp-in');
+  var inpOut = document.getElementById('inp-out');
+  var clipDuration = document.getElementById('clip-duration');
+  var statusText = document.getElementById('ve-status-text');
+  var exportBtn = document.getElementById('btn-export');
+
+  var duration = 0;
+  var inTime = 0;
+  var outTime = 0;
+  var videoFile = null;
+
+  function formatTime(t) {
+    var m = Math.floor(t / 60);
+    var s = (t % 60).toFixed(3);
+    if (s < 10) s = '0' + s;
+    return m + ':' + s;
+  }
+
+  function parseTime(str) {
+    var parts = str.split(':');
+    if (parts.length === 1) return parseFloat(parts[0]) || 0;
+    return parseFloat(parts[0]) * 60 + (parseFloat(parts[1]) || 0);
+  }
+
+  function updateTrimBar() {
+    if (!duration) return;
+    var leftPct = (inTime / duration) * 100;
+    var rightPct = (outTime / duration) * 100;
+    trimFill.style.left = leftPct + '%';
+    trimFill.style.width = (rightPct - leftPct) + '%';
+    var clipLen = outTime - inTime;
+    clipDuration.textContent = 'Clip: ' + formatTime(clipLen);
+  }
+
+  function updatePlayhead() {
+    if (!duration) return;
+    trimPlayhead.style.left = (video.currentTime / duration * 100) + '%';
+  }
+
+  function loadVideo(file) {
+    videoFile = file;
+    var url = URL.createObjectURL(file);
+    video.src = url;
+    video.onloadedmetadata = function () {
+      duration = video.duration;
+      inTime = 0;
+      outTime = duration;
+      inpIn.value = formatTime(0);
+      inpOut.value = formatTime(duration);
+      updateTrimBar();
+      exportBtn.disabled = false;
+      document.getElementById('upload-screen').classList.add('hidden');
+      document.getElementById('editor-screen').classList.remove('hidden');
+    };
+  }
+
+  // Trim bar click to set playhead
+  trimTrack.addEventListener('click', function (e) {
+    if (!duration) return;
+    var rect = trimTrack.getBoundingClientRect();
+    var pct = (e.clientX - rect.left) / rect.width;
+    video.currentTime = pct * duration;
+  });
+
+  video.addEventListener('timeupdate', updatePlayhead);
+
+  // In/out time inputs
+  inpIn.addEventListener('change', function () {
+    inTime = Math.max(0, Math.min(parseTime(inpIn.value), outTime - 0.1));
+    inpIn.value = formatTime(inTime);
+    updateTrimBar();
+  });
+  inpOut.addEventListener('change', function () {
+    outTime = Math.min(duration, Math.max(parseTime(inpOut.value), inTime + 0.1));
+    inpOut.value = formatTime(outTime);
+    updateTrimBar();
+  });
+
+  // Export via MediaRecorder
+  exportBtn.addEventListener('click', function () {
+    if (!videoFile) return;
+    statusText.textContent = 'Recording…';
+    exportBtn.disabled = true;
+
+    // Check MediaRecorder support
+    if (!window.MediaRecorder) {
+      alert('Your browser does not support MediaRecorder. Please use Chrome or Firefox.');
+      exportBtn.disabled = false;
+      return;
+    }
+
+    var chunks = [];
+    var stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+    var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    var recorder = new MediaRecorder(stream, { mimeType: mimeType });
+
+    recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = function () {
+      var blob = new Blob(chunks, { type: 'video/webm' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.webm';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+      statusText.textContent = 'Done!';
+      exportBtn.disabled = false;
+    };
+
+    video.currentTime = inTime;
+    video.onseeked = function () {
+      video.onseeked = null;
+      recorder.start();
+      video.play();
+      var checkInterval = setInterval(function () {
+        if (video.currentTime >= outTime) {
+          clearInterval(checkInterval);
+          video.pause();
+          recorder.stop();
+        }
+      }, 50);
+    };
+  });
+
+  document.getElementById('btn-new').addEventListener('click', function () {
+    video.pause();
+    video.src = '';
+    document.getElementById('editor-screen').classList.add('hidden');
+    document.getElementById('upload-screen').classList.remove('hidden');
+    exportBtn.disabled = true;
+    videoFile = null;
+    duration = 0;
+  });
+
+  // Upload
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  dropZone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) loadVideo(fileInput.files[0]); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) loadVideo(e.dataTransfer.files[0]);
+  });
+
+  // Load from IndexedDB
+  (function () {
+    var req = indexedDB.open('gifwidgets_video', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) return;
+      var tx = db.transaction('files', 'readonly');
+      var get = tx.objectStore('files').get('pending');
+      get.onsuccess = function () {
+        var file = get.result;
+        if (!file) return;
+        db.transaction('files', 'readwrite').objectStore('files').delete('pending');
+        loadVideo(file);
+      };
+    };
+  })();
+
+})();
+</script>
+</body>
+</html>

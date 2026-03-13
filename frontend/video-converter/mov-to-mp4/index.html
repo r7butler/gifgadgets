@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MOV to MP4 Converter — Free Online | GifWidgets</title>
+  <meta name="description" content="Convert MOV to MP4 free online. Browser-based, no upload required. Convert Apple QuickTime .mov files to compatible MP4. Powered by FFmpeg.wasm." />
+  <meta name="keywords" content="mov to mp4, quicktime to mp4, convert mov to mp4 online, mov converter, iphone video to mp4" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f43f5e" />
+  <link rel="canonical" href="https://gifwidgets.com/video-converter/mov-to-mp4/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MOV to MP4 Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Convert MOV to MP4 free in your browser. No upload. Powered by FFmpeg.wasm." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/video-converter/mov-to-mp4/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MOV to MP4 Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert QuickTime MOV to MP4 free in your browser. No upload required." />
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "MOV to MP4 Converter",
+    "url": "https://gifwidgets.com/video-converter/mov-to-mp4/",
+    "description": "Free online MOV to MP4 converter. Converts Apple QuickTime files in your browser using FFmpeg.wasm — no file upload needed.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "GifWidgets", "item": "https://gifwidgets.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Video Converters", "item": "https://gifwidgets.com/video-converter/" },
+        { "@type": "ListItem", "position": 3, "name": "MOV to MP4", "item": "https://gifwidgets.com/video-converter/mov-to-mp4/" }
+      ]
+    }
+  }
+  </script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
+</head>
+<body>
+<div class="converter-app" style="--conv-color:var(--cat-video-conv);--conv-color-dim:var(--cat-video-conv-dim)">
+
+  <nav class="site-nav">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="site-nav-links">
+      <a href="/gif-editor-advanced/">GIF Editor</a>
+      <a href="/video-to-gif/">Video to GIF</a>
+      <a href="/photo-converter/">Photo Converters</a>
+      <a href="/video-converter/" class="active">Video Converters</a>
+    </div>
+  </nav>
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">MOV to MP4 Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <!-- FFmpeg status -->
+    <div id="ffmpeg-status" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:1.5rem;font-size:13px;color:var(--text-secondary)">
+      <span id="ffmpeg-status-text">FFmpeg converter loads on first use (~30 MB, cached after).</span>
+    </div>
+
+    <!-- Compatibility warning -->
+    <div id="compat-warning" class="hidden" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.4);border-radius:8px;padding:14px 16px;margin-bottom:1.5rem;font-size:14px;color:var(--text-primary)">
+      <strong style="color:#f43f5e">Browser compatibility issue</strong><br>
+      <span style="color:var(--text-secondary)">This converter requires SharedArrayBuffer support. Please use Chrome or Edge, or ensure the site is served with <code>Cross-Origin-Opener-Policy: same-origin</code> and <code>Cross-Origin-Embedder-Policy: require-corp</code> headers.</span>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop MOV file here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <h2>Drop your MOV file here</h2>
+      <p>or click to browse</p>
+      <span class="conv-hint">Supports .mov / QuickTime files</span>
+      <input type="file" id="file-input" accept="video/quicktime,.mov" style="display:none" aria-hidden="true" />
+    </div>
+
+    <!-- Controls -->
+    <div class="conv-controls hidden" id="controls">
+
+      <div class="conv-file-info" id="file-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span class="conv-file-name" id="file-name">file.mov</span>
+        <span class="conv-file-size" id="file-size"></span>
+        <button class="conv-file-clear" id="clear-btn" title="Remove file" aria-label="Remove file">×</button>
+      </div>
+
+      <div class="conv-options">
+        <div class="conv-option-row">
+          <label for="preset-select">Encoding preset</label>
+          <select id="preset-select">
+            <option value="fast">Fast (larger file)</option>
+            <option value="medium" selected>Medium (balanced)</option>
+            <option value="slow">Slow (smaller file)</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="conv-convert-btn" id="convert-btn" disabled>
+        Convert to MP4
+      </button>
+
+    </div>
+
+    <!-- Progress -->
+    <div class="conv-progress hidden" id="progress-wrap">
+      <div class="conv-progress-label" id="progress-label">Converting…</div>
+      <div class="conv-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="conv-progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="conv-result hidden" id="result-wrap">
+      <video class="conv-result-preview" id="result-preview" controls></video>
+      <div class="conv-result-info" id="result-info"></div>
+      <a class="conv-download-btn" id="download-btn" download="converted.mp4">
+        Download MP4
+      </a>
+    </div>
+
+    <!-- SEO content -->
+    <section style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)">
+      <h2 style="font-size:1.1rem;margin-bottom:.75rem">About MOV to MP4 conversion</h2>
+      <p style="color:var(--text-secondary);font-size:.9rem;line-height:1.7;margin-bottom:.75rem">
+        <strong>MOV</strong> is Apple's QuickTime file format, commonly produced by iPhones, iPads, and Mac cameras. While MOV plays natively on Apple devices, it is not well supported on Windows PCs, Android devices, or many social media platforms. Converting to <strong>MP4</strong> with H.264 encoding solves this compatibility problem.
+      </p>
+      <p style="color:var(--text-secondary);font-size:.9rem;line-height:1.7;margin-bottom:1.5rem">
+        This converter uses <strong>libx264</strong> and <strong>AAC</strong> audio — the most compatible encoding for MP4. All processing is done locally in your browser; your video file is never uploaded to any server.
+      </p>
+
+      <h2 style="font-size:1.1rem;margin-bottom:1rem">Frequently Asked Questions</h2>
+      <dl class="tool-faq">
+        <div class="tool-faq-item">
+          <dt>Why convert MOV to MP4?</dt>
+          <dd>MOV files from iPhones and Macs do not play on many Windows programs, Android devices, or social media platforms. MP4 is universally supported everywhere.</dd>
+        </div>
+        <div class="tool-faq-item">
+          <dt>Will I lose video quality?</dt>
+          <dd>Some re-encoding quality loss is unavoidable, but at the medium preset the difference is minimal for most viewers. Use the slow preset for the best quality-to-file-size ratio.</dd>
+        </div>
+        <div class="tool-faq-item">
+          <dt>Can I share the output on WhatsApp, Instagram, or TikTok?</dt>
+          <dd>Yes. MP4 with H.264 is accepted by all major social and messaging apps.</dd>
+        </div>
+        <div class="tool-faq-item">
+          <dt>Is my video kept private?</dt>
+          <dd>Yes. The entire conversion runs in your browser — nothing is uploaded to any server.</dd>
+        </div>
+        <div class="tool-faq-item">
+          <dt>What browsers are supported?</dt>
+          <dd>Chrome and Edge work best. Recent Firefox versions also work. For Safari, ensure you have a recent version of macOS.</dd>
+        </div>
+      </dl>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+      <nav class="site-footer-links">
+        <a href="/">All Tools</a>
+        <a href="/photo-converter/">Photo Converters</a>
+        <a href="/video-converter/">Video Converters</a>
+      </nav>
+    </div>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const dropZone      = document.getElementById('drop-zone');
+  const fileInput     = document.getElementById('file-input');
+  const controls     = document.getElementById('controls');
+  const fileNameEl   = document.getElementById('file-name');
+  const fileSizeEl   = document.getElementById('file-size');
+  const clearBtn     = document.getElementById('clear-btn');
+  const convertBtn   = document.getElementById('convert-btn');
+  const presetSel    = document.getElementById('preset-select');
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressFill = document.getElementById('progress-fill');
+  const progressLbl  = document.getElementById('progress-label');
+  const resultWrap   = document.getElementById('result-wrap');
+  const resultPreview= document.getElementById('result-preview');
+  const resultInfo   = document.getElementById('result-info');
+  const downloadBtn  = document.getElementById('download-btn');
+  const statusEl     = document.getElementById('ffmpeg-status');
+  const statusText   = document.getElementById('ffmpeg-status-text');
+  const compatWarn   = document.getElementById('compat-warning');
+
+  let selectedFile = null;
+  let ffmpegReady  = false;
+  let ffmpeg       = null;
+
+  if (typeof crossOriginIsolated !== 'undefined' && !crossOriginIsolated) {
+    compatWarn.classList.remove('hidden');
+    statusEl.style.display = 'none';
+  }
+
+  async function loadFFmpeg() {
+    if (ffmpegReady) return;
+    statusText.textContent = 'Loading FFmpeg (~30 MB)…';
+    statusEl.style.borderColor = 'var(--conv-color)';
+    try {
+      const { FFmpeg }    = FFmpegWASM;
+      const { toBlobURL } = FFmpegUtil;
+      ffmpeg = new FFmpeg();
+      ffmpeg.on('log', ({ message }) => {
+        const m = message.match(/time=(\d+):(\d+):([\d.]+)/);
+        if (m) {
+          const secs = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]);
+          if (window._duration && window._duration > 0) {
+            const pct = Math.min(99, Math.round((secs / window._duration) * 100));
+            setProgress(pct, `Converting… ${pct}%`);
+          }
+        }
+      });
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      ffmpegReady = true;
+      statusText.textContent = 'FFmpeg loaded and ready.';
+      statusEl.style.borderColor = 'var(--success)';
+      statusEl.style.color = 'var(--success)';
+      convertBtn.disabled = false;
+    } catch (err) {
+      statusText.textContent = 'Failed to load FFmpeg: ' + err.message;
+      statusEl.style.borderColor = 'var(--danger)';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function setFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = formatBytes(file.size);
+    controls.classList.remove('hidden');
+    resultWrap.classList.add('hidden');
+    progressWrap.classList.add('hidden');
+    loadFFmpeg();
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    controls.classList.add('hidden');
+    resultWrap.classList.add('hidden');
+    progressWrap.classList.add('hidden');
+  });
+
+  function setProgress(pct, label) {
+    progressFill.style.width = pct + '%';
+    progressFill.parentElement.setAttribute('aria-valuenow', pct);
+    if (label) progressLbl.textContent = label;
+  }
+
+  function getVideoDuration(file) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(file);
+      const v   = document.createElement('video');
+      v.src = url;
+      v.onloadedmetadata = () => { resolve(v.duration); URL.revokeObjectURL(url); };
+      v.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
+    });
+  }
+
+  convertBtn.addEventListener('click', async () => {
+    if (!selectedFile || !ffmpegReady) return;
+    const preset = presetSel.value;
+    convertBtn.disabled = true;
+    progressWrap.classList.remove('hidden');
+    resultWrap.classList.add('hidden');
+    setProgress(0, 'Preparing…');
+    try {
+      const { fetchFile } = FFmpegUtil;
+      window._duration = await getVideoDuration(selectedFile);
+      setProgress(2, 'Reading file…');
+      await ffmpeg.writeFile('input.mov', await fetchFile(selectedFile));
+      setProgress(5, 'Converting…');
+      await ffmpeg.exec([
+        '-i', 'input.mov',
+        '-c:v', 'libx264',
+        '-preset', preset,
+        '-c:a', 'aac',
+        'output.mp4'
+      ]);
+      setProgress(95, 'Reading output…');
+      const data = await ffmpeg.readFile('output.mp4');
+      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+      try { await ffmpeg.deleteFile('input.mov'); } catch(_) {}
+      try { await ffmpeg.deleteFile('output.mp4'); } catch(_) {}
+      const url = URL.createObjectURL(blob);
+      resultPreview.src = url;
+      downloadBtn.href  = url;
+      downloadBtn.download = selectedFile.name.replace(/\.mov$/i, '') + '.mp4';
+      resultInfo.textContent = 'Output size: ' + formatBytes(blob.size);
+      setProgress(100, 'Done!');
+      progressWrap.classList.add('hidden');
+      resultWrap.classList.remove('hidden');
+    } catch (err) {
+      setProgress(0, 'Conversion failed: ' + err.message);
+    } finally {
+      convertBtn.disabled = false;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
