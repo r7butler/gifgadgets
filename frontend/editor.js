@@ -28,6 +28,11 @@
   var $ = GC.$;
   var state = GC.state;
 
+  function isHeic(file) {
+    return file.type === 'image/heic' || file.type === 'image/heif' ||
+           /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+  }
+
   // ── Initialise ───────────────────────────────
   function init() {
     GC.canvas = $('#preview-canvas');
@@ -589,6 +594,13 @@
     });
   };
 
+  var SINGLE_WEIGHT_FONTS_CAP = ['Impact', 'Arial Black'];
+  function toggleCapBoldOption(fontFamily) {
+    var group = $('#cap-bold-group');
+    if (!group) return;
+    group.style.display = SINGLE_WEIGHT_FONTS_CAP.indexOf(fontFamily) !== -1 ? 'none' : '';
+  }
+
   /** Sync the caption editor panel with the currently selected caption. */
   function updateCaptionEditor() {
     var editor = $('#caption-editor');
@@ -691,10 +703,12 @@
         if (!file) return;
         if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
           GC.loadGifFromFile(file);
+        } else if (isHeic(file)) {
+          GC.loadHeicAsImage(file);
         } else if (file.type.startsWith('video/')) {
           GC.loadVideoAsGif(file);
         } else {
-          GC.showError('Please drop a GIF or video file.');
+          GC.showError('Please drop a GIF, video, or HEIC file.');
         }
       });
       dropZone.addEventListener('click', function () { $('#file-input').click(); });
@@ -707,6 +721,8 @@
         if (!file) return;
         if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
           GC.loadGifFromFile(file);
+        } else if (isHeic(file)) {
+          GC.loadHeicAsImage(file);
         } else if (file.type.startsWith('video/')) {
           GC.loadVideoAsGif(file);
         }
@@ -923,12 +939,6 @@
       $('#cap-stroke-width-val').textContent = v;
       updateSelectedCaption({ strokeWidth: v });
     });
-    var SINGLE_WEIGHT_FONTS_CAP = ['Impact', 'Arial Black'];
-    function toggleCapBoldOption(fontFamily) {
-      var group = $('#cap-bold-group');
-      if (!group) return;
-      group.style.display = SINGLE_WEIGHT_FONTS_CAP.indexOf(fontFamily) !== -1 ? 'none' : '';
-    }
     $('#cap-font').addEventListener('change', function (e) {
       updateSelectedCaption({ fontFamily: e.target.value });
       toggleCapBoldOption(e.target.value);

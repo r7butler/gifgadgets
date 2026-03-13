@@ -185,6 +185,60 @@
     $('#btn-download').disabled = false;
   }
 
+  // ── HEIC / Live Photo Loading ────────────────
+
+  /** Convert a HEIC/HEIF file to JPEG in-browser and load it as a single frame. */
+  GC.loadHeicAsImage = function (file) {
+    GC.showLoading('Converting HEIC…');
+    heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+      .then(function (result) {
+        var blob = Array.isArray(result) ? result[0] : result;
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function () {
+          var w = img.naturalWidth;
+          var h = img.naturalHeight;
+          state.width = w;
+          state.height = h;
+          state.frames = [];
+          var tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = w;
+          tmpCanvas.height = h;
+          var tmpCtx = tmpCanvas.getContext('2d');
+          tmpCtx.drawImage(img, 0, 0);
+          state.frames.push({
+            imageData: tmpCtx.getImageData(0, 0, w, h),
+            delay: 100
+          });
+          URL.revokeObjectURL(url);
+          GC.canvas.width = w;
+          GC.canvas.height = h;
+          state.currentFrame = 0;
+          state.isPlaying = false;
+          GC.renderCurrentFrame();
+          GC.buildTimeline();
+          GC.updateUI();
+          $('#editor-workspace').classList.remove('hidden');
+          $('#upload-zone').classList.add('hidden');
+          var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.add('hidden');
+          var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
+          $('#btn-download').disabled = false;
+          $('#btn-share').disabled = false;
+          GC.hideLoading();
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          GC.hideLoading();
+          GC.showError('Could not load HEIC image.');
+        };
+        img.src = url;
+      })
+      .catch(function (err) {
+        GC.hideLoading();
+        GC.showError('HEIC conversion failed: ' + (err.message || err));
+      });
+  };
+
   // ── Playback Controls ────────────────────────
 
   GC.play = function () {
