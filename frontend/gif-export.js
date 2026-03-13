@@ -164,6 +164,40 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   };
 
+  // ── Size Info Helper ─────────────────────────
+
+  /**
+   * Insert or update a `.dl-size-info` element inside `modal` to show
+   * original → exported file size when compression is active.
+   * Inserts immediately after the `#download-preview` or `#share-preview` element.
+   */
+  GC.updateSizeInfo = function (modal, blob) {
+    var sizeInfo = modal.querySelector('.dl-size-info');
+    if (!sizeInfo) {
+      sizeInfo = document.createElement('p');
+      sizeInfo.className = 'dl-size-info';
+      var previewEl = modal.querySelector('#download-preview, #share-preview');
+      if (previewEl) previewEl.parentNode.insertBefore(sizeInfo, previewEl.nextSibling);
+    }
+    if (state.compressGif && state.originalFileSize > 0 && blob) {
+      var origSize = state.originalFileSize;
+      var newSize  = blob.size;
+      var pct      = Math.round((1 - newSize / origSize) * 100);
+      var pctStr   = pct > 0 ? '−' + pct + '%' : (pct < 0 ? '+' + Math.abs(pct) + '%' : 'no change');
+      var hasCaptions = state.captions.length > 0 || state.boxCaptionTop || state.boxCaptionBottom;
+      var note = hasCaptions ? ' <span class="dl-size-note">(captions add to file size)</span>' : '';
+      sizeInfo.innerHTML =
+        '<span class="dl-size-orig">'  + GC.formatBytes(origSize) + '</span>' +
+        ' <span class="dl-size-arrow">→</span> ' +
+        '<span class="dl-size-new">'   + GC.formatBytes(newSize)  + '</span>' +
+        ' <span class="dl-size-pct '  + (pct > 0 ? 'dl-size-savings' : '') + '">(' + pctStr + ')</span>' +
+        note;
+      sizeInfo.style.display = '';
+    } else {
+      sizeInfo.style.display = 'none';
+    }
+  };
+
   // ── Share Flow ───────────────────────────────
 
   /**
@@ -191,26 +225,7 @@
     img.alt = 'Your captioned GIF';
     preview.appendChild(img);
 
-    // Show original → exported file size when compression was used
-    var sizeInfo = modal.querySelector('.dl-size-info');
-    if (!sizeInfo) {
-      sizeInfo = document.createElement('p');
-      sizeInfo.className = 'dl-size-info';
-      preview.parentNode.insertBefore(sizeInfo, preview.nextSibling);
-    }
-    if (state.compressGif && state.originalFileSize > 0) {
-      var origSize = state.originalFileSize;
-      var newSize  = blob.size;
-      var pct      = Math.round((1 - newSize / origSize) * 100);
-      var pctStr   = pct > 0 ? '−' + pct + '%' : (pct < 0 ? '+' + Math.abs(pct) + '%' : 'no change');
-      sizeInfo.innerHTML = '<span class="dl-size-orig">' + GC.formatBytes(origSize) + '</span>' +
-        ' <span class="dl-size-arrow">→</span> ' +
-        '<span class="dl-size-new">' + GC.formatBytes(newSize) + '</span>' +
-        ' <span class="dl-size-pct ' + (pct > 0 ? 'dl-size-savings' : '') + '">(' + pctStr + ')</span>';
-      sizeInfo.style.display = '';
-    } else {
-      sizeInfo.style.display = 'none';
-    }
+    GC.updateSizeInfo(modal, blob);
 
     // Stash blob for the download button inside the modal
     modal._blob = blob;

@@ -1151,27 +1151,7 @@
       // Update download button label
       var dlBtn = $('#btn-dl-download');
       if (dlBtn) dlBtn.textContent = filename && filename.endsWith('.gif') ? 'Download GIF' : 'Download Image';
-      // Show original → exported file size when compression was used
-      var sizeInfo = modal.querySelector('.dl-size-info');
-      if (!sizeInfo) {
-        sizeInfo = document.createElement('p');
-        sizeInfo.className = 'dl-size-info';
-        var previewEl = modal.querySelector('#download-preview');
-        if (previewEl) previewEl.parentNode.insertBefore(sizeInfo, previewEl.nextSibling);
-      }
-      if (state.compressGif && state.originalFileSize > 0 && blob) {
-        var origSize = state.originalFileSize;
-        var newSize  = blob.size;
-        var pct      = Math.round((1 - newSize / origSize) * 100);
-        var pctStr   = pct > 0 ? '−' + pct + '%' : (pct < 0 ? '+' + Math.abs(pct) + '%' : 'no change');
-        sizeInfo.innerHTML = '<span class="dl-size-orig">' + GC.formatBytes(origSize) + '</span>' +
-          ' <span class="dl-size-arrow">→</span> ' +
-          '<span class="dl-size-new">' + GC.formatBytes(newSize) + '</span>' +
-          ' <span class="dl-size-pct ' + (pct > 0 ? 'dl-size-savings' : '') + '">(' + pctStr + ')</span>';
-        sizeInfo.style.display = '';
-      } else {
-        sizeInfo.style.display = 'none';
-      }
+      GC.updateSizeInfo(modal, blob);
       modal.classList.remove('hidden');
     }
     function closeDownloadModal() {

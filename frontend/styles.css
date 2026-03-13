@@ -977,6 +977,7 @@ input[type="range"]::-moz-range-thumb {
 .dl-size-new { font-weight: 600; color: var(--text-primary); }
 .dl-size-pct { color: var(--text-muted); }
 .dl-size-pct.dl-size-savings { color: #10b981; font-weight: 600; }
+.dl-size-note { color: var(--text-muted); font-style: italic; }
 .share-link-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .share-url-input {
   flex: 1; padding: .5rem .75rem; border-radius: 6px;
