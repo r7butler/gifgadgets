@@ -99,8 +99,8 @@
 
         <div class="editor-sidebar" id="editor-sidebar">
           <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true">Captions</button>
-          <div class="sidebar-section on-image-caption-section" id="on-image-caption-section">
-            <button class="section-toggle" id="on-image-caption-toggle" aria-expanded="true">On-Image Captions</button>
+          <div class="sidebar-section on-image-caption-section collapsed" id="on-image-caption-section">
+            <button class="section-toggle collapsed" id="on-image-caption-toggle" aria-expanded="false">On-Image Captions</button>
             <div class="on-image-caption-body">
               <div class="section-header">
                 <h3>Captions</h3>
@@ -136,8 +136,8 @@
             </div>
           </div>
 
-          <div class="sidebar-section box-caption-section" id="box-caption-section">
-            <button class="section-toggle" id="box-caption-toggle" aria-expanded="true">Box Caption</button>
+          <div class="sidebar-section box-caption-section collapsed" id="box-caption-section">
+            <button class="section-toggle collapsed" id="box-caption-toggle" aria-expanded="false">Box Caption</button>
             <div class="box-caption-body">
               <button id="btn-add-box-top" class="btn btn-ghost btn-xs">+ Top Box Caption</button>
               <div id="box-top-editor" class="box-editor hidden">
@@ -217,6 +217,21 @@
                 </div>
                 <button class="btn btn-ghost btn-xs btn-full" id="adj-apply-resize" style="margin-top:8px">Apply Resize</button>
               </div>
+              <div class="ie-section-label">Crop</div>
+              <div class="ie-section">
+                <label class="option-label"><input type="checkbox" id="chk-crop" /><span>Enable Crop</span></label>
+                <div id="crop-settings" class="sub-settings hidden">
+                  <p class="sub-hint">Drag on the preview to select a crop region, or set values manually.</p>
+                  <div class="form-row crop-inputs">
+                    <div class="form-group"><label for="crop-x">X</label><input type="number" id="crop-x" min="0" value="0" class="input-sm" /></div>
+                    <div class="form-group"><label for="crop-y">Y</label><input type="number" id="crop-y" min="0" value="0" class="input-sm" /></div>
+                    <div class="form-group"><label for="crop-w">W</label><input type="number" id="crop-w" min="1" value="0" class="input-sm" /></div>
+                    <div class="form-group"><label for="crop-h">H</label><input type="number" id="crop-h" min="1" value="0" class="input-sm" /></div>
+                  </div>
+                  <button id="btn-crop-reset" class="btn btn-ghost btn-xs">Reset Crop</button>
+                  <button id="btn-apply-crop" class="btn btn-accent btn-xs">Apply Crop</button>
+                </div>
+              </div>
               <div class="ie-section"><button class="ie-reset-btn" id="adj-reset">Reset adjustments</button></div>
             </div>
           </div>
@@ -233,18 +248,6 @@
                   <div class="range-labels"><span>Higher quality</span><span>Smaller file</span></div>
                 </div>
                 <label class="option-label"><input type="checkbox" id="chk-lossy" /><span>Lossy (reduce colours)</span></label>
-              </div>
-              <label class="option-label"><input type="checkbox" id="chk-crop" /><span>Crop</span></label>
-              <div id="crop-settings" class="sub-settings hidden">
-                <p class="sub-hint">Drag on the preview to select a crop region, or set values manually.</p>
-                <div class="form-row crop-inputs">
-                  <div class="form-group"><label for="crop-x">X</label><input type="number" id="crop-x" min="0" value="0" class="input-sm" /></div>
-                  <div class="form-group"><label for="crop-y">Y</label><input type="number" id="crop-y" min="0" value="0" class="input-sm" /></div>
-                  <div class="form-group"><label for="crop-w">W</label><input type="number" id="crop-w" min="1" value="0" class="input-sm" /></div>
-                  <div class="form-group"><label for="crop-h">H</label><input type="number" id="crop-h" min="1" value="0" class="input-sm" /></div>
-                </div>
-                <button id="btn-crop-reset" class="btn btn-ghost btn-xs">Reset Crop</button>
-                <button id="btn-apply-crop" class="btn btn-accent btn-xs">Apply Crop</button>
               </div>
             </div>
           </div>
