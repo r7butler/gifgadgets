@@ -51,13 +51,49 @@
       border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; width: 90px;
     }
     .ve-export-btn {
-      padding: 11px 24px; background: var(--cat-video); color: #fff;
+      padding: 11px 24px; background: var(--success); color: #fff;
       border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 700;
       cursor: pointer; transition: opacity .15s;
     }
     .ve-export-btn:hover { opacity: .9; }
     .ve-export-btn:disabled { opacity: .4; cursor: not-allowed; }
     .ve-status { font-size: 13px; color: var(--text-muted); }
+    .ve-export-modal { max-width: 560px; }
+    .ve-export-preview {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 180px; margin-bottom: 1rem; padding: 12px;
+      border-radius: 10px; background: var(--bg-base); overflow: hidden;
+    }
+    .ve-export-preview canvas {
+      max-width: 100%; max-height: 220px; display: block; border-radius: 8px;
+      box-shadow: var(--shadow-md);
+    }
+    .ve-export-note {
+      font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+      margin: 0 0 1rem;
+    }
+    .ve-export-options {
+      display: grid; gap: 10px;
+    }
+    .ve-export-option {
+      width: 100%; display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: 10px; text-align: left;
+      border: 1px solid var(--border); background: var(--bg-secondary);
+      color: var(--text-primary); text-decoration: none; cursor: pointer;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .ve-export-option:hover {
+      border-color: var(--border-light); background: var(--bg-elevated); transform: translateY(-1px);
+    }
+    .ve-export-option svg { flex-shrink: 0; }
+    .ve-export-option-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .ve-export-option-copy { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+    .ve-export-option-primary {
+      background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35);
+    }
+    .ve-export-option-primary:hover {
+      background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.5);
+    }
   </style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-PNH9WX8YRK"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PNH9WX8YRK');</script>
@@ -132,6 +168,47 @@
   </div>
 </div>
 
+<div id="export-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Export clip options">
+  <div class="modal ve-export-modal">
+    <button id="export-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Export this clip</h2>
+    <div class="ve-export-preview">
+      <canvas id="export-preview-canvas" width="320" height="180"></canvas>
+    </div>
+    <p class="ve-export-note">Choose a format for your trimmed clip. WebM exports directly here. MP4 and GIF open the matching tools.</p>
+    <div class="ve-export-options">
+      <button id="export-webm-btn" class="ve-export-option ve-export-option-primary" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>
+          <span class="ve-export-option-title">Download WebM</span>
+          <span class="ve-export-option-copy">Fastest option. Export the trimmed clip directly from the editor.</span>
+        </span>
+      </button>
+      <a class="ve-export-option" href="/video-converter/webm-to-mp4/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/></svg>
+        <span>
+          <span class="ve-export-option-title">Convert to MP4</span>
+          <span class="ve-export-option-copy">Best for sharing. Opens the WebM to MP4 converter in a new tab.</span>
+        </span>
+      </a>
+      <a class="ve-export-option" href="/video-to-gif/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
+        <span>
+          <span class="ve-export-option-title">Export as GIF</span>
+          <span class="ve-export-option-copy">Open the Video to GIF tool to turn this video into an animated GIF.</span>
+        </span>
+      </a>
+      <a class="ve-export-option" href="/video-converter/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+        <span>
+          <span class="ve-export-option-title">More video formats</span>
+          <span class="ve-export-option-copy">Browse the full set of browser-based video converters.</span>
+        </span>
+      </a>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -147,6 +224,11 @@
   var clipDuration = document.getElementById('clip-duration');
   var statusText = document.getElementById('ve-status-text');
   var exportBtn = document.getElementById('btn-export');
+  var exportModal = document.getElementById('export-modal');
+  var exportModalClose = document.getElementById('export-modal-close');
+  var exportWebmBtn = document.getElementById('export-webm-btn');
+  var exportPreviewCanvas = document.getElementById('export-preview-canvas');
+  var exportPreviewCtx = exportPreviewCanvas.getContext('2d');
 
   var duration = 0;
   var inTime = 0;
@@ -262,6 +344,89 @@
     };
   }
 
+  function closeExportModal() {
+    exportModal.classList.add('hidden');
+  }
+
+  function openExportModal() {
+    if (!videoFile) return;
+    renderExportPreview();
+    exportModal.classList.remove('hidden');
+  }
+
+  function drawPreviewFrame(source, w, h) {
+    var maxW = 320;
+    var scale = Math.min(1, maxW / w);
+    exportPreviewCanvas.width = Math.max(1, Math.round(w * scale));
+    exportPreviewCanvas.height = Math.max(1, Math.round(h * scale));
+    exportPreviewCtx.clearRect(0, 0, exportPreviewCanvas.width, exportPreviewCanvas.height);
+    exportPreviewCtx.drawImage(source, 0, 0, exportPreviewCanvas.width, exportPreviewCanvas.height);
+  }
+
+  function renderExportPreview() {
+    if (video.videoWidth && video.videoHeight) {
+      drawPreviewFrame(video, video.videoWidth, video.videoHeight);
+    }
+
+    var probe = document.createElement('video');
+    probe.preload = 'auto';
+    probe.muted = true;
+    probe.playsInline = true;
+    probe.src = video.currentSrc || video.src;
+    probe.addEventListener('loadeddata', function () {
+      drawPreviewFrame(probe, probe.videoWidth, probe.videoHeight);
+      probe.removeAttribute('src');
+      probe.load();
+    }, { once: true });
+  }
+
+  function exportTrimmedWebM() {
+    if (!videoFile) return;
+    statusText.textContent = 'Recording…';
+    exportBtn.disabled = true;
+
+    // Check MediaRecorder support
+    if (!window.MediaRecorder) {
+      alert('Your browser does not support MediaRecorder. Please use Chrome or Firefox.');
+      exportBtn.disabled = false;
+      return;
+    }
+
+    closeExportModal();
+
+    var chunks = [];
+    var stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+    var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    var recorder = new MediaRecorder(stream, { mimeType: mimeType });
+
+    recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = function () {
+      var blob = new Blob(chunks, { type: 'video/webm' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.webm';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+      statusText.textContent = 'Done!';
+      exportBtn.disabled = false;
+    };
+
+    video.currentTime = inTime;
+    video.onseeked = function () {
+      video.onseeked = null;
+      recorder.start();
+      video.play();
+      var checkInterval = setInterval(function () {
+        if (video.currentTime >= outTime) {
+          clearInterval(checkInterval);
+          video.pause();
+          recorder.stop();
+        }
+      }, 50);
+    };
+  }
+
   // Trim bar click to set playhead
   trimTrack.addEventListener('click', function (e) {
     if (suppressTrimTrackClick) {
@@ -314,50 +479,11 @@
     clampRange();
   });
 
-  // Export via MediaRecorder
-  exportBtn.addEventListener('click', function () {
-    if (!videoFile) return;
-    statusText.textContent = 'Recording…';
-    exportBtn.disabled = true;
-
-    // Check MediaRecorder support
-    if (!window.MediaRecorder) {
-      alert('Your browser does not support MediaRecorder. Please use Chrome or Firefox.');
-      exportBtn.disabled = false;
-      return;
-    }
-
-    var chunks = [];
-    var stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
-    var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-    var recorder = new MediaRecorder(stream, { mimeType: mimeType });
-
-    recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = function () {
-      var blob = new Blob(chunks, { type: 'video/webm' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.webm';
-      a.click();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-      statusText.textContent = 'Done!';
-      exportBtn.disabled = false;
-    };
-
-    video.currentTime = inTime;
-    video.onseeked = function () {
-      video.onseeked = null;
-      recorder.start();
-      video.play();
-      var checkInterval = setInterval(function () {
-        if (video.currentTime >= outTime) {
-          clearInterval(checkInterval);
-          video.pause();
-          recorder.stop();
-        }
-      }, 50);
-    };
+  exportBtn.addEventListener('click', openExportModal);
+  exportWebmBtn.addEventListener('click', exportTrimmedWebM);
+  exportModalClose.addEventListener('click', closeExportModal);
+  exportModal.addEventListener('click', function (e) {
+    if (e.target === exportModal) closeExportModal();
   });
 
   document.getElementById('btn-new').addEventListener('click', function () {

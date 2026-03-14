@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Free Online GIF Editor — Add Text & Captions to GIFs | GifWidgets</title>
-  <meta name="description" content="Add text captions to GIFs online for free. Drag text anywhere, set timing with a visual timeline, customize fonts and colors, and export instantly. No signup, no watermark." />
-  <meta name="keywords" content="gif editor online free, add text to gif, gif caption maker, gif text overlay, animated gif editor" />
+  <title>GIF Editor — Motion Captions, Object Tracking, Crop & More | GifWidgets</title>
+  <meta name="description" content="Advanced online GIF editor with motion keyframes, AI object tracking, zoom, crop, and compression. Add animated captions that follow objects across frames. Free, no signup." />
+  <meta name="keywords" content="gif editor, gif motion caption, object tracking gif, animated text gif, gif editor with keyframes, gif caption animation" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#10b981" />
   <link rel="canonical" href="https://gifwidgets.com/gif-editor/" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Free Online GIF Editor — Add Text & Captions to GIFs | GifWidgets" />
-  <meta property="og:description" content="Add captions to GIFs online for free. Frame-precise timing, drag-and-drop text, custom fonts. No signup, no watermark." />
+  <meta property="og:title" content="GIF Editor — Motion Captions & Object Tracking | GifWidgets" />
+  <meta property="og:description" content="Add animated captions that follow objects across GIF frames. Motion keyframes, AI tracking, crop, zoom, compression. Free, no signup." />
   <meta property="og:url" content="https://gifwidgets.com/gif-editor/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Free Online GIF Editor — GifWidgets" />
-  <meta name="twitter:description" content="Add text captions to GIFs online for free. No signup, no watermark." />
+  <meta name="twitter:title" content="GIF Editor — GifWidgets" />
+  <meta name="twitter:description" content="Motion captions, AI object tracking, keyframes, crop, zoom. The most powerful free online GIF editor." />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
   <script type="application/ld+json">
@@ -25,10 +25,11 @@
     "@type": "SoftwareApplication",
     "name": "GifWidgets GIF Editor",
     "url": "https://gifwidgets.com/gif-editor/",
-    "description": "Free online GIF editor. Add text captions with frame-precise timing, drag-and-drop positioning, custom fonts and colors.",
+    "description": "Advanced online GIF editor with motion keyframes, AI object tracking, crop, zoom, and compression controls.",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "featureList": ["Motion keyframes for animated captions", "AI object tracking", "Frame-precise caption timing", "Drag-and-drop positioning", "Custom fonts, colors, sizes", "Box captions (top/bottom bars)", "Crop and zoom", "GIF compression", "Video to GIF conversion"]
   }
   </script>
   <script type="application/ld+json">
@@ -38,28 +39,28 @@
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "How do I add text to a GIF online?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Upload your GIF to GifWidgets GIF Editor, click Add Caption, type your text, and drag it anywhere on the image. Customize font, color, size, and set the exact frames where it appears using the timeline." }
+        "name": "What can this GIF editor do?",
+        "acceptedAnswer": { "@type": "Answer", "text": "The GIF Editor includes motion keyframes, AI-powered object tracking, crop controls, zoom up to 8x, GIF compression, and all the standard captioning features for adding and styling text." }
+      },
+      {
+        "@type": "Question",
+        "name": "How does AI object tracking work?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Select a caption, click 'Follow an Object', then click on the thing you want to track in the preview. The editor uses the EdgeSAM model to automatically create motion keyframes that follow that object across all frames of the GIF." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I animate text captions across frames?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Use the '+ Keyframe here' button to pin a caption's position at the current frame. Add keyframes at different frames with different positions, and the caption will smoothly interpolate between them." }
       },
       {
         "@type": "Question",
         "name": "Is this GIF editor free?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes, completely free. No signup, no subscription, no watermark on exports." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes, completely free. No signup, no subscription, no watermark." }
       },
       {
         "@type": "Question",
-        "name": "Can I add multiple captions to one GIF?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Add as many text captions as you like, each with independent timing, position, font, and color." }
-      },
-      {
-        "@type": "Question",
-        "name": "Does it work on mobile?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The GIF editor works in any modern mobile browser — Chrome, Safari, Firefox, and Edge on iOS and Android." }
-      },
-      {
-        "@type": "Question",
-        "name": "Is my GIF uploaded to a server?",
-        "acceptedAnswer": { "@type": "Answer", "text": "No. All editing happens in your browser. Your files never leave your device unless you choose to share via a public link, which requires explicit consent." }
+        "name": "Can I crop the GIF output?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Enable Crop in the Other Options section, then drag on the preview to set a crop region or enter exact pixel values." }
       }
     ]
   }
@@ -78,7 +79,7 @@
   <nav class="site-nav" role="navigation" aria-label="Main navigation">
     <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
     <div class="site-nav-links">
-      <a href="/gif-editor-advanced/" class="active">GIF Editor</a>
+      <a href="/gif-editor/" class="active">GIF Editor</a>
       <a href="/image-editor/">Image Editor</a>
       <a href="/video-editor/">Video Editor</a>
       <a href="/photo-converter/">Photo Converters</a>
@@ -88,10 +89,10 @@
 
   <header class="tool-hero">
     <div class="tool-hero-icon" aria-hidden="true">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/><circle cx="18" cy="6" r="3"/></svg>
     </div>
     <h1>GIF Editor</h1>
-    <p class="tool-hero-tagline">Add captions and text overlays to any GIF — for free, right in your browser.</p>
+    <p class="tool-hero-tagline">Motion captions, AI object tracking, crop, zoom, and compression — the most powerful free GIF editor online.</p>
     <a href="/gif-editor/edit/" class="tool-hero-cta" id="upload-cta">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Upload a GIF to get started
@@ -103,52 +104,60 @@
 
     <div class="tool-features">
       <div class="tool-feature">
-        <h3>Frame-precise timing</h3>
-        <p>Use the visual timeline to control exactly which frames each caption appears on.</p>
+        <h3>Motion keyframes</h3>
+        <p>Pin caption positions at specific frames. The caption smoothly animates between keyframes.</p>
       </div>
       <div class="tool-feature">
-        <h3>Drag to position</h3>
-        <p>Click and drag text anywhere on the GIF. Resize handles make repositioning easy.</p>
+        <h3>AI object tracking</h3>
+        <p>Click "Follow an Object" and tap the target. Captions automatically follow it across all frames using EdgeSAM.</p>
       </div>
       <div class="tool-feature">
-        <h3>Custom styles</h3>
-        <p>Choose from multiple fonts, adjust size, fill color, outline color and width.</p>
+        <h3>Zoom up to 8×</h3>
+        <p>Zoom in for pixel-precise caption placement. Two-finger pinch or scroll wheel to zoom; drag to pan.</p>
+      </div>
+      <div class="tool-feature">
+        <h3>Crop output</h3>
+        <p>Drag on the preview to define a crop region, or enter exact pixel coordinates.</p>
+      </div>
+      <div class="tool-feature">
+        <h3>GIF compression</h3>
+        <p>Reduce output file size with configurable compression quality and optional lossy color reduction.</p>
       </div>
       <div class="tool-feature">
         <h3>Box captions</h3>
-        <p>Add solid caption bars above or below the GIF in the classic meme style.</p>
+        <p>Add solid caption bars above or below the GIF with custom font, size, color, and alignment.</p>
       </div>
     </div>
 
     <section class="tool-section" aria-label="How to use the GIF editor">
-      <h2>How to Add Text to a GIF</h2>
+      <h2>How to Add Animated Captions to a GIF</h2>
       <ol class="tool-steps">
         <li class="tool-step">
           <div class="tool-step-num">1</div>
           <div class="tool-step-body">
             <h3>Upload your GIF or video</h3>
-            <p>Click the upload button above or drag a file directly onto it. Supports .gif, .mp4, .webm, .mov, and .avi files. Videos are automatically converted to GIF.</p>
+            <p>Click upload or drag a GIF, MP4, WebM, MOV, or AVI file. Videos are converted to GIF automatically.</p>
           </div>
         </li>
         <li class="tool-step">
           <div class="tool-step-num">2</div>
           <div class="tool-step-body">
-            <h3>Add captions</h3>
-            <p>Click <strong>+ Add</strong> in the sidebar to create a caption. Type your text, then drag it to the right spot on the GIF.</p>
+            <h3>Add a caption and position it</h3>
+            <p>Click <strong>+ Add</strong> to create a caption, type your text, and drag it to the starting position.</p>
           </div>
         </li>
         <li class="tool-step">
           <div class="tool-step-num">3</div>
           <div class="tool-step-body">
-            <h3>Customize and time it</h3>
-            <p>Use the sidebar to change font, size, and color. Drag the timeline handles to set the exact frames where the caption appears.</p>
+            <h3>Add motion keyframes or use AI tracking</h3>
+            <p>Seek to different frames and click <strong>+ Keyframe here</strong> to pin the caption at that position. Or click <strong>Follow an Object</strong> and tap the target — the AI will do the rest.</p>
           </div>
         </li>
         <li class="tool-step">
           <div class="tool-step-num">4</div>
           <div class="tool-step-body">
-            <h3>Download or share</h3>
-            <p>Hit <strong>Download</strong> to save your captioned GIF. Or use <strong>Share</strong> to get a public link you can share anywhere.</p>
+            <h3>Set timing, crop, compress, and export</h3>
+            <p>Use the timeline to set caption start/end frames. Optionally crop or compress the output. Hit <strong>Download</strong>.</p>
           </div>
         </li>
       </ol>
@@ -158,24 +167,24 @@
       <h2>Frequently Asked Questions</h2>
       <dl class="tool-faq">
         <div class="tool-faq-item">
-          <dt>How do I add text to a GIF online?</dt>
-          <dd>Upload your GIF to GifWidgets, click Add Caption, type your text, and drag it anywhere. Set timing with the visual timeline, then download.</dd>
+          <dt>What can this GIF editor do?</dt>
+          <dd>It includes motion keyframes, AI object tracking, zoom up to 8×, crop, GIF compression, and all the standard caption features for fast text overlays.</dd>
         </div>
         <div class="tool-faq-item">
-          <dt>Is this GIF editor free?</dt>
-          <dd>Yes — completely free. No account, no subscription, no watermark on your exports.</dd>
+          <dt>How does AI object tracking work?</dt>
+          <dd>Select a caption, click "Follow an Object", then click on the target in the preview. The EdgeSAM model creates motion keyframes that follow it across every frame.</dd>
         </div>
         <div class="tool-faq-item">
-          <dt>Can I add multiple captions to one GIF?</dt>
-          <dd>Yes. Add as many captions as you like, each with its own timing, position, font, and color settings.</dd>
+          <dt>Can I animate text captions?</dt>
+          <dd>Yes. Use "Keyframe here" at different frames with different positions. The caption will smoothly interpolate between them.</dd>
         </div>
         <div class="tool-faq-item">
-          <dt>Are my files uploaded to a server?</dt>
-          <dd>Editing runs entirely in your browser — your files stay on your device. Sharing via a public link uploads only when you explicitly consent.</dd>
+          <dt>Is this free?</dt>
+          <dd>Yes — completely free. No account, no watermark.</dd>
         </div>
         <div class="tool-faq-item">
-          <dt>Does the GIF editor work on mobile?</dt>
-          <dd>Yes. It works in any modern browser on iOS and Android, including Chrome and Safari.</dd>
+          <dt>Does it work on mobile?</dt>
+          <dd>Yes. The GIF editor works in modern mobile browsers, including Safari and Chrome on iPhone and Android.</dd>
         </div>
       </dl>
     </section>
@@ -183,9 +192,9 @@
     <section class="tool-section" aria-label="Related tools">
       <h2>Related Tools</h2>
       <div class="related-tools">
-        <a href="/gif-editor-advanced/" class="related-tool-link">GIF Editor Advanced</a>
         <a href="/video-to-gif/" class="related-tool-link">Video to GIF</a>
         <a href="/image-editor/" class="related-tool-link">Image Editor</a>
+        <a href="/video-editor/" class="related-tool-link">Video Editor</a>
         <a href="/photo-converter/" class="related-tool-link">Photo Converters</a>
       </div>
     </section>
@@ -197,7 +206,7 @@
       <p>© 2025 GifWidgets — Free browser-based media tools.</p>
       <nav class="site-footer-links">
         <a href="/">All Tools</a>
-        <a href="/gif-editor-advanced/">GIF Editor Advanced</a>
+        <a href="/gif-editor/">GIF Editor</a>
         <a href="/video-to-gif/">Video to GIF</a>
         <a href="/image-editor/">Image Editor</a>
       </nav>
@@ -205,12 +214,10 @@
   </footer>
 
 </div>
-
 <script>
 (function () {
   var cta = document.getElementById('upload-cta');
   var fileInput = document.getElementById('hero-file-input');
-
   function storeAndGo(file) {
     if (!file) return;
     var req = indexedDB.open('gifcaption', 1);
@@ -219,8 +226,7 @@
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
         db.close();
-        var del = indexedDB.deleteDatabase('gifcaption');
-        del.onsuccess = function () { storeAndGo(file); };
+        indexedDB.deleteDatabase('gifcaption').onsuccess = function () { storeAndGo(file); };
         return;
       }
       var tx = db.transaction('files', 'readwrite');
@@ -228,21 +234,12 @@
       tx.oncomplete = function () { window.location.href = '/gif-editor/edit/?source=local'; };
     };
   }
-
-  cta.addEventListener('click', function (e) {
-    e.preventDefault();
-    fileInput.click();
-  });
-  fileInput.addEventListener('change', function () {
-    if (fileInput.files[0]) storeAndGo(fileInput.files[0]);
-  });
-
-  // Allow dropping on the whole hero
+  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) storeAndGo(fileInput.files[0]); });
   document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
   document.querySelector('.tool-hero').addEventListener('drop', function (e) {
     e.preventDefault();
-    var file = e.dataTransfer.files[0];
-    if (file) storeAndGo(file);
+    if (e.dataTransfer.files[0]) storeAndGo(e.dataTransfer.files[0]);
   });
 })();
 </script>

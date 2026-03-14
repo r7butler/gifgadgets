@@ -21,30 +21,24 @@
 </head>
 <body class="editor-body">
 
-  <!-- Loading overlay -->
   <div id="loading-overlay" class="overlay hidden">
-    <div class="overlay-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading…</p>
-    </div>
+    <div class="overlay-content"><div class="spinner"></div><p class="loading-text">Loading…</p></div>
   </div>
-
-  <!-- Export progress overlay -->
   <div id="export-overlay" class="overlay hidden">
-    <div class="overlay-content">
-      <p class="progress-text">Exporting… 0%</p>
-      <div class="progress-bar"><div class="progress-bar-fill"></div></div>
-    </div>
+    <div class="overlay-content"><p class="progress-text">Exporting… 0%</p><div class="progress-bar"><div class="progress-bar-fill"></div></div></div>
   </div>
 
   <div class="editor-app">
-    <!-- Header -->
     <header class="editor-header">
       <a href="/gif-editor/" class="logo">Gif<span class="logo-accent">Widgets</span></a>
       <div class="header-actions">
         <button id="btn-new" class="btn btn-ghost" title="Load a different GIF" aria-label="Load new GIF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           New
+        </button>
+        <button id="btn-save-frame" class="btn btn-ghost" disabled aria-label="Export current frame as image" title="Export current frame as JPEG (pause first)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          Export frame
         </button>
         <button id="btn-download" class="btn btn-ghost" disabled aria-label="Download captioned GIF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -57,14 +51,9 @@
       </div>
     </header>
 
-    <!-- Upload Zone (shown when no GIF loaded) -->
     <div id="upload-zone" class="upload-zone">
       <div id="drop-zone" class="drop-zone">
-        <svg class="drop-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <path d="M21 15l-5-5L5 21"/>
-        </svg>
+        <svg class="drop-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
         <h2>Upload a GIF or video to get started</h2>
         <p>or click to browse</p>
         <p class="drop-hint">Supports GIF, HEIC, MP4, WebM, MOV, AVI</p>
@@ -72,11 +61,8 @@
       </div>
     </div>
 
-    <!-- Editor Workspace (hidden until GIF loaded) -->
     <div id="editor-workspace" class="editor-workspace hidden" role="main">
       <div class="editor-main">
-
-        <!-- Preview panel -->
         <div class="editor-preview">
           <div class="canvas-container">
             <canvas id="preview-canvas"></canvas>
@@ -111,7 +97,6 @@
           </div>
         </div>
 
-        <!-- Sidebar -->
         <div class="editor-sidebar" id="editor-sidebar">
           <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true">Captions</button>
           <div class="sidebar-section on-image-caption-section" id="on-image-caption-section">
@@ -126,52 +111,23 @@
               </div>
               <div id="caption-editor" class="caption-editor hidden">
                 <h3>Edit Caption</h3>
-                <div class="form-group">
-                  <label for="cap-text">Text</label>
-                  <textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea>
-                </div>
+                <div class="form-group"><label for="cap-text">Text</label><textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea></div>
                 <div class="form-row">
-                  <div class="form-group" style="flex:1">
-                    <label for="cap-font">Font</label>
-                    <select id="cap-font">
-                      <option value="Impact">Impact</option>
-                      <option value="Arial Black">Arial Black</option>
-                      <option value="Comic Sans MS">Comic Sans MS</option>
-                      <option value="Arial">Arial</option>
-                      <option value="Georgia">Georgia</option>
-                      <option value="Courier New">Courier New</option>
-                      <option value="Times New Roman">Times New Roman</option>
-                    </select>
-                  </div>
-                  <div class="form-group" id="cap-bold-group">
-                    <label for="cap-bold">Bold</label>
-                    <input type="checkbox" id="cap-bold" checked />
-                  </div>
+                  <div class="form-group" style="flex:1"><label for="cap-font">Font</label><select id="cap-font"><option value="Impact">Impact</option><option value="Arial Black">Arial Black</option><option value="Comic Sans MS">Comic Sans MS</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select></div>
+                  <div class="form-group" id="cap-bold-group"><label for="cap-bold">Bold</label><input type="checkbox" id="cap-bold" checked /></div>
                 </div>
-                <div class="form-group">
-                  <label>Size: <span id="cap-font-size-val">40</span>px</label>
-                  <input type="range" id="cap-font-size" min="12" max="120" value="40" />
-                </div>
+                <div class="form-group"><label>Size: <span id="cap-font-size-val">40</span>px</label><input type="range" id="cap-font-size" min="12" max="120" value="40" /></div>
                 <div class="form-row">
-                  <div class="form-group">
-                    <label for="cap-color">Fill</label>
-                    <input type="color" id="cap-color" value="#ffffff" />
-                  </div>
-                  <div class="form-group">
-                    <label for="cap-stroke-color">Outline</label>
-                    <input type="color" id="cap-stroke-color" value="#000000" />
-                  </div>
+                  <div class="form-group"><label for="cap-color">Fill</label><input type="color" id="cap-color" value="#ffffff" /></div>
+                  <div class="form-group"><label for="cap-stroke-color">Outline</label><input type="color" id="cap-stroke-color" value="#000000" /></div>
                 </div>
-                <div class="form-group">
-                  <label>Outline width: <span id="cap-stroke-width-val">3</span>px</label>
-                  <input type="range" id="cap-stroke-width" min="0" max="10" step="0.5" value="3" />
-                </div>
+                <div class="form-group"><label>Outline width: <span id="cap-stroke-width-val">3</span>px</label><input type="range" id="cap-stroke-width" min="0" max="10" step="0.5" value="3" /></div>
                 <div class="form-group">
                   <label>Motion</label>
                   <p id="cap-motion-info" class="sub-hint" style="margin:0 0 6px"></p>
                   <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button id="btn-add-keyframe" class="btn btn-ghost btn-xs">+ Keyframe here</button>
-                    <button id="btn-track-with-ai" class="btn btn-accent btn-xs" style="display:none">Follow an Object</button>
+                    <button id="btn-track-with-ai" class="btn btn-accent btn-xs" style="display:none" title="Click on an object — the caption will follow it">Follow an Object</button>
                     <button id="btn-clear-motion" class="btn btn-ghost btn-xs" style="display:none">Clear motion</button>
                   </div>
                 </div>
@@ -180,16 +136,12 @@
             </div>
           </div>
 
-          <!-- Box caption -->
           <div class="sidebar-section box-caption-section" id="box-caption-section">
             <button class="section-toggle" id="box-caption-toggle" aria-expanded="true">Box Caption</button>
             <div class="box-caption-body">
               <button id="btn-add-box-top" class="btn btn-ghost btn-xs">+ Top Box Caption</button>
               <div id="box-top-editor" class="box-editor hidden">
-                <div class="box-editor-header">
-                  <span class="box-editor-label">Top Box Caption</span>
-                  <button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-top">&times; Remove</button>
-                </div>
+                <div class="box-editor-header"><span class="box-editor-label">Top Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-top">&times; Remove</button></div>
                 <div class="form-group"><label for="box-top-text">Text</label><textarea id="box-top-text" rows="2" placeholder="Enter text…"></textarea></div>
                 <div class="form-group"><label>Height: <span id="box-top-height-val">80</span>px</label><input type="range" id="box-top-height" min="30" max="300" value="80" /></div>
                 <div class="form-group"><label>Border: <span id="box-top-border-val">0</span>px</label><input type="range" id="box-top-border" min="0" max="20" value="0" /></div>
@@ -206,10 +158,7 @@
               </div>
               <button id="btn-add-box-bottom" class="btn btn-ghost btn-xs">+ Bottom Box Caption</button>
               <div id="box-bottom-editor" class="box-editor hidden">
-                <div class="box-editor-header">
-                  <span class="box-editor-label">Bottom Box Caption</span>
-                  <button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-bottom">&times; Remove</button>
-                </div>
+                <div class="box-editor-header"><span class="box-editor-label">Bottom Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-bottom">&times; Remove</button></div>
                 <div class="form-group"><label for="box-bottom-text">Text</label><textarea id="box-bottom-text" rows="2" placeholder="Enter text…"></textarea></div>
                 <div class="form-group"><label>Height: <span id="box-bottom-height-val">80</span>px</label><input type="range" id="box-bottom-height" min="30" max="300" value="80" /></div>
                 <div class="form-group"><label>Border: <span id="box-bottom-border-val">0</span>px</label><input type="range" id="box-bottom-border" min="0" max="20" value="0" /></div>
@@ -227,7 +176,51 @@
             </div>
           </div>
 
-          <!-- Other Options -->
+          <!-- Adjustments (photo editing) -->
+          <div class="sidebar-section collapsed" id="adj-section">
+            <button class="section-toggle collapsed" id="adj-toggle" aria-expanded="false">Adjustments</button>
+            <div>
+              <div class="ie-section-label">Tone</div>
+              <div class="ie-section">
+                <div class="form-group" style="margin-bottom:8px"><label>Brightness: <span id="adj-brightness-val">0</span></label><input type="range" id="adj-brightness" min="-100" max="100" value="0" /></div>
+                <div class="form-group" style="margin-bottom:8px"><label>Contrast: <span id="adj-contrast-val">0</span></label><input type="range" id="adj-contrast" min="-100" max="100" value="0" /></div>
+                <div class="form-group" style="margin-bottom:8px"><label>Saturation: <span id="adj-saturation-val">0</span></label><input type="range" id="adj-saturation" min="-100" max="100" value="0" /></div>
+                <div class="form-group" style="margin-bottom:0"><label>Hue: <span id="adj-hue-val">0</span>°</label><input type="range" id="adj-hue" min="0" max="360" value="0" /></div>
+              </div>
+              <div class="ie-section-label">Filter</div>
+              <div class="ie-section">
+                <div class="ie-filter-grid">
+                  <button class="ie-filter-btn adj-filter-btn active" data-filter="none">None</button>
+                  <button class="ie-filter-btn adj-filter-btn" data-filter="grayscale">Grayscale</button>
+                  <button class="ie-filter-btn adj-filter-btn" data-filter="sepia">Sepia</button>
+                  <button class="ie-filter-btn adj-filter-btn" data-filter="invert">Invert</button>
+                  <button class="ie-filter-btn adj-filter-btn" data-filter="blur">Blur</button>
+                  <button class="ie-filter-btn adj-filter-btn" data-filter="warm">Warm</button>
+                </div>
+              </div>
+              <div class="ie-section-label">Transform</div>
+              <div class="ie-section">
+                <div class="ie-transform-row">
+                  <button class="ie-transform-btn" id="adj-rotate-cw" title="Rotate 90° clockwise">↻ 90°</button>
+                  <button class="ie-transform-btn" id="adj-rotate-ccw" title="Rotate 90° counter-clockwise">↺ 90°</button>
+                  <button class="ie-transform-btn" id="adj-flip-h" title="Flip horizontal">⇔ Flip H</button>
+                  <button class="ie-transform-btn" id="adj-flip-v" title="Flip vertical">⇕ Flip V</button>
+                </div>
+              </div>
+              <div class="ie-section-label">Resize</div>
+              <div class="ie-section">
+                <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Current: <span id="adj-original-size">–</span></p>
+                <div class="ie-resize-row">
+                  <div class="form-group"><label style="font-size:11px">Width</label><input type="number" id="adj-resize-width" min="1" placeholder="px" /></div>
+                  <button class="ie-lock-btn locked" id="adj-lock-ratio" title="Lock aspect ratio">🔒</button>
+                  <div class="form-group"><label style="font-size:11px">Height</label><input type="number" id="adj-resize-height" min="1" placeholder="px" /></div>
+                </div>
+                <button class="btn btn-ghost btn-xs btn-full" id="adj-apply-resize" style="margin-top:8px">Apply Resize</button>
+              </div>
+              <div class="ie-section"><button class="ie-reset-btn" id="adj-reset">Reset adjustments</button></div>
+            </div>
+          </div>
+
           <div class="sidebar-section other-options-section collapsed" id="other-options-section">
             <button class="section-toggle collapsed" id="other-options-toggle" aria-expanded="false">Other Options</button>
             <div class="other-options-body">
@@ -258,97 +251,38 @@
         </div>
       </div>
 
-      <!-- Timeline -->
       <div class="editor-timeline" id="editor-timeline" role="region" aria-label="Caption timeline">
         <button class="timeline-toggle" id="timeline-toggle" aria-expanded="true">Caption Timeline</button>
-        <div class="timeline-header">
-          <h3>Timeline</h3>
-          <span class="timeline-hint">Drag the handles on each track to set when captions appear</span>
-        </div>
+        <div class="timeline-header"><h3>Timeline</h3><span class="timeline-hint">Drag the handles on each track to set when captions appear</span></div>
         <div id="timeline"></div>
       </div>
     </div>
   </div>
 
-  <!-- Modals -->
+  <!-- Modals (same as gif-editor/edit) -->
   <div id="remove-box-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Confirm remove box caption">
-    <div class="modal modal-sm">
-      <h2 class="modal-title">Remove box caption?</h2>
-      <p class="modal-body-text">Are you sure you want to remove this box caption? This can't be undone.</p>
-      <label class="modal-skip-label"><input type="checkbox" id="remove-box-modal-skip"> Don't ask again this session</label>
-      <div class="modal-actions">
-        <button id="remove-box-modal-cancel" class="btn btn-ghost">Cancel</button>
-        <button id="remove-box-modal-confirm" class="btn btn-danger">Remove</button>
-      </div>
-    </div>
+    <div class="modal modal-sm"><h2 class="modal-title">Remove box caption?</h2><p class="modal-body-text">Are you sure you want to remove this box caption? This can't be undone.</p><label class="modal-skip-label"><input type="checkbox" id="remove-box-modal-skip"> Don't ask again this session</label><div class="modal-actions"><button id="remove-box-modal-cancel" class="btn btn-ghost">Cancel</button><button id="remove-box-modal-confirm" class="btn btn-danger">Remove</button></div></div>
   </div>
   <div id="download-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Download your GIF">
-    <div class="modal">
-      <button id="download-modal-close" class="modal-close" aria-label="Close">&times;</button>
-      <h2 class="modal-title">Your GIF is ready!</h2>
-      <div id="download-preview" class="share-preview"></div>
-      <div class="share-buttons">
-        <button id="btn-dl-download" class="btn btn-primary btn-full"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download GIF</button>
-        <button id="btn-dl-save-photos" class="btn btn-ghost btn-full"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Save to Photos</button>
-      </div>
-    </div>
+    <div class="modal"><button id="download-modal-close" class="modal-close" aria-label="Close">&times;</button><h2 class="modal-title">Your GIF is ready!</h2><div id="download-preview" class="share-preview"></div><div class="share-buttons"><button id="btn-dl-download" class="btn btn-primary btn-full">Download GIF</button><button id="btn-dl-save-photos" class="btn btn-ghost btn-full">Save to Photos</button></div></div>
   </div>
   <div id="delete-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Confirm delete caption">
-    <div class="modal modal-sm">
-      <h2 class="modal-title">Delete caption?</h2>
-      <p class="modal-body-text">Are you sure you want to delete this caption? This can't be undone.</p>
-      <label class="modal-skip-label"><input type="checkbox" id="delete-modal-skip"> Don't ask again this session</label>
-      <div class="modal-actions">
-        <button id="delete-modal-cancel" class="btn btn-ghost">Cancel</button>
-        <button id="delete-modal-confirm" class="btn btn-danger">Delete</button>
-      </div>
-    </div>
+    <div class="modal modal-sm"><h2 class="modal-title">Delete caption?</h2><p class="modal-body-text">Are you sure you want to delete this caption? This can't be undone.</p><label class="modal-skip-label"><input type="checkbox" id="delete-modal-skip"> Don't ask again this session</label><div class="modal-actions"><button id="delete-modal-cancel" class="btn btn-ghost">Cancel</button><button id="delete-modal-confirm" class="btn btn-danger">Delete</button></div></div>
   </div>
   <div id="share-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share confirmation">
-    <div class="modal modal-sm">
-      <h2 class="modal-title">Create a share link?</h2>
-      <p class="modal-body-text">This will upload your GIF and create a public link. The image will remain publicly accessible on the internet indefinitely.</p>
-      <div class="modal-actions">
-        <button id="share-consent-no" class="btn btn-ghost">No, just save it</button>
-        <button id="share-consent-yes" class="btn btn-accent">Yes, create link</button>
-      </div>
-    </div>
+    <div class="modal modal-sm"><h2 class="modal-title">Create a share link?</h2><p class="modal-body-text">This will upload your GIF and create a public link. The image will remain publicly accessible on the internet indefinitely.</p><div class="modal-actions"><button id="share-consent-no" class="btn btn-ghost">No, just save it</button><button id="share-consent-yes" class="btn btn-accent">Yes, create link</button></div></div>
   </div>
   <div id="share-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share your GIF">
-    <div class="modal">
-      <button id="share-modal-close" class="modal-close" aria-label="Close">&times;</button>
-      <h2 class="modal-title">Your GIF is ready!</h2>
-      <div id="share-preview" class="share-preview"></div>
-      <div id="share-skeletons">
-        <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
-        <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
-      </div>
-      <div id="share-ready" class="hidden">
-        <div class="share-link-row"><input type="text" id="share-url" class="share-url-input" readonly /><button id="btn-copy-link" class="btn btn-accent">Copy Link</button></div>
-        <div class="share-link-row" id="share-image-url-row" style="display:none"><input type="text" id="share-image-url" class="share-url-input" readonly placeholder="Direct image URL" /><button id="btn-copy-image-url" class="btn btn-ghost">Copy Image URL</button></div>
-      </div>
-      <div class="share-buttons">
-        <button id="btn-share-download" class="btn btn-primary btn-full"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download GIF</button>
-        <button id="btn-share-save-photos" class="btn btn-ghost btn-full"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Save to Photos</button>
-        <div id="share-social-skeletons" class="skeleton-social"><div class="skeleton skeleton-social-btn"></div><div class="skeleton skeleton-social-btn"></div></div>
-        <div id="share-social-ready" class="share-social hidden">
-          <a id="btn-share-reddit" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on Reddit</a>
-          <a id="btn-share-twitter" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on X</a>
-        </div>
-      </div>
-      <p class="share-status" id="share-status"></p>
-    </div>
+    <div class="modal"><button id="share-modal-close" class="modal-close" aria-label="Close">&times;</button><h2 class="modal-title">Your GIF is ready!</h2><div id="share-preview" class="share-preview"></div><div id="share-skeletons"><div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div><div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div></div><div id="share-ready" class="hidden"><div class="share-link-row"><input type="text" id="share-url" class="share-url-input" readonly /><button id="btn-copy-link" class="btn btn-accent">Copy Link</button></div><div class="share-link-row" id="share-image-url-row" style="display:none"><input type="text" id="share-image-url" class="share-url-input" readonly placeholder="Direct image URL" /><button id="btn-copy-image-url" class="btn btn-ghost">Copy Image URL</button></div></div><div class="share-buttons"><button id="btn-share-download" class="btn btn-primary btn-full">Download GIF</button><button id="btn-share-save-photos" class="btn btn-ghost btn-full">Save to Photos</button><div id="share-social-skeletons" class="skeleton-social"><div class="skeleton skeleton-social-btn"></div><div class="skeleton skeleton-social-btn"></div></div><div id="share-social-ready" class="share-social hidden"><a id="btn-share-reddit" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on Reddit</a><a id="btn-share-twitter" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on X</a></div></div><p class="share-status" id="share-status"></p></div>
   </div>
   <div id="kf-context-menu" class="kf-context-menu hidden" role="menu">
     <button id="kf-menu-remove">Remove keyframe</button>
   </div>
 
-  <!-- Libraries -->
   <script src="https://d3js.org/d3.v7.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/omggif@1.0.10/omggif.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" crossorigin="anonymous"></script>
-  <!-- Editor modules -->
   <script src="/editor-state.js"></script>
   <script src="/canvas-rendering.js"></script>
   <script src="/gif-playback.js"></script>
