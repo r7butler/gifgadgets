@@ -3,6 +3,8 @@ import os
 import re
 import uuid
 import base64
+import urllib.request
+import urllib.error
 
 import boto3
 
@@ -10,8 +12,11 @@ ASSETS_BUCKET = os.environ["ASSETS_BUCKET"]
 SITE_BUCKET = os.environ["SITE_BUCKET"]
 ASSETS_CDN_URL = os.environ.get("ASSETS_CDN_URL", "").rstrip("/")
 SITE_CDN_URL = os.environ.get("SITE_CDN_URL", "").rstrip("/")
+GITHUB_SECRET_ARN = os.environ.get("GITHUB_SECRET_ARN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
 
 s3 = boto3.client("s3")
+secretsmanager = boto3.client("secretsmanager")
 
 
 
@@ -87,6 +92,8 @@ def handler(event, context):
         return handle_upload(event)
     elif method == "POST" and path == "/share":
         return handle_share(event)
+    elif method == "POST" and path == "/report-issue":
+        return handle_report_issue(event)
     elif method == "OPTIONS":
         return _cors_response(200, {})
     else:
@@ -192,6 +199,50 @@ def handle_share(event):
         "share_url": share_url,
         "gif_url": gif_url,
     })
+
+
+def handle_report_issue(event):
+    """Handle POST /report-issue — post a GitHub issue using the stored PAT."""
+    try:
+        body = event.get("body", "")
+        if event.get("isBase64Encoded"):
+            body = base64.b64decode(body).decode("utf-8")
+        payload = json.loads(body)
+    except (json.JSONDecodeError, Exception):
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    title = (payload.get("title") or "").strip()[:200]
+    body_text = (payload.get("body") or "").strip()[:5000]
+
+    if not title:
+        return _cors_response(400, {"error": "Missing 'title' field"})
+
+    try:
+        secret = secretsmanager.get_secret_value(SecretId=GITHUB_SECRET_ARN)
+        token = secret["SecretString"]
+    except Exception:
+        return _cors_response(500, {"error": "Failed to retrieve credentials"})
+
+    issue_payload = json.dumps({"title": title, "body": body_text}).encode("utf-8")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+        data=issue_payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "gifcaption-app",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+        return _cors_response(200, {"url": result.get("html_url", "")})
+    except urllib.error.HTTPError:
+        return _cors_response(500, {"error": "Failed to create issue"})
 
 
 def _cors_response(status_code, body):

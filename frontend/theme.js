@@ -11,6 +11,7 @@
   var SUN = '<svg class="theme-icon icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   var MOON = '<svg class="theme-icon icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   var confirmModal;
+  var reportIssueModal;
   var editorHeaderSyncers = [];
   var editorHeaderObserver;
 
@@ -304,6 +305,128 @@
     return confirmModal;
   }
 
+  var FLAG_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+
+  function ensureReportIssueModal() {
+    if (reportIssueModal) return reportIssueModal;
+    if (!document.body) return null;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay hidden';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Report an issue');
+    overlay.innerHTML =
+      '<div class="modal">' +
+        '<button type="button" class="modal-close" aria-label="Close">&times;</button>' +
+        '<h2 class="modal-title">Report an Issue</h2>' +
+        '<div class="form-group">' +
+          '<label for="report-issue-title">Subject</label>' +
+          '<input type="text" id="report-issue-title" placeholder="Brief summary of the issue" maxlength="200">' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label for="report-issue-body">Description</label>' +
+          '<textarea id="report-issue-body" rows="5" placeholder="What were you doing? What went wrong?" style="resize:vertical"></textarea>' +
+        '</div>' +
+        '<div class="modal-actions" style="justify-content:flex-end">' +
+          '<button type="button" class="btn btn-ghost" data-report-cancel>Cancel</button>' +
+          '<button type="button" class="btn btn-primary" data-report-submit>Submit</button>' +
+        '</div>' +
+        '<p class="report-issue-status" style="display:none;margin-top:.75rem;font-size:.875rem;text-align:center"></p>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    var titleInput = overlay.querySelector('#report-issue-title');
+    var bodyInput = overlay.querySelector('#report-issue-body');
+    var submitBtn = overlay.querySelector('[data-report-submit]');
+    var cancelBtn = overlay.querySelector('[data-report-cancel]');
+    var closeBtn = overlay.querySelector('.modal-close');
+    var statusEl = overlay.querySelector('.report-issue-status');
+
+    function openModal() {
+      titleInput.value = '';
+      bodyInput.value = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit';
+      statusEl.style.display = 'none';
+      statusEl.className = 'report-issue-status';
+      overlay.classList.remove('hidden');
+      setTimeout(function () { titleInput.focus(); }, 50);
+    }
+
+    function closeModal() {
+      overlay.classList.add('hidden');
+    }
+
+    function showStatus(msg, isError) {
+      statusEl.textContent = msg;
+      statusEl.style.display = 'block';
+      statusEl.style.color = isError ? 'var(--danger, #ef4444)' : 'var(--success, #22c55e)';
+    }
+
+    submitBtn.addEventListener('click', function () {
+      var title = titleInput.value.trim();
+      if (!title) { titleInput.focus(); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+      statusEl.style.display = 'none';
+
+      var apiBase = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '';
+      fetch(apiBase + '/report-issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, body: bodyInput.value.trim() })
+      })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+          if (r.ok) {
+            showStatus('Issue submitted — thank you!', false);
+            submitBtn.textContent = 'Done';
+            setTimeout(closeModal, 2000);
+          } else {
+            showStatus((r.data && r.data.error) || 'Something went wrong.', true);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+          }
+        })
+        .catch(function () {
+          showStatus('Network error — please try again.', true);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit';
+        });
+    });
+
+    cancelBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+    });
+
+    reportIssueModal = { open: openModal, close: closeModal };
+    return reportIssueModal;
+  }
+
+  function openReportIssue() {
+    var modal = ensureReportIssueModal();
+    if (modal) modal.open();
+  }
+
+  function makeReportIssueBtn(className) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = className;
+    btn.setAttribute('aria-label', 'Report an issue');
+    btn.title = 'Report an issue';
+    btn.innerHTML = FLAG_ICON + ' <span>Report Issue</span>';
+    btn.addEventListener('click', openReportIssue);
+    return btn;
+  }
+
   window.GWConfirmAction = function (opts) {
     var modal = ensureConfirmModal();
     if (!modal) {
@@ -339,6 +462,11 @@
       } else {
         nav.appendChild(btn);
       }
+      // Also inject into the collapsible nav links for mobile
+      var navLinks = nav.querySelector('.site-nav-links');
+      if (navLinks) {
+        navLinks.appendChild(makeReportIssueBtn('report-issue-nav-btn'));
+      }
       return;
     }
 
@@ -347,6 +475,7 @@
     if (header) {
       var headerActions = ensureHeaderActions(header);
       headerActions.insertBefore(btn, headerActions.firstChild);
+      headerActions.insertBefore(makeReportIssueBtn('report-issue-nav-btn'), btn);
       setupEditorHeader(header, headerActions);
     }
   });

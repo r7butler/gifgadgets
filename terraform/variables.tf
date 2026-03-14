@@ -27,3 +27,9 @@ variable "content_acm_certificate_arn" {
   type        = string
   default     = "arn:aws:acm:us-east-1:759371407688:certificate/ae2c065f-bde1-49e4-a62a-32a59d8f84f3"
 }
+
+variable "github_pat" {
+  description = "Fine-grained GitHub PAT for posting issues to r7butler/gifcaption"
+  type        = string
+  sensitive   = true
+}

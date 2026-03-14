@@ -195,6 +195,21 @@ input[type="range"]::-moz-range-thumb {
 .site-nav-toggle.is-open .site-nav-toggle-bar:nth-child(2) { opacity: 0; }
 .site-nav-toggle.is-open .site-nav-toggle-bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
+/* Report Issue button (nav + editor header) */
+.report-issue-nav-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--text-secondary); font-size: 13px; font-weight: 500;
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  border: none; background: none; cursor: pointer;
+  transition: color .15s, background .15s; white-space: nowrap;
+}
+.report-issue-nav-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+@media (max-width: 768px) {
+  .site-nav-links .report-issue-nav-btn {
+    width: 100%; font-size: 14px; padding: 10px 12px;
+  }
+}
+
 /* Theme toggle button */
 .theme-toggle {
   background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);

@@ -74,6 +74,18 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
   }
 }
 
+# ---------- Secrets Manager: GitHub PAT ----------
+
+resource "aws_secretsmanager_secret" "github_pat" {
+  name        = "gifcaption/github-pat"
+  description = "Fine-grained GitHub PAT for posting issues to r7butler/gifcaption"
+}
+
+resource "aws_secretsmanager_secret_version" "github_pat" {
+  secret_id     = aws_secretsmanager_secret.github_pat.id
+  secret_string = var.github_pat
+}
+
 # ---------- IAM Role for Lambda ----------
 
 resource "aws_iam_role" "lambda" {
@@ -119,6 +131,11 @@ resource "aws_iam_role_policy" "lambda" {
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.github_pat.arn
       }
     ]
   })
@@ -139,10 +156,12 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ASSETS_BUCKET  = aws_s3_bucket.assets.id
-      SITE_BUCKET    = aws_s3_bucket.site.id
-      ASSETS_CDN_URL = "https://content.gifcaption.com"
-      SITE_CDN_URL   = "https://gifcaption.com"
+      ASSETS_BUCKET      = aws_s3_bucket.assets.id
+      SITE_BUCKET        = aws_s3_bucket.site.id
+      ASSETS_CDN_URL     = "https://content.gifcaption.com"
+      SITE_CDN_URL       = "https://gifcaption.com"
+      GITHUB_SECRET_ARN  = aws_secretsmanager_secret.github_pat.arn
+      GITHUB_REPO        = "r7butler/gifcaption"
     }
   }
 }
