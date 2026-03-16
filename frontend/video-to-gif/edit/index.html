@@ -30,6 +30,37 @@
     .vtg-result img { max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px; }
     .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:14px;font-weight:700;text-decoration:none; }
     .vtg-dl-btn:hover { text-decoration:none; }
+    .vtg-trim-track {
+      position:relative;height:36px;
+      background:var(--bg-tertiary);border-radius:6px;overflow:hidden;cursor:pointer;
+    }
+    .vtg-trim-fill {
+      position:absolute;top:0;height:100%;
+      background:rgba(16,185,129,.30);border-left:3px solid var(--cat-gif);border-right:3px solid var(--cat-gif);
+      cursor:grab;
+    }
+    .vtg-trim-fill.dragging { cursor:grabbing; }
+    .vtg-trim-handle {
+      position:absolute;top:0;width:20px;height:100%;
+      z-index:2;cursor:ew-resize;
+      display:flex;align-items:center;justify-content:center;
+      touch-action:none;
+    }
+    .vtg-trim-handle::before {
+      content:'';width:4px;height:16px;border-radius:999px;
+      background:rgba(255,255,255,.95);
+      box-shadow:0 0 0 1px rgba(0,0,0,.18);
+    }
+    .vtg-trim-playhead {
+      position:absolute;top:0;width:2px;height:100%;
+      background:#fff;opacity:.7;pointer-events:none;
+    }
+    .vtg-time-inputs { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-top:8px; }
+    .vtg-time-input {
+      padding:4px 6px;background:var(--bg-primary);border:1px solid var(--border);
+      border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;width:72px;
+    }
+    .vtg-clip-dur { font-size:12px;color:var(--text-muted); }
     @media (max-width: 768px) {
       .vtg-body { flex-direction:column; }
       .vtg-preview { min-height:240px;min-width:0; }
@@ -98,14 +129,21 @@
     </div>
     <div class="vtg-sidebar">
       <div class="vtg-section">
-        <div class="vtg-section-title">Time Range</div>
-        <div class="form-group" style="margin-bottom:10px">
-          <label>Start: <span id="val-start">0.0s</span></label>
-          <input type="range" id="sl-start" min="0" max="20" step="0.1" value="0" style="accent-color:var(--cat-gif)" />
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span class="vtg-section-title" style="margin-bottom:0">Time Range</span>
+          <span id="clip-duration" class="vtg-clip-dur">–</span>
         </div>
-        <div class="form-group">
-          <label>End: <span id="val-end">5.0s</span></label>
-          <input type="range" id="sl-end" min="0" max="20" step="0.1" value="5" style="accent-color:var(--cat-gif)" />
+        <div class="vtg-trim-track" id="trim-track">
+          <div class="vtg-trim-fill" id="trim-fill"></div>
+          <div class="vtg-trim-handle" id="trim-handle-start"></div>
+          <div class="vtg-trim-handle" id="trim-handle-end"></div>
+          <div class="vtg-trim-playhead" id="trim-playhead"></div>
+        </div>
+        <div class="vtg-time-inputs">
+          <label style="margin:0;font-size:11px;font-weight:600;color:var(--text-muted)">IN</label>
+          <input type="text" id="inp-in" class="vtg-time-input" placeholder="0:00.0" />
+          <label style="margin:0;font-size:11px;font-weight:600;color:var(--text-muted)">OUT</label>
+          <input type="text" id="inp-out" class="vtg-time-input" placeholder="–" />
         </div>
       </div>
       <div class="vtg-section">
@@ -144,12 +182,8 @@
 (function () {
   'use strict';
   var video = document.getElementById('preview-video');
-  var slStart = document.getElementById('sl-start');
-  var slEnd = document.getElementById('sl-end');
   var slFps = document.getElementById('sl-fps');
   var slWidth = document.getElementById('sl-width');
-  var valStart = document.getElementById('val-start');
-  var valEnd = document.getElementById('val-end');
   var valFps = document.getElementById('val-fps');
   var valWidth = document.getElementById('val-width');
   var convertBtn = document.getElementById('btn-convert');
@@ -169,9 +203,26 @@
   var resultInfo = document.getElementById('result-info');
   var dlBtn = document.getElementById('btn-download');
   var dlBtnHeader = document.getElementById('btn-dl-header');
+
+  // Trim bar elements
+  var trimTrack = document.getElementById('trim-track');
+  var trimFill = document.getElementById('trim-fill');
+  var trimHandleStart = document.getElementById('trim-handle-start');
+  var trimHandleEnd = document.getElementById('trim-handle-end');
+  var trimPlayhead = document.getElementById('trim-playhead');
+  var inpIn = document.getElementById('inp-in');
+  var inpOut = document.getElementById('inp-out');
+  var clipDurationEl = document.getElementById('clip-duration');
+
   var videoFilename = 'video';
   var workerBlobUrl = null;
   var wasPlayingBeforeSeek = false;
+  var duration = 0;
+  var inTime = 0;
+  var outTime = 0;
+  var trimDrag = null;
+  var suppressTrimTrackClick = false;
+  var MIN_CLIP = 0.1;
 
   // Preload gif.js worker
   fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
@@ -185,6 +236,110 @@
     return (b/1024/1024).toFixed(1) + ' MB';
   }
 
+  function formatTime(t) {
+    var m = Math.floor(t / 60);
+    var s = (t % 60).toFixed(1);
+    if (s < 10) s = '0' + s;
+    return m + ':' + s;
+  }
+
+  function parseTime(str) {
+    var parts = str.split(':');
+    if (parts.length === 1) return parseFloat(parts[0]) || 0;
+    return parseFloat(parts[0]) * 60 + (parseFloat(parts[1]) || 0);
+  }
+
+  // ── Trim bar ──
+
+  function updateTrimBar() {
+    if (!duration) return;
+    var leftPct = (inTime / duration) * 100;
+    var rightPct = (outTime / duration) * 100;
+    trimFill.style.left = leftPct + '%';
+    trimFill.style.width = (rightPct - leftPct) + '%';
+    trimHandleStart.style.left = 'calc(' + leftPct + '% - 10px)';
+    trimHandleEnd.style.left = 'calc(' + rightPct + '% - 10px)';
+    clipDurationEl.textContent = formatTime(outTime - inTime);
+  }
+
+  function updatePlayhead() {
+    if (!duration) return;
+    trimPlayhead.style.left = (video.currentTime / duration * 100) + '%';
+  }
+
+  function clampRange() {
+    inTime = Math.max(0, Math.min(inTime, Math.max(0, duration - MIN_CLIP)));
+    outTime = Math.max(inTime + MIN_CLIP, Math.min(outTime, duration));
+    // Enforce 20s max for GIF
+    if (outTime - inTime > 20) outTime = inTime + 20;
+    inpIn.value = formatTime(inTime);
+    inpOut.value = formatTime(outTime);
+    updateTrimBar();
+  }
+
+  function beginTrimDrag(mode, clientX) {
+    if (!duration) return;
+    trimDrag = { mode: mode, startX: clientX, startIn: inTime, startOut: outTime, moved: false };
+    trimFill.classList.toggle('dragging', mode === 'move');
+  }
+
+  function updateTrimDrag(clientX) {
+    if (!trimDrag || !duration) return;
+    var rect = trimTrack.getBoundingClientRect();
+    if (Math.abs(clientX - trimDrag.startX) > 3) trimDrag.moved = true;
+    var deltaTime = ((clientX - trimDrag.startX) / rect.width) * duration;
+    var clipLen = trimDrag.startOut - trimDrag.startIn;
+
+    if (trimDrag.mode === 'start') {
+      inTime = Math.max(0, Math.min(trimDrag.startIn + deltaTime, trimDrag.startOut - MIN_CLIP));
+    } else if (trimDrag.mode === 'end') {
+      outTime = Math.min(duration, Math.max(trimDrag.startOut + deltaTime, trimDrag.startIn + MIN_CLIP));
+    } else if (trimDrag.mode === 'move') {
+      inTime = trimDrag.startIn + deltaTime;
+      outTime = trimDrag.startOut + deltaTime;
+      if (inTime < 0) { inTime = 0; outTime = clipLen; }
+      if (outTime > duration) { outTime = duration; inTime = Math.max(0, duration - clipLen); }
+    }
+    clampRange();
+  }
+
+  function endTrimDrag() {
+    if (trimDrag && trimDrag.moved) suppressTrimTrackClick = true;
+    trimDrag = null;
+    trimFill.classList.remove('dragging');
+  }
+
+  trimTrack.addEventListener('click', function (e) {
+    if (suppressTrimTrackClick) { suppressTrimTrackClick = false; return; }
+    if (trimDrag || !duration) return;
+    var rect = trimTrack.getBoundingClientRect();
+    video.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+  });
+
+  trimHandleStart.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); beginTrimDrag('start', e.clientX);
+    trimHandleStart.setPointerCapture(e.pointerId);
+  });
+  trimHandleEnd.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); beginTrimDrag('end', e.clientX);
+    trimHandleEnd.setPointerCapture(e.pointerId);
+  });
+  trimFill.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); beginTrimDrag('move', e.clientX);
+    trimFill.setPointerCapture(e.pointerId);
+  });
+
+  [trimHandleStart, trimHandleEnd, trimFill].forEach(function (el) {
+    el.addEventListener('pointermove', function (e) { if (trimDrag) updateTrimDrag(e.clientX); });
+    el.addEventListener('pointerup', endTrimDrag);
+    el.addEventListener('pointercancel', endTrimDrag);
+  });
+
+  inpIn.addEventListener('change', function () { inTime = parseTime(inpIn.value); clampRange(); });
+  inpOut.addEventListener('change', function () { outTime = parseTime(inpOut.value); clampRange(); });
+
+  // ── Playback ──
+
   function getPreviewFps() {
     return Math.max(1, parseInt(slFps.value, 10) || 10);
   }
@@ -196,14 +351,12 @@
   }
 
   function updateFrameCounter() {
-    var duration = video.duration || 0;
     if (!duration) {
       frameCounter.textContent = '0 / 0';
       frameScrubber.max = 0;
       frameScrubber.value = 0;
       return;
     }
-
     var fps = getPreviewFps();
     var totalFrames = Math.max(1, Math.ceil(duration * fps));
     var currentFrame = Math.min(totalFrames, Math.floor(video.currentTime * fps) + 1);
@@ -213,87 +366,61 @@
   }
 
   function seekToFrame(frameIndex) {
-    var duration = video.duration || 0;
     if (!duration) return;
     var fps = getPreviewFps();
     var totalFrames = Math.max(1, Math.ceil(duration * fps));
-    var clampedIndex = Math.max(0, Math.min(frameIndex, totalFrames - 1));
-    var targetTime = Math.min(clampedIndex / fps, Math.max(0, duration - 0.001));
-    video.currentTime = targetTime;
+    var clamped = Math.max(0, Math.min(frameIndex, totalFrames - 1));
+    video.currentTime = Math.min(clamped / fps, Math.max(0, duration - 0.001));
   }
 
   function stepFrame(direction) {
-    var duration = video.duration || 0;
     if (!duration) return;
     video.pause();
     var fps = getPreviewFps();
-    var currentIndex = Math.floor(video.currentTime * fps);
-    seekToFrame(currentIndex + direction);
+    seekToFrame(Math.floor(video.currentTime * fps) + direction);
     updatePlayPauseIcon();
   }
 
-  slStart.addEventListener('input', function () {
-    var v = parseFloat(slStart.value);
-    valStart.textContent = v.toFixed(1) + 's';
-    if (v >= parseFloat(slEnd.value)) { slEnd.value = Math.min(v + 0.5, parseFloat(slEnd.max)); valEnd.textContent = parseFloat(slEnd.value).toFixed(1) + 's'; }
-    video.currentTime = v;
-  });
-  slEnd.addEventListener('input', function () {
-    var v = parseFloat(slEnd.value);
-    valEnd.textContent = v.toFixed(1) + 's';
-    if (v <= parseFloat(slStart.value)) { slStart.value = Math.max(v - 0.5, 0); valStart.textContent = parseFloat(slStart.value).toFixed(1) + 's'; }
-  });
-  slFps.addEventListener('input', function () {
-    valFps.textContent = slFps.value;
-    updateFrameCounter();
-  });
+  slFps.addEventListener('input', function () { valFps.textContent = slFps.value; updateFrameCounter(); });
   slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
 
   btnPlayPause.addEventListener('click', function () {
-    if (video.paused || video.ended) {
-      video.play();
-    } else {
-      video.pause();
-    }
+    if (video.paused || video.ended) video.play(); else video.pause();
   });
-
   btnPrevFrame.addEventListener('click', function () { stepFrame(-1); });
   btnNextFrame.addEventListener('click', function () { stepFrame(1); });
 
   frameScrubber.addEventListener('input', function () {
-    if (!video.duration) return;
+    if (!duration) return;
     wasPlayingBeforeSeek = !video.paused && !video.ended;
     video.pause();
     seekToFrame(parseInt(frameScrubber.value, 10) || 0);
     updatePlayPauseIcon();
   });
-
   frameScrubber.addEventListener('change', function () {
     if (wasPlayingBeforeSeek) video.play();
     wasPlayingBeforeSeek = false;
   });
 
   video.addEventListener('loadedmetadata', updateFrameCounter);
-  video.addEventListener('timeupdate', updateFrameCounter);
-  video.addEventListener('seeked', updateFrameCounter);
+  video.addEventListener('timeupdate', function () { updateFrameCounter(); updatePlayhead(); });
+  video.addEventListener('seeked', function () { updateFrameCounter(); updatePlayhead(); });
   video.addEventListener('play', updatePlayPauseIcon);
   video.addEventListener('pause', updatePlayPauseIcon);
-  video.addEventListener('ended', function () {
-    updatePlayPauseIcon();
-    updateFrameCounter();
-  });
+  video.addEventListener('ended', function () { updatePlayPauseIcon(); updateFrameCounter(); });
+
+  // ── Load video ──
 
   function loadVideo(file) {
     videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
     var url = URL.createObjectURL(file);
     video.src = url;
     video.onloadedmetadata = function () {
-      var dur = Math.min(video.duration, 20);
-      slStart.max = dur; slEnd.max = dur;
-      slStart.value = 0; valStart.textContent = '0.0s';
-      var endDefault = Math.min(5, dur);
-      slEnd.value = endDefault; valEnd.textContent = endDefault.toFixed(1) + 's';
-      convertStatus.textContent = 'Duration: ' + video.duration.toFixed(1) + 's (max 20s per conversion)';
+      duration = video.duration;
+      inTime = 0;
+      outTime = Math.min(duration, 20);
+      clampRange();
+      convertStatus.textContent = 'Duration: ' + duration.toFixed(1) + 's' + (duration > 20 ? ' (max 20s per GIF)' : '');
       updateFrameCounter();
       updatePlayPauseIcon();
       document.getElementById('upload-screen').classList.add('hidden');
@@ -302,12 +429,12 @@
     };
   }
 
+  // ── Convert ──
+
   convertBtn.addEventListener('click', function () {
-    var startTime = parseFloat(slStart.value);
-    var endTime = parseFloat(slEnd.value);
     var fps = parseInt(slFps.value);
     var maxWidth = parseInt(slWidth.value);
-    if (endTime <= startTime) { alert('End time must be after start time.'); return; }
+    if (outTime <= inTime) { alert('End time must be after start time.'); return; }
 
     convertBtn.disabled = true;
     resultSection.classList.add('hidden');
@@ -317,7 +444,7 @@
 
     var frameInterval = 1 / fps;
     var times = [];
-    for (var t = startTime; t < endTime; t += frameInterval) times.push(t);
+    for (var t = inTime; t < outTime; t += frameInterval) times.push(t);
 
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
@@ -342,8 +469,7 @@
         canvas.height = Math.round(video.videoHeight * scale);
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      frames.push(imgData);
+      frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       frameIndex++;
       extractNextFrame();
     };
@@ -384,6 +510,8 @@
     gif.render();
   }
 
+  // ── New video ──
+
   document.getElementById('btn-new').addEventListener('click', function () {
     if (document.getElementById('editor-screen').classList.contains('hidden')) return;
     window.GWConfirmAction({
@@ -401,10 +529,13 @@
         frameScrubber.value = 0;
         frameScrubber.max = 0;
         frameCounter.textContent = '0 / 0';
+        duration = 0;
         updatePlayPauseIcon();
       }
     });
   });
+
+  // ── Upload ──
 
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');
