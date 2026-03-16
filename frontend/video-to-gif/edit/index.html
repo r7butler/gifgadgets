@@ -22,8 +22,8 @@
     .vtg-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px; }
     .vtg-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
     .vtg-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
-    .vtg-drop-zone:hover,.vtg-drop-zone.dragover { border-color:var(--cat-video);background:var(--cat-video-dim); }
-    .vtg-convert-btn { width:100%;padding:12px;background:var(--cat-video);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
+    .vtg-drop-zone:hover,.vtg-drop-zone.dragover { border-color:var(--cat-gif);background:var(--cat-gif-dim); }
+    .vtg-convert-btn { width:100%;padding:12px;background:var(--cat-gif);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
     .vtg-convert-btn:disabled { opacity:.4;cursor:not-allowed; }
     .vtg-convert-btn:hover:not(:disabled) { opacity:.9; }
     .vtg-result { text-align:center;padding:12px; }
@@ -62,7 +62,7 @@
   <div id="loading-overlay" class="overlay hidden">
     <div class="overlay-content">
       <p class="progress-text" id="loading-text">Converting…</p>
-      <div class="progress-bar" style="margin-top:12px"><div class="progress-bar-fill" id="progress-fill" style="background:var(--cat-video)"></div></div>
+      <div class="progress-bar" style="margin-top:12px"><div class="progress-bar-fill" id="progress-fill" style="background:var(--cat-gif)"></div></div>
     </div>
   </div>
 
@@ -101,22 +101,22 @@
         <div class="vtg-section-title">Time Range</div>
         <div class="form-group" style="margin-bottom:10px">
           <label>Start: <span id="val-start">0.0s</span></label>
-          <input type="range" id="sl-start" min="0" max="20" step="0.1" value="0" style="accent-color:var(--cat-video)" />
+          <input type="range" id="sl-start" min="0" max="20" step="0.1" value="0" style="accent-color:var(--cat-gif)" />
         </div>
         <div class="form-group">
           <label>End: <span id="val-end">5.0s</span></label>
-          <input type="range" id="sl-end" min="0" max="20" step="0.1" value="5" style="accent-color:var(--cat-video)" />
+          <input type="range" id="sl-end" min="0" max="20" step="0.1" value="5" style="accent-color:var(--cat-gif)" />
         </div>
       </div>
       <div class="vtg-section">
         <div class="vtg-section-title">Settings</div>
         <div class="form-group" style="margin-bottom:10px">
           <label>FPS: <span id="val-fps">10</span></label>
-          <input type="range" id="sl-fps" min="1" max="20" step="1" value="10" style="accent-color:var(--cat-video)" />
+          <input type="range" id="sl-fps" min="1" max="20" step="1" value="10" style="accent-color:var(--cat-gif)" />
         </div>
         <div class="form-group">
           <label>Max width: <span id="val-width">480</span>px</label>
-          <input type="range" id="sl-width" min="120" max="960" step="40" value="480" style="accent-color:var(--cat-video)" />
+          <input type="range" id="sl-width" min="120" max="960" step="40" value="480" style="accent-color:var(--cat-gif)" />
         </div>
       </div>
       <div class="vtg-section">

@@ -8,7 +8,7 @@ Deploy:
   modal deploy backend/converter/modal_app.py
 
 After deployment, update MODAL_CONVERTER_ENDPOINT in
-frontend/video-editor/edit/index.html with the printed URL.
+frontend/trim-video/edit/index.html with the printed URL.
 
 Required Modal secret "gifcaption-aws" with keys:
   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ASSETS_BUCKET

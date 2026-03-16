@@ -8,7 +8,7 @@
       ]
     },
     {
-      "source": "/video-editor/edit/(.*)",
+      "source": "/trim-video/edit/(.*)",
       "headers": [
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" }
