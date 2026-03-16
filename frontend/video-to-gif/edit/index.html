@@ -28,8 +28,8 @@
     .vtg-convert-btn:hover:not(:disabled) { opacity:.9; }
     .vtg-result { text-align:center;padding:12px; }
     .vtg-result img { max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px; }
-    .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;text-decoration:none; }
-    .vtg-dl-btn:hover { opacity:.9;color:#fff;text-decoration:none; }
+    .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:14px;font-weight:700;text-decoration:none; }
+    .vtg-dl-btn:hover { text-decoration:none; }
     @media (max-width: 768px) {
       .vtg-body { flex-direction:column; }
       .vtg-preview { min-height:240px;min-width:0; }
@@ -46,10 +46,16 @@
 <div class="vtg-app" id="app">
   <header class="vtg-header">
     <a href="/video-to-gif/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Video to GIF</span></a>
-    <button id="btn-new" class="btn btn-ghost btn-small" aria-label="Load new video">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      New Video
-    </button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="btn-new" class="btn btn-ghost btn-small" aria-label="Load new video">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        New Video
+      </button>
+      <button id="btn-dl-header" class="btn btn-accent btn-small" disabled aria-label="Download GIF">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download GIF
+      </button>
+    </div>
   </header>
 
   <!-- Loading overlay -->
@@ -121,7 +127,7 @@
         <div class="vtg-section-title">Result</div>
         <img id="result-gif" alt="Converted GIF" />
         <p id="result-info" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
-        <a class="vtg-dl-btn" id="btn-download" href="#">
+        <a class="vtg-dl-btn btn btn-accent btn-full" id="btn-download" href="#">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download GIF
         </a>
@@ -162,6 +168,7 @@
   var resultGif = document.getElementById('result-gif');
   var resultInfo = document.getElementById('result-info');
   var dlBtn = document.getElementById('btn-download');
+  var dlBtnHeader = document.getElementById('btn-dl-header');
   var videoFilename = 'video';
   var workerBlobUrl = null;
   var wasPlayingBeforeSeek = false;
@@ -365,6 +372,13 @@
       resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
       dlBtn.href = url;
       dlBtn.download = videoFilename + '.gif';
+      dlBtnHeader.disabled = false;
+      dlBtnHeader.onclick = function () {
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = videoFilename + '.gif';
+        a.click();
+      };
       resultSection.classList.remove('hidden');
     });
     gif.render();
@@ -381,6 +395,8 @@
         document.getElementById('editor-screen').classList.add('hidden');
         document.getElementById('upload-screen').classList.remove('hidden');
         convertBtn.disabled = true;
+        dlBtnHeader.disabled = true;
+        dlBtnHeader.onclick = null;
         resultSection.classList.add('hidden');
         frameScrubber.value = 0;
         frameScrubber.max = 0;

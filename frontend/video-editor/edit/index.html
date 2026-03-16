@@ -50,13 +50,6 @@
       padding: 5px 8px; background: var(--bg-primary); border: 1px solid var(--border);
       border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; width: 90px;
     }
-    .ve-export-btn {
-      padding: 11px 24px; background: var(--success); color: #fff;
-      border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 700;
-      cursor: pointer; transition: opacity .15s;
-    }
-    .ve-export-btn:hover { opacity: .9; }
-    .ve-export-btn:disabled { opacity: .4; cursor: not-allowed; }
     .ve-status { font-size: 13px; color: var(--text-muted); }
     .ve-export-modal { max-width: 560px; }
     .ve-export-preview {
@@ -108,7 +101,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         New Video
       </button>
-      <button id="btn-export" class="ve-export-btn" disabled aria-label="Export clip">
+      <button id="btn-export" class="btn btn-accent" disabled aria-label="Export clip">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export Clip
       </button>
