@@ -4,32 +4,78 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "expected_account_id" {
+  description = "Optional AWS account ID safety check. If set, Terraform will fail fast when run against a different account."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "project_slug" {
+  description = "Slug used for naming AWS resources"
+  type        = string
+  default     = "gifcaption"
+}
+
+variable "site_brand_name" {
+  description = "Human-friendly brand name used in descriptions and comments"
+  type        = string
+  default     = "GifWidgets"
+}
+
 variable "site_bucket_name" {
   description = "Name of the S3 bucket for the static site"
   type        = string
-  default     = "gifcaption-site"
+  default     = "gifwidgets-site"
 }
 
 variable "assets_bucket_name" {
   description = "Name of the S3 bucket for GIF assets"
   type        = string
-  default     = "gifcaption-assets"
+  default     = "gifwidgets-assets"
+}
+
+variable "root_domain_name" {
+  description = "Root custom domain for the site"
+  type        = string
+  default     = "gifwidgets.com"
+}
+
+variable "assets_domain_name" {
+  description = "Custom domain for the assets CDN"
+  type        = string
+  default     = "content.gifwidgets.com"
+}
+
+variable "route53_zone_id" {
+  description = "Optional Route 53 hosted zone ID for the root domain. Set this to skip hosted zone name lookup."
+  type        = string
+  default     = "Z01182033UG6S91PZ8ULP"
+  nullable    = true
+}
+
+variable "github_repo" {
+  description = "GitHub repository used by the backend integration"
+  type        = string
+  default     = "r7butler/gifwidgets"
 }
 
 variable "acm_certificate_arn" {
-  description = "ACM certificate ARN (must be in us-east-1) for the gifcaption.com custom domain"
+  description = "Optional ACM certificate ARN (must be in us-east-1) for the root domain. Leave null to have Terraform create and validate one."
   type        = string
-  default     = "arn:aws:acm:us-east-1:759371407688:certificate/233f0971-73b2-4fba-bac1-4b0d51a43cd4"
+  default     = "arn:aws:acm:us-east-1:759371407688:certificate/f48d2c94-0511-4df3-b5b4-05dc380c6a38"
+  nullable    = true
 }
 
 variable "content_acm_certificate_arn" {
-  description = "ACM certificate ARN (must be in us-east-1) for the content.gifcaption.com custom domain"
+  description = "Optional ACM certificate ARN (must be in us-east-1) for the assets domain. Leave null to have Terraform create and validate one."
   type        = string
-  default     = "arn:aws:acm:us-east-1:759371407688:certificate/ae2c065f-bde1-49e4-a62a-32a59d8f84f3"
+  default     = "arn:aws:acm:us-east-1:759371407688:certificate/f18bf74f-86b1-4aee-8c88-2b19f39facc7"
+  nullable    = true
 }
 
 variable "github_pat" {
-  description = "Fine-grained GitHub PAT for posting issues to r7butler/gifcaption"
+  description = "Fine-grained GitHub PAT for posting issues to the configured GitHub repository"
   type        = string
   sensitive   = true
 }

@@ -11,7 +11,7 @@
 
 // Base URL for the API — update this after deploying Terraform.
 // Use the Lambda Function URL output from `terraform output lambda_function_url`.
-const API_BASE_URL = "https://zzdzs3cdwds3h2jczap4das4ky0bxccn.lambda-url.us-east-1.on.aws";
+const API_BASE_URL = "https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws";
 
 /**
  * Upload a GIF file to the backend.

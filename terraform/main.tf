@@ -13,6 +13,28 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
+
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
+locals {
+  root_domain_name       = var.root_domain_name
+  assets_domain_name     = var.assets_domain_name
+  site_certificate_arn   = var.acm_certificate_arn != null ? var.acm_certificate_arn : aws_acm_certificate_validation.site[0].certificate_arn
+  assets_certificate_arn = var.content_acm_certificate_arn != null ? var.content_acm_certificate_arn : aws_acm_certificate_validation.assets[0].certificate_arn
+  github_pat_secret_name = "${var.project_slug}/github-pat"
+  lambda_role_name       = "${var.project_slug}-lambda-role"
+  lambda_policy_name     = "${var.project_slug}-lambda-policy"
+  lambda_function_name   = "${var.project_slug}-api"
+  rewrite_function_name  = "${var.project_slug}-rewrite-index"
+  site_oac_name          = "${var.project_slug}-site-oac"
+  assets_oac_name        = "${var.project_slug}-assets-oac"
+}
+
 # ---------- S3: Static Site Bucket ----------
 
 resource "aws_s3_bucket" "site" {
@@ -77,8 +99,8 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
 # ---------- Secrets Manager: GitHub PAT ----------
 
 resource "aws_secretsmanager_secret" "github_pat" {
-  name        = "gifcaption/github-pat"
-  description = "Fine-grained GitHub PAT for posting issues to r7butler/gifcaption"
+  name        = local.github_pat_secret_name
+  description = "Fine-grained GitHub PAT for posting issues to ${var.github_repo}"
 }
 
 resource "aws_secretsmanager_secret_version" "github_pat" {
@@ -89,7 +111,7 @@ resource "aws_secretsmanager_secret_version" "github_pat" {
 # ---------- IAM Role for Lambda ----------
 
 resource "aws_iam_role" "lambda" {
-  name = "gifcaption-lambda-role"
+  name = local.lambda_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -104,7 +126,7 @@ resource "aws_iam_role" "lambda" {
 }
 
 resource "aws_iam_role_policy" "lambda" {
-  name = "gifcaption-lambda-policy"
+  name = local.lambda_policy_name
   role = aws_iam_role.lambda.id
 
   policy = jsonencode({
@@ -119,8 +141,8 @@ resource "aws_iam_role_policy" "lambda" {
         Resource = "${aws_s3_bucket.assets.arn}/*"
       },
       {
-        Effect = "Allow"
-        Action = "s3:PutObject"
+        Effect   = "Allow"
+        Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.site.arn}/g/*"
       },
       {
@@ -144,7 +166,7 @@ resource "aws_iam_role_policy" "lambda" {
 # ---------- Lambda Function ----------
 
 resource "aws_lambda_function" "api" {
-  function_name = "gifcaption-api"
+  function_name = local.lambda_function_name
   role          = aws_iam_role.lambda.arn
   handler       = "handler.handler"
   runtime       = "python3.11"
@@ -156,12 +178,12 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      ASSETS_BUCKET      = aws_s3_bucket.assets.id
-      SITE_BUCKET        = aws_s3_bucket.site.id
-      ASSETS_CDN_URL     = "https://content.gifcaption.com"
-      SITE_CDN_URL       = "https://gifcaption.com"
-      GITHUB_SECRET_ARN  = aws_secretsmanager_secret.github_pat.arn
-      GITHUB_REPO        = "r7butler/gifcaption"
+      ASSETS_BUCKET     = aws_s3_bucket.assets.id
+      SITE_BUCKET       = aws_s3_bucket.site.id
+      ASSETS_CDN_URL    = "https://${local.assets_domain_name}"
+      SITE_CDN_URL      = "https://${local.root_domain_name}"
+      GITHUB_SECRET_ARN = aws_secretsmanager_secret.github_pat.arn
+      GITHUB_REPO       = var.github_repo
     }
   }
 }
@@ -199,7 +221,7 @@ resource "aws_lambda_permission" "function_url_invoke" {
 # ---------- CloudFront Function: Directory Index Rewrite ----------
 
 resource "aws_cloudfront_function" "rewrite_index" {
-  name    = "gifwidgets-rewrite-index"
+  name    = local.rewrite_function_name
   runtime = "cloudfront-js-2.0"
   comment = "Rewrite /path/ and /path to /path/index.html for S3 static site"
   publish = true
@@ -222,7 +244,7 @@ resource "aws_cloudfront_function" "rewrite_index" {
 # ---------- CloudFront ----------
 
 resource "aws_cloudfront_origin_access_control" "site" {
-  name                              = "gifcaption-site-oac"
+  name                              = local.site_oac_name
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -230,7 +252,7 @@ resource "aws_cloudfront_origin_access_control" "site" {
 
 # OAC for the GIF assets bucket
 resource "aws_cloudfront_origin_access_control" "assets" {
-  name                              = "gifcaption-assets-oac"
+  name                              = local.assets_oac_name
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -239,8 +261,8 @@ resource "aws_cloudfront_origin_access_control" "assets" {
 # CloudFront distribution for GIF assets (stable, SEO-friendly URLs)
 resource "aws_cloudfront_distribution" "assets" {
   enabled = true
-  comment = "GifCaption GIF assets CDN"
-  aliases = ["content.gifcaption.com"]
+  comment = "${var.site_brand_name} GIF assets CDN"
+  aliases = [local.assets_domain_name]
 
   origin {
     domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
@@ -273,7 +295,7 @@ resource "aws_cloudfront_distribution" "assets" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = var.content_acm_certificate_arn
+    acm_certificate_arn      = local.assets_certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
@@ -305,13 +327,74 @@ resource "aws_s3_bucket_policy" "assets" {
 # ---------- Route 53 ----------
 
 data "aws_route53_zone" "root" {
-  name         = "gifcaption.com."
+  count        = var.route53_zone_id == null ? 1 : 0
+  name         = "${local.root_domain_name}."
   private_zone = false
 }
 
+locals {
+  route53_zone_id = var.route53_zone_id != null ? var.route53_zone_id : data.aws_route53_zone.root[0].zone_id
+}
+
+resource "aws_acm_certificate" "site" {
+  count             = var.acm_certificate_arn == null ? 1 : 0
+  provider          = aws.us_east_1
+  domain_name       = local.root_domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "site_cert_validation" {
+  count = var.acm_certificate_arn == null ? 1 : 0
+
+  zone_id = local.route53_zone_id
+  name    = tolist(aws_acm_certificate.site[0].domain_validation_options)[0].resource_record_name
+  type    = tolist(aws_acm_certificate.site[0].domain_validation_options)[0].resource_record_type
+  ttl     = 60
+  records = [tolist(aws_acm_certificate.site[0].domain_validation_options)[0].resource_record_value]
+}
+
+resource "aws_acm_certificate_validation" "site" {
+  count                   = var.acm_certificate_arn == null ? 1 : 0
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.site[0].arn
+  validation_record_fqdns = [aws_route53_record.site_cert_validation[0].fqdn]
+}
+
+resource "aws_acm_certificate" "assets" {
+  count             = var.content_acm_certificate_arn == null ? 1 : 0
+  provider          = aws.us_east_1
+  domain_name       = local.assets_domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "assets_cert_validation" {
+  count = var.content_acm_certificate_arn == null ? 1 : 0
+
+  zone_id = local.route53_zone_id
+  name    = tolist(aws_acm_certificate.assets[0].domain_validation_options)[0].resource_record_name
+  type    = tolist(aws_acm_certificate.assets[0].domain_validation_options)[0].resource_record_type
+  ttl     = 60
+  records = [tolist(aws_acm_certificate.assets[0].domain_validation_options)[0].resource_record_value]
+}
+
+resource "aws_acm_certificate_validation" "assets" {
+  count                   = var.content_acm_certificate_arn == null ? 1 : 0
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.assets[0].arn
+  validation_record_fqdns = [aws_route53_record.assets_cert_validation[0].fqdn]
+}
+
 resource "aws_route53_record" "root" {
-  zone_id = data.aws_route53_zone.root.zone_id
-  name    = "gifcaption.com"
+  zone_id = local.route53_zone_id
+  name    = local.root_domain_name
   type    = "A"
 
   alias {
@@ -322,8 +405,8 @@ resource "aws_route53_record" "root" {
 }
 
 resource "aws_route53_record" "content" {
-  zone_id = data.aws_route53_zone.root.zone_id
-  name    = "content.gifcaption.com"
+  zone_id = local.route53_zone_id
+  name    = local.assets_domain_name
   type    = "A"
 
   alias {
@@ -336,8 +419,8 @@ resource "aws_route53_record" "content" {
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   default_root_object = "index.html"
-  comment             = "GifCaption static site"
-  aliases             = ["gifcaption.com"]
+  comment             = "${var.site_brand_name} static site"
+  aliases             = [local.root_domain_name]
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
@@ -375,7 +458,7 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = var.acm_certificate_arn
+    acm_certificate_arn      = local.site_certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }

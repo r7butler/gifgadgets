@@ -20,10 +20,10 @@ output "lambda_function_url" {
 
 output "assets_cdn_url" {
   description = "CloudFront URL for GIF assets"
-  value       = "https://content.gifcaption.com"
+  value       = "https://${var.assets_domain_name}"
 }
 
 output "site_cloudfront_domain" {
-  description = "CloudFront domain — point gifcaption.com and www.gifcaption.com here as ALIAS (Route 53) or CNAME records"
+  description = "CloudFront domain for the site custom domain"
   value       = aws_cloudfront_distribution.site.domain_name
 }

@@ -359,10 +359,32 @@
       overlay.classList.add('hidden');
     }
 
-    function showStatus(msg, isError) {
+  function showStatus(msg, isError) {
       statusEl.textContent = msg;
       statusEl.style.display = 'block';
       statusEl.style.color = isError ? 'var(--danger, #ef4444)' : 'var(--success, #22c55e)';
+    }
+
+    function resolveApiBase() {
+      if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
+        return Promise.resolve(API_BASE_URL);
+      }
+      if (window.__gifwidgetsApiBaseUrl) {
+        return Promise.resolve(window.__gifwidgetsApiBaseUrl);
+      }
+      if (!window.__gifwidgetsApiBaseUrlPromise) {
+        window.__gifwidgetsApiBaseUrlPromise = fetch('/app.js', { cache: 'no-store' })
+          .then(function (res) { return res.ok ? res.text() : ''; })
+          .then(function (source) {
+            var match = source.match(/const API_BASE_URL = "([^"]+)"/);
+            window.__gifwidgetsApiBaseUrl = match ? match[1] : '';
+            return window.__gifwidgetsApiBaseUrl;
+          })
+          .catch(function () {
+            return '';
+          });
+      }
+      return window.__gifwidgetsApiBaseUrlPromise;
     }
 
     submitBtn.addEventListener('click', function () {
@@ -373,12 +395,15 @@
       submitBtn.textContent = 'Submitting…';
       statusEl.style.display = 'none';
 
-      var apiBase = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '';
-      fetch(apiBase + '/report-issue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title, body: bodyInput.value.trim() })
-      })
+      resolveApiBase()
+        .then(function (apiBase) {
+          if (!apiBase) throw new Error('Missing API base URL');
+          return fetch(apiBase + '/report-issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, body: bodyInput.value.trim() })
+          });
+        })
         .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
         .then(function (r) {
           if (r.ok) {
