@@ -128,6 +128,45 @@ resource "aws_secretsmanager_secret_version" "github_pat" {
   secret_string = var.github_pat
 }
 
+# ---------- IAM User for Modal Converter (GPU MP4 conversion) ----------
+
+resource "aws_iam_user" "modal_converter" {
+  name = "${var.project_slug}-modal-converter"
+}
+
+resource "aws_iam_user_policy" "modal_converter" {
+  name = "${var.project_slug}-modal-converter-s3"
+  user = aws_iam_user.modal_converter.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${aws_s3_bucket.assets.arn}/convert/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "modal_converter" {
+  user = aws_iam_user.modal_converter.name
+}
+
+output "modal_converter_access_key_id" {
+  value = aws_iam_access_key.modal_converter.id
+}
+
+output "modal_converter_secret_access_key" {
+  value     = aws_iam_access_key.modal_converter.secret
+  sensitive = true
+}
+
 # ---------- IAM Role for Lambda ----------
 
 resource "aws_iam_role" "lambda" {

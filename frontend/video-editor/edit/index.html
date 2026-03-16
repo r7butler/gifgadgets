@@ -476,6 +476,7 @@
 
   // Server-side MP4 conversion
   var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+  var MODAL_CONVERTER_ENDPOINT = 'https://robert-butler-dev--gifcaption-converter-converter-web.modal.run';
 
   function recordClipAsWebM() {
     return new Promise(function (resolve, reject) {
@@ -524,8 +525,8 @@
         }).then(function () { return data.job_id; });
       });
     }).then(function (jobId) {
-      exportMp4Copy.textContent = 'Converting to MP4 on server…';
-      return fetch(API_BASE_URL + '/convert-to-mp4', {
+      exportMp4Copy.textContent = 'Converting to MP4…';
+      return fetch(MODAL_CONVERTER_ENDPOINT + '/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: jobId, filename: (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.mp4' })
