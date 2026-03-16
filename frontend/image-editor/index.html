@@ -118,7 +118,7 @@
       var tx = db.transaction('files', 'readwrite');
       tx.objectStore('files').put(file, 'pending');
       tx.oncomplete = function () {
-        window.location.href = '/image-editor/edit/?source=imgedit';
+        window.location.href = '/image-editor/edit/?source=imgcap';
       };
     };
   }
