@@ -31,6 +31,7 @@ locals {
   lambda_policy_name     = "${var.project_slug}-lambda-policy"
   lambda_function_name   = "${var.project_slug}-api"
   rewrite_function_name  = "${var.project_slug}-rewrite-index"
+  coop_function_name     = "${var.project_slug}-add-coop-headers"
   site_oac_name          = "${var.project_slug}-site-oac"
   assets_oac_name        = "${var.project_slug}-assets-oac"
 }
@@ -90,9 +91,28 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
 
   cors_rule {
     allowed_headers = ["*"]
-    allowed_methods = ["GET"]
-    allowed_origins = ["*"]
+    allowed_methods = ["GET", "PUT"]
+    allowed_origins = ["https://gifwidgets.com", "http://localhost:3000"]
     max_age_seconds = 3600
+  }
+}
+
+# ---------- S3 Lifecycle: Expire temp convert files ----------
+
+resource "aws_s3_bucket_lifecycle_configuration" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  rule {
+    id     = "expire-convert-temp"
+    status = "Enabled"
+
+    filter {
+      prefix = "convert/"
+    }
+
+    expiration {
+      days = 1
+    }
   }
 }
 
@@ -136,7 +156,8 @@ resource "aws_iam_role_policy" "lambda" {
         Effect = "Allow"
         Action = [
           "s3:PutObject",
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Resource = "${aws_s3_bucket.assets.arn}/*"
       },
@@ -170,8 +191,9 @@ resource "aws_lambda_function" "api" {
   role          = aws_iam_role.lambda.arn
   handler       = "handler.handler"
   runtime       = "python3.11"
-  timeout       = 60
-  memory_size   = 256
+  timeout       = 120
+  memory_size   = 1024
+  layers        = [aws_lambda_layer_version.ffmpeg.arn]
 
   filename         = "${path.module}/lambda.zip"
   source_code_hash = filebase64sha256("${path.module}/lambda.zip")
@@ -186,6 +208,16 @@ resource "aws_lambda_function" "api" {
       GITHUB_REPO       = var.github_repo
     }
   }
+}
+
+# ---------- FFmpeg Lambda Layer ----------
+
+resource "aws_lambda_layer_version" "ffmpeg" {
+  layer_name          = "${var.project_slug}-ffmpeg"
+  filename            = "${path.module}/ffmpeg-layer.zip"
+  source_code_hash    = filebase64sha256("${path.module}/ffmpeg-layer.zip")
+  compatible_runtimes = ["python3.11"]
+  description         = "Static ffmpeg binary for video conversion"
 }
 
 # ---------- Lambda Function URL ----------
@@ -237,6 +269,27 @@ resource "aws_cloudfront_function" "rewrite_index" {
         request.uri = uri + '/index.html';
       }
       return request;
+    }
+  EOF
+}
+
+# ---------- CloudFront Function: Add COOP/COEP headers for FFmpeg pages ----------
+
+resource "aws_cloudfront_function" "add_coop_headers" {
+  name    = local.coop_function_name
+  runtime = "cloudfront-js-2.0"
+  comment = "Add Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers for video converter pages that require SharedArrayBuffer"
+  publish = true
+
+  code = <<-EOF
+    function handler(event) {
+      var response = event.response;
+      var uri = event.request.uri;
+      if (uri.indexOf('/video-converter/') === 0) {
+        response.headers['cross-origin-opener-policy'] = { value: 'same-origin' };
+        response.headers['cross-origin-embedder-policy'] = { value: 'credentialless' };
+      }
+      return response;
     }
   EOF
 }
@@ -444,6 +497,11 @@ resource "aws_cloudfront_distribution" "site" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.rewrite_index.arn
+    }
+
+    function_association {
+      event_type   = "viewer-response"
+      function_arn = aws_cloudfront_function.add_coop_headers.arn
     }
 
     min_ttl     = 0

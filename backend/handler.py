@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import subprocess
+import tempfile
 import uuid
 import base64
 import urllib.request
@@ -94,6 +96,10 @@ def handler(event, context):
         return handle_share(event)
     elif method == "POST" and path == "/report-issue":
         return handle_report_issue(event)
+    elif method == "POST" and path == "/convert/presign-upload":
+        return handle_presign_upload(event)
+    elif method == "POST" and path == "/convert-to-mp4":
+        return handle_convert_to_mp4(event)
     elif method == "OPTIONS":
         return _cors_response(200, {})
     else:
@@ -243,6 +249,109 @@ def handle_report_issue(event):
         return _cors_response(200, {"url": result.get("html_url", "")})
     except urllib.error.HTTPError:
         return _cors_response(500, {"error": "Failed to create issue"})
+
+
+def _parse_body(event):
+    """Parse JSON body, handling base64-encoded payloads."""
+    body = event.get("body", "")
+    if event.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode("utf-8")
+    return json.loads(body)
+
+
+def handle_presign_upload(event):
+    """POST /convert/presign-upload — return a presigned PUT URL for WebM upload."""
+    try:
+        body = _parse_body(event)
+    except Exception:
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    job_id = uuid.uuid4().hex[:12]
+    s3_key = f"convert/{job_id}/input.webm"
+
+    presigned_url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": ASSETS_BUCKET,
+            "Key": s3_key,
+            "ContentType": "video/webm",
+        },
+        ExpiresIn=300,
+    )
+
+    return _cors_response(200, {
+        "upload_url": presigned_url,
+        "job_id": job_id,
+    })
+
+
+def handle_convert_to_mp4(event):
+    """POST /convert-to-mp4 — convert an uploaded WebM to MP4 using ffmpeg."""
+    try:
+        body = _parse_body(event)
+    except Exception:
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    job_id = body.get("job_id")
+    filename = body.get("filename", "converted.mp4")
+    if not job_id or not re.match(r"^[a-f0-9]{12}$", job_id):
+        return _cors_response(400, {"error": "Invalid job_id"})
+
+    input_key = f"convert/{job_id}/input.webm"
+    output_key = f"convert/{job_id}/output.mp4"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, "input.webm")
+        output_path = os.path.join(tmpdir, "output.mp4")
+
+        try:
+            s3.download_file(ASSETS_BUCKET, input_key, input_path)
+        except Exception:
+            return _cors_response(400, {"error": "Input file not found — upload may have expired"})
+
+        result = subprocess.run(
+            ["/opt/bin/ffmpeg", "-y",
+             "-i", input_path,
+             "-c:v", "libx264", "-preset", "fast",
+             "-movflags", "+faststart",
+             "-c:a", "aac",
+             output_path],
+            capture_output=True, timeout=90,
+        )
+
+        if result.returncode != 0:
+            return _cors_response(500, {
+                "error": "Conversion failed",
+                "detail": result.stderr.decode("utf-8", errors="replace")[-500:],
+            })
+
+        s3.upload_file(
+            output_path, ASSETS_BUCKET, output_key,
+            ExtraArgs={"ContentType": "video/mp4"},
+        )
+
+    # Sanitize filename for Content-Disposition
+    safe_filename = re.sub(r'[^\w\s.\-]', '', filename).strip() or "converted.mp4"
+    if not safe_filename.endswith(".mp4"):
+        safe_filename += ".mp4"
+
+    download_url = s3.generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": ASSETS_BUCKET,
+            "Key": output_key,
+            "ResponseContentDisposition": f'attachment; filename="{safe_filename}"',
+        },
+        ExpiresIn=3600,
+    )
+
+    # Clean up input file
+    try:
+        s3.delete_object(Bucket=ASSETS_BUCKET, Key=input_key)
+    except Exception:
+        pass
+
+    return _cors_response(200, {"download_url": download_url})
 
 
 def _cors_response(status_code, body):

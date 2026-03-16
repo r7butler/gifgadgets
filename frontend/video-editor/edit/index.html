@@ -177,13 +177,13 @@
           <span class="ve-export-option-copy">Fastest option. Export the trimmed clip directly from the editor.</span>
         </span>
       </button>
-      <a class="ve-export-option" href="/video-converter/webm-to-mp4/" target="_blank" rel="noopener noreferrer">
+      <button id="export-mp4-btn" class="ve-export-option" type="button">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/></svg>
         <span>
-          <span class="ve-export-option-title">Convert to MP4</span>
-          <span class="ve-export-option-copy">Best for sharing. Opens the WebM to MP4 converter in a new tab.</span>
+          <span class="ve-export-option-title">Download MP4</span>
+          <span class="ve-export-option-copy" id="export-mp4-copy">Best for sharing. Converts to MP4 right here — no other tab needed.</span>
         </span>
-      </a>
+      </button>
       <a class="ve-export-option" href="/video-to-gif/" target="_blank" rel="noopener noreferrer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
         <span>
@@ -220,6 +220,8 @@
   var exportModal = document.getElementById('export-modal');
   var exportModalClose = document.getElementById('export-modal-close');
   var exportWebmBtn = document.getElementById('export-webm-btn');
+  var exportMp4Btn = document.getElementById('export-mp4-btn');
+  var exportMp4Copy = document.getElementById('export-mp4-copy');
   var exportPreviewCanvas = document.getElementById('export-preview-canvas');
   var exportPreviewCtx = exportPreviewCanvas.getContext('2d');
 
@@ -470,6 +472,77 @@
   inpOut.addEventListener('change', function () {
     outTime = parseTime(inpOut.value);
     clampRange();
+  });
+
+  // Server-side MP4 conversion
+  var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+
+  function recordClipAsWebM() {
+    return new Promise(function (resolve, reject) {
+      if (!videoFile) return reject(new Error('No video loaded'));
+      var chunks = [];
+      var stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+      var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      var recorder = new MediaRecorder(stream, { mimeType: mimeType });
+      recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = function () { resolve(new Blob(chunks, { type: 'video/webm' })); };
+      recorder.onerror = reject;
+      video.currentTime = inTime;
+      video.onseeked = function () {
+        video.onseeked = null;
+        recorder.start();
+        video.play();
+        var check = setInterval(function () {
+          if (video.currentTime >= outTime) {
+            clearInterval(check);
+            video.pause();
+            recorder.stop();
+          }
+        }, 50);
+      };
+    });
+  }
+
+  exportMp4Btn.addEventListener('click', function () {
+    if (!videoFile) return;
+    exportMp4Btn.disabled = true;
+    exportMp4Copy.textContent = 'Recording clip…';
+
+    recordClipAsWebM().then(function (webmBlob) {
+      exportMp4Copy.textContent = 'Preparing upload…';
+      return fetch(API_BASE_URL + '/convert/presign-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: videoFile.name })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        var sizeMB = (webmBlob.size / 1024 / 1024).toFixed(1);
+        exportMp4Copy.textContent = 'Uploading clip (' + sizeMB + ' MB)…';
+        return fetch(data.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'video/webm' },
+          body: webmBlob
+        }).then(function () { return data.job_id; });
+      });
+    }).then(function (jobId) {
+      exportMp4Copy.textContent = 'Converting to MP4 on server…';
+      return fetch(API_BASE_URL + '/convert-to-mp4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, filename: (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.mp4' })
+      }).then(function (r) { return r.json(); });
+    }).then(function (data) {
+      if (data.error) throw new Error(data.error);
+      var a = document.createElement('a');
+      a.href = data.download_url;
+      a.download = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.mp4';
+      a.click();
+      exportMp4Copy.textContent = 'Best for sharing. Converts to MP4 on our server — fast and easy.';
+      exportMp4Btn.disabled = false;
+      closeExportModal();
+    }).catch(function (err) {
+      exportMp4Copy.textContent = 'Error: ' + err.message;
+      exportMp4Btn.disabled = false;
+    });
   });
 
   exportBtn.addEventListener('click', openExportModal);

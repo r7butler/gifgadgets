@@ -14,6 +14,8 @@ terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/.terraform.lock.hcl
 terraform/lambda.zip
+terraform/ffmpeg-layer/
+terraform/ffmpeg-layer.zip
 terraform/secrets*
 
 # OS files
