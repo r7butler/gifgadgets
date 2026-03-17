@@ -1007,12 +1007,9 @@
     if (!cap) { editor.classList.add('hidden'); return; }
     editor.classList.remove('hidden');
     $('#cap-text').value = cap.text;
-    // Show auto-computed font size (informational)
-    var boxW = (cap.boxWidth || 0.55) * state.width;
-    var boxH = (cap.boxHeight || 0.25) * state.height;
-    var fit = GC.fitFontSize(GC.ctx, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, 200);
-    $('#cap-font-size').value = fit.fontSize;
-    $('#cap-font-size-val').textContent = fit.fontSize;
+    // Slider controls the max font size cap
+    $('#cap-font-size').value = cap.fontSize;
+    $('#cap-font-size-val').textContent = cap.fontSize;
     $('#cap-color').value = cap.color;
     $('#cap-stroke-color').value = cap.strokeColor;
     $('#cap-stroke-width').value = cap.strokeWidth;
@@ -1441,8 +1438,12 @@
       clearTimeout(state._tlTimer);
       state._tlTimer = setTimeout(GC.buildTimeline, 400);
     });
-    // Font size is now auto-calculated from box dimensions — slider is read-only display
-    $('#cap-font-size').disabled = true;
+    // Font size slider sets the max font size cap — auto-fit won't exceed this value
+    $('#cap-font-size').addEventListener('input', function (e) {
+      var v = parseInt(e.target.value, 10);
+      $('#cap-font-size-val').textContent = v;
+      updateSelectedCaption({ fontSize: v });
+    });
     $('#cap-color').addEventListener('input', function (e) {
       updateSelectedCaption({ color: e.target.value });
     });

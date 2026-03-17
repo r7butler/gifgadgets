@@ -283,8 +283,9 @@
       context.translate(-cx, -cy);
     }
 
-    // Auto-fit font size within the box
-    var fit = GC.fitFontSize(context, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, 200);
+    // Auto-fit font size within the box, capped by cap.fontSize
+    var maxFs = cap.fontSize || 200;
+    var fit = GC.fitFontSize(context, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, maxFs);
     var fontSize = fit.fontSize;
     var lines = fit.lines;
 
