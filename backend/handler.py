@@ -94,6 +94,8 @@ def handler(event, context):
         return handle_upload(event)
     elif method == "POST" and path == "/share":
         return handle_share(event)
+    elif method == "POST" and path == "/share/upload":
+        return handle_share_upload(event)
     elif method == "POST" and path == "/share/presign":
         return handle_share_presign(event)
     elif method == "POST" and path == "/share/finalize":
@@ -194,6 +196,53 @@ def handle_share(event):
     gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
 
     # Generate share page HTML and upload to site bucket
+    share_html = _build_share_page(title, gif_url, slug)
+    s3.put_object(
+        Bucket=SITE_BUCKET,
+        Key=f"g/{slug}.html",
+        Body=share_html.encode("utf-8"),
+        ContentType="text/html; charset=utf-8",
+        CacheControl="public, max-age=86400",
+    )
+
+    share_url = f"{SITE_CDN_URL}/g/{slug}.html"
+    return _cors_response(200, {
+        "slug": slug,
+        "share_url": share_url,
+        "gif_url": gif_url,
+    })
+
+
+def handle_share_upload(event):
+    """POST /share/upload — accept raw binary GIF with title/filename in headers."""
+    title = (event.get("headers", {}).get("x-title") or "").strip()[:200] or "Captioned GIF"
+    filename = event.get("headers", {}).get("x-filename") or None
+
+    body = event.get("body", "")
+    if event.get("isBase64Encoded"):
+        gif_bytes = base64.b64decode(body)
+    else:
+        gif_bytes = body.encode("latin-1") if isinstance(body, str) else body
+
+    if not gif_bytes or gif_bytes[:3] != b"GIF":
+        return _cors_response(400, {"error": "Uploaded file does not appear to be a GIF"})
+    if len(gif_bytes) > 15 * 1024 * 1024:
+        return _cors_response(400, {"error": "GIF too large (max 15 MB)"})
+
+    slug_base = _sanitize_slug_base(filename)
+    short_id = uuid.uuid4().hex[:8]
+    slug = f"{slug_base}-captioned-{short_id}"
+    s3_key = f"shared/{slug}.gif"
+
+    s3.put_object(
+        Bucket=ASSETS_BUCKET,
+        Key=s3_key,
+        Body=gif_bytes,
+        ContentType="image/gif",
+        CacheControl="public, max-age=31536000, immutable",
+    )
+    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+
     share_html = _build_share_page(title, gif_url, slug)
     s3.put_object(
         Bucket=SITE_BUCKET,

@@ -75,9 +75,13 @@ function fileToBase64(file) {
  * @returns {{ slug, share_url, gif_url }}
  */
 async function shareGif(blob, title, filename) {
-  // Lambda function URLs have a 6MB payload limit; base64 adds ~33% overhead
-  if (blob.size > 4 * 1024 * 1024) {
+  // Lambda function URLs have a 6MB payload limit.
+  // Base64+JSON uses ~33% more, so: <4MB → JSON, 4-6MB → binary, >6MB → presigned S3.
+  if (blob.size > 6 * 1024 * 1024) {
     return _shareViaPresign(blob, title, filename);
+  }
+  if (blob.size > 4 * 1024 * 1024) {
+    return _shareViaBinary(blob, title, filename);
   }
 
   const base64 = await new Promise((resolve, reject) => {
@@ -101,6 +105,23 @@ async function shareGif(blob, title, filename) {
     throw new Error(err.error || "Share failed");
   }
 
+  return response.json();
+}
+
+async function _shareViaBinary(blob, title, filename) {
+  var headers = { "Content-Type": "image/gif", "X-Title": title || "" };
+  if (filename) headers["X-Filename"] = filename;
+
+  const response = await fetch(API_BASE_URL + "/share/upload", {
+    method: "POST",
+    headers: headers,
+    body: blob,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || "Upload failed");
+  }
   return response.json();
 }
 
