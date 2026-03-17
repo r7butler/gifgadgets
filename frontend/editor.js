@@ -97,6 +97,9 @@
       strokeColor: opts.strokeColor || '#000000',
       strokeWidth: opts.strokeWidth != null ? opts.strokeWidth : 3,
       align: opts.align || 'center',
+      boxWidth: opts.boxWidth || 0.55,    // normalised 0–1 fraction of canvas width
+      boxHeight: opts.boxHeight || 0.25,  // normalised 0–1 fraction of canvas height
+      rotation: opts.rotation || 0,       // degrees, clockwise
       startFrame: opts.startFrame || 0,
       endFrame: opts.endFrame != null ? opts.endFrame : state.frames.length - 1,
       motion: [],        // Motion keyframes: [{ frame, x, y }] — empty = static position
@@ -428,34 +431,56 @@
       }
     }
 
-    // 1b. Hit-test corner resize handles (selected caption only)
+    // 1b. Hit-test rotation handle + corner resize handles (selected caption only)
     if (state.selectedCaptionId) {
       var selCap = GC.findCaption(state.selectedCaptionId);
       if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
         var bbox = GC.getCaptionBBox(GC.ctx, selCap, state.currentFrame);
         if (bbox) {
-          var corners = GC.getSelectionCorners(bbox);
+          // Un-rotate mouse position into the caption's local space
+          var lm = GC.unrotatePoint(m.x, m.y, bbox, selCap.rotation || 0);
           var hs = GC.HANDLE_SIZE;
           var hitRadius = hs * 0.8;
-          // Opposite corner indices: TL↔BR, TR↔BL
+
+          // Rotation handle hit-test
+          var rh = GC.getRotationHandlePos(bbox);
+          var rhDx = lm.x - rh.x, rhDy = lm.y - rh.y;
+          if (rhDx * rhDx + rhDy * rhDy <= (hitRadius + 2) * (hitRadius + 2)) {
+            var bboxCx = bbox.x + bbox.w / 2;
+            var bboxCy = bbox.y + bbox.h / 2;
+            state.rotateState = {
+              captionId: selCap.id,
+              centerX: bboxCx,
+              centerY: bboxCy,
+              startAngle: Math.atan2(m.y - bboxCy, m.x - bboxCx),
+              startRotation: selCap.rotation || 0,
+            };
+            GC.canvas.style.cursor = 'grabbing';
+            return;
+          }
+
+          // Corner resize handle hit-test
+          var corners = GC.getSelectionCorners(bbox);
           var oppositeIdx = [3, 2, 1, 0];
           for (var c = 0; c < corners.length; c++) {
             var cx = corners[c].x + hs / 2;
             var cy = corners[c].y + hs / 2;
-            var dx = m.x - cx, dy = m.y - cy;
+            var dx = lm.x - cx, dy = lm.y - cy;
             if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-              // Use the opposite corner as anchor so dragging toward it shrinks
               var opp = corners[oppositeIdx[c]];
               var ancX = opp.x + hs / 2;
               var ancY = opp.y + hs / 2;
               state.resizeState = {
                 captionId: selCap.id,
-                startFontSize: selCap.fontSize,
-                startY: m.y,
-                startX: m.x,
+                startBoxWidth: selCap.boxWidth || 0.55,
+                startBoxHeight: selCap.boxHeight || 0.25,
+                startY: lm.y,
+                startX: lm.x,
                 anchorX: ancX,
                 anchorY: ancY,
-                startDist: Math.sqrt(Math.pow(m.x - ancX, 2) + Math.pow(m.y - ancY, 2)),
+                startDist: Math.sqrt(Math.pow(lm.x - ancX, 2) + Math.pow(lm.y - ancY, 2)),
+                rotation: selCap.rotation || 0,
+                bboxForUnrotate: bbox,
               };
               GC.canvas.style.cursor = 'nwse-resize';
               return;
@@ -471,8 +496,9 @@
       if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
       var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
       if (!bbox) continue;
-      if (m.x >= bbox.x - 6 && m.x <= bbox.x + bbox.w + 6 &&
-          m.y >= bbox.y - 6 && m.y <= bbox.y + bbox.h + 6) {
+      var lm = GC.unrotatePoint(m.x, m.y, bbox, cap.rotation || 0);
+      if (lm.x >= bbox.x - 6 && lm.x <= bbox.x + bbox.w + 6 &&
+          lm.y >= bbox.y - 6 && lm.y <= bbox.y + bbox.h + 6) {
         state.selectedCaptionId = cap.id;
         state.selectedOverlayId = null;
         // For motion captions, offset from interpolated position; otherwise from static
@@ -585,6 +611,21 @@
       return;
     }
 
+    // Active rotation drag
+    if (state.rotateState) {
+      var rs = state.rotateState;
+      var angle = Math.atan2(m.y - rs.centerY, m.x - rs.centerX);
+      var delta = (angle - rs.startAngle) * 180 / Math.PI;
+      var cap = GC.findCaption(rs.captionId);
+      if (cap) {
+        cap.rotation = rs.startRotation + delta;
+        // Snap to 0° when close
+        if (Math.abs(cap.rotation % 360) < 3) cap.rotation = Math.round(cap.rotation / 360) * 360;
+        GC.renderCurrentFrame();
+      }
+      return;
+    }
+
     // Active resize drag
     if (state.resizeState) {
       if (state.resizeState.overlayId) {
@@ -597,9 +638,12 @@
       } else {
         var cap = GC.findCaption(state.resizeState.captionId);
         if (!cap) return;
-        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.anchorX, 2) + Math.pow(m.y - state.resizeState.anchorY, 2));
+        // Un-rotate mouse into local space for distance calculation
+        var lm = GC.unrotatePoint(m.x, m.y, state.resizeState.bboxForUnrotate, state.resizeState.rotation);
+        var dist = Math.sqrt(Math.pow(lm.x - state.resizeState.anchorX, 2) + Math.pow(lm.y - state.resizeState.anchorY, 2));
         var scale = dist / state.resizeState.startDist;
-        cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
+        cap.boxWidth = Math.max(0.05, Math.min(1, state.resizeState.startBoxWidth * scale));
+        cap.boxHeight = Math.max(0.03, Math.min(1, state.resizeState.startBoxHeight * scale));
         GC.renderCurrentFrame();
         updateCaptionEditor();
       }
@@ -609,23 +653,33 @@
     // No active drag — update cursor based on hover
     if (!state.dragState) {
       var onHandle = false;
+      var onRotate = false;
       if (state.selectedCaptionId) {
         var selCap = GC.findCaption(state.selectedCaptionId);
         if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
           var bbox = GC.getCaptionBBox(GC.ctx, selCap, state.currentFrame);
           if (bbox) {
-            var corners = GC.getSelectionCorners(bbox);
+            var lm = GC.unrotatePoint(m.x, m.y, bbox, selCap.rotation || 0);
             var hs = GC.HANDLE_SIZE;
             var hitRadius = hs * 0.8;
-            for (var c = 0; c < corners.length; c++) {
-              var cx = corners[c].x + hs / 2;
-              var cy = corners[c].y + hs / 2;
-              var dx = m.x - cx, dy = m.y - cy;
-              if (dx * dx + dy * dy <= hitRadius * hitRadius) { onHandle = true; break; }
+            // Rotation handle hover
+            var rh = GC.getRotationHandlePos(bbox);
+            var rhDx = lm.x - rh.x, rhDy = lm.y - rh.y;
+            if (rhDx * rhDx + rhDy * rhDy <= (hitRadius + 2) * (hitRadius + 2)) {
+              onRotate = true;
+            } else {
+              var corners = GC.getSelectionCorners(bbox);
+              for (var c = 0; c < corners.length; c++) {
+                var cx = corners[c].x + hs / 2;
+                var cy = corners[c].y + hs / 2;
+                var dx = lm.x - cx, dy = lm.y - cy;
+                if (dx * dx + dy * dy <= hitRadius * hitRadius) { onHandle = true; break; }
+              }
             }
           }
         }
       }
+      if (onRotate) { GC.canvas.style.cursor = 'grab'; return; }
       if (onHandle) { GC.canvas.style.cursor = 'nwse-resize'; return; }
 
       var hovering = false;
@@ -633,8 +687,10 @@
         var cap = state.captions[i];
         if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
         var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
-        if (bbox && m.x >= bbox.x - 6 && m.x <= bbox.x + bbox.w + 6 &&
-            m.y >= bbox.y - 6 && m.y <= bbox.y + bbox.h + 6) {
+        if (!bbox) continue;
+        var hlm = GC.unrotatePoint(m.x, m.y, bbox, cap.rotation || 0);
+        if (hlm.x >= bbox.x - 6 && hlm.x <= bbox.x + bbox.w + 6 &&
+            hlm.y >= bbox.y - 6 && hlm.y <= bbox.y + bbox.h + 6) {
           hovering = true; break;
         }
       }
@@ -705,6 +761,11 @@
     }
     if (state.cropDrag) {
       state.cropDrag = null;
+      GC.canvas.style.cursor = 'default';
+      return;
+    }
+    if (state.rotateState) {
+      state.rotateState = null;
       GC.canvas.style.cursor = 'default';
       return;
     }
@@ -827,8 +888,12 @@
     if (!cap) { editor.classList.add('hidden'); return; }
     editor.classList.remove('hidden');
     $('#cap-text').value = cap.text;
-    $('#cap-font-size').value = cap.fontSize;
-    $('#cap-font-size-val').textContent = cap.fontSize;
+    // Show auto-computed font size (informational)
+    var boxW = (cap.boxWidth || 0.55) * state.width;
+    var boxH = (cap.boxHeight || 0.25) * state.height;
+    var fit = GC.fitFontSize(GC.ctx, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, 200);
+    $('#cap-font-size').value = fit.fontSize;
+    $('#cap-font-size-val').textContent = fit.fontSize;
     $('#cap-color').value = cap.color;
     $('#cap-stroke-color').value = cap.strokeColor;
     $('#cap-stroke-width').value = cap.strokeWidth;
@@ -1257,11 +1322,8 @@
       clearTimeout(state._tlTimer);
       state._tlTimer = setTimeout(GC.buildTimeline, 400);
     });
-    $('#cap-font-size').addEventListener('input', function (e) {
-      var v = parseInt(e.target.value, 10);
-      $('#cap-font-size-val').textContent = v;
-      updateSelectedCaption({ fontSize: v });
-    });
+    // Font size is now auto-calculated from box dimensions — slider is read-only display
+    $('#cap-font-size').disabled = true;
     $('#cap-color').addEventListener('input', function (e) {
       updateSelectedCaption({ color: e.target.value });
     });

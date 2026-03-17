@@ -225,6 +225,40 @@
    * Draw a single on-image text caption (stroke outline + fill).
    * Pass frameIndex to use interpolated motion position; omit for static.
    */
+  /**
+   * Compute the best font size so that wrapped text fits inside a box.
+   * Returns { fontSize, lines } where lines is the wrapped text array.
+   * Uses binary search between minSize and maxSize.
+   */
+  GC.fitFontSize = function (context, text, fontWeight, fontFamily, boxW, boxH, minSize, maxSize) {
+    var lo = minSize, hi = maxSize;
+    var bestSize = lo, bestLines = [text || ''];
+    while (hi - lo > 1) {
+      var mid = Math.floor((lo + hi) / 2);
+      context.font = (fontWeight || 700) + ' ' + mid + 'px ' + fontFamily;
+      var lines = GC.wrapText(context, text, boxW);
+      var totalH = lines.length * mid * 1.2;
+      // Also check that no single line overflows the box width
+      var fits = totalH <= boxH;
+      if (fits) {
+        for (var li = 0; li < lines.length; li++) {
+          if (context.measureText(lines[li]).width > boxW) { fits = false; break; }
+        }
+      }
+      if (fits) {
+        bestSize = mid;
+        bestLines = lines;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    // Re-check at lo in case the final bestLines is stale
+    context.font = (fontWeight || 700) + ' ' + bestSize + 'px ' + fontFamily;
+    bestLines = GC.wrapText(context, text, boxW);
+    return { fontSize: bestSize, lines: bestLines };
+  };
+
   GC.drawCaption = function (context, cap, frameIndex) {
     var motion = cap.motion || [];
     var px = cap.x, py = cap.y;
@@ -234,13 +268,31 @@
     }
     var x = px * state.width;
     var y = py * state.height;
+    var boxW = (cap.boxWidth || 0.55) * state.width;
+    var boxH = (cap.boxHeight || 0.25) * state.height;
+    var rot = (cap.rotation || 0) * Math.PI / 180;
+
     context.save();
-    context.font = (cap.fontWeight || 700) + ' ' + cap.fontSize + 'px ' + cap.fontFamily;
+
+    // Rotate around the box centre
+    if (rot) {
+      var cx = cap.align === 'left' ? x + boxW / 2 : cap.align === 'right' ? x - boxW / 2 : x;
+      var cy = y + boxH / 2;
+      context.translate(cx, cy);
+      context.rotate(rot);
+      context.translate(-cx, -cy);
+    }
+
+    // Auto-fit font size within the box
+    var fit = GC.fitFontSize(context, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, 200);
+    var fontSize = fit.fontSize;
+    var lines = fit.lines;
+
+    context.font = (cap.fontWeight || 700) + ' ' + fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
     context.textBaseline = 'top';
 
-    var lines = GC.wrapText(context, cap.text, state.width * 0.92);
-    var lh = cap.fontSize * 1.2;
+    var lh = fontSize * 1.2;
 
     for (var i = 0; i < lines.length; i++) {
       var ly = y + i * lh;
@@ -271,12 +323,21 @@
     ];
   };
 
-  /** Draw the dashed selection rectangle + circular corner handles. */
+  /** Draw the dashed selection rectangle + circular corner handles + rotation handle. */
   GC.drawSelectionBox = function (context, cap, frameIndex) {
     var bbox = GC.getCaptionBBox(context, cap, frameIndex);
     if (!bbox) return;
+    var rot = (cap.rotation || 0) * Math.PI / 180;
+    var cx = bbox.x + bbox.w / 2;
+    var cy = bbox.y + bbox.h / 2;
 
     context.save();
+    if (rot) {
+      context.translate(cx, cy);
+      context.rotate(rot);
+      context.translate(-cx, -cy);
+    }
+
     context.strokeStyle = '#22d3ee';
     context.lineWidth = 2;
     context.setLineDash([6, 3]);
@@ -292,7 +353,39 @@
       context.arc(p.x + hs / 2, p.y + hs / 2, hs / 2, 0, Math.PI * 2);
       context.fill();
     });
+
+    // Rotation handle: stem + circle below bottom-centre
+    var stemLen = 20;
+    var rotHandleX = bbox.x + bbox.w / 2;
+    var rotHandleY = bbox.y + bbox.h + 5 + stemLen;
+    context.beginPath();
+    context.strokeStyle = '#22d3ee';
+    context.lineWidth = 2;
+    context.setLineDash([]);
+    context.moveTo(rotHandleX, bbox.y + bbox.h + 5);
+    context.lineTo(rotHandleX, rotHandleY);
+    context.stroke();
+    context.beginPath();
+    context.arc(rotHandleX, rotHandleY, hs / 2 + 2, 0, Math.PI * 2);
+    context.fillStyle = '#22d3ee';
+    context.fill();
+    // Arrow icon inside the rotation handle
+    context.beginPath();
+    context.arc(rotHandleX, rotHandleY, hs / 2 - 1, -0.5, Math.PI * 1.3, false);
+    context.strokeStyle = '#fff';
+    context.lineWidth = 1.5;
+    context.stroke();
+
     context.restore();
+  };
+
+  /** Get the rotation handle centre in canvas coords (before rotation transform). */
+  GC.getRotationHandlePos = function (bbox) {
+    var stemLen = 20;
+    return {
+      x: bbox.x + bbox.w / 2,
+      y: bbox.y + bbox.h + 5 + stemLen,
+    };
   };
 
   /**
@@ -309,21 +402,25 @@
     }
     var x = px * state.width;
     var y = py * state.height;
-    context.save();
-    context.font = (cap.fontWeight || 700) + ' ' + cap.fontSize + 'px ' + cap.fontFamily;
-    context.textAlign = cap.align;
+    var boxW = (cap.boxWidth || 0.55) * state.width;
+    var boxH = (cap.boxHeight || 0.25) * state.height;
 
-    var lines = GC.wrapText(context, cap.text, state.width * 0.92);
-    var lh = cap.fontSize * 1.2;
-    var maxW = 0;
-    for (var j = 0; j < lines.length; j++) {
-      maxW = Math.max(maxW, context.measureText(lines[j]).width);
-    }
-    context.restore();
+    var bx = cap.align === 'left' ? x : cap.align === 'right' ? x - boxW : x - boxW / 2;
+    return { x: bx, y: y, w: boxW, h: boxH };
+  };
 
-    var totalH = lines.length * lh;
-    var bx = cap.align === 'left' ? x : cap.align === 'right' ? x - maxW : x - maxW / 2;
-    return { x: bx, y: y, w: maxW, h: totalH };
+  /**
+   * Un-rotate a point (mx, my) around the bbox centre by -rotation degrees.
+   * Returns the point in the caption's local (axis-aligned) coordinate space.
+   */
+  GC.unrotatePoint = function (mx, my, bbox, rotDeg) {
+    if (!rotDeg) return { x: mx, y: my };
+    var cx = bbox.x + bbox.w / 2;
+    var cy = bbox.y + bbox.h / 2;
+    var rad = -rotDeg * Math.PI / 180;
+    var cos = Math.cos(rad), sin = Math.sin(rad);
+    var dx = mx - cx, dy = my - cy;
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
   };
 
   // ── Text Wrapping ────────────────────────────
