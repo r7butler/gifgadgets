@@ -366,23 +366,46 @@
   }
 
   function addFiles(fileList) {
-    var promises = [];
+    var imageFiles = [];
     for (var i = 0; i < fileList.length; i++) {
       var f = fileList[i];
       var isImage = (f.type && f.type.startsWith('image/')) || isHeic(f);
-      if (isImage) {
-        promises.push(loadImageFile(f));
-      }
+      if (isImage) imageFiles.push(f);
     }
-    if (!promises.length) return;
-    Promise.all(promises).then(function (loaded) {
-      frames = frames.concat(loaded);
-      onFramesChanged();
-      if (document.getElementById('upload-screen').classList.contains('hidden') === false) {
-        document.getElementById('upload-screen').classList.add('hidden');
-        document.getElementById('editor-screen').classList.remove('hidden');
+    if (!imageFiles.length) return;
+
+    loadingOverlay.classList.remove('hidden');
+    progressFill.style.width = '0%';
+    loadingText.textContent = 'Loading image 1 / ' + imageFiles.length + '…';
+
+    var loaded = [];
+    var idx = 0;
+
+    function loadNext() {
+      if (idx >= imageFiles.length) {
+        loadingOverlay.classList.add('hidden');
+        frames = frames.concat(loaded);
+        onFramesChanged();
+        if (!document.getElementById('upload-screen').classList.contains('hidden')) {
+          document.getElementById('upload-screen').classList.add('hidden');
+          document.getElementById('editor-screen').classList.remove('hidden');
+        }
+        return;
       }
-    });
+      var pct = (idx / imageFiles.length) * 100;
+      progressFill.style.width = pct + '%';
+      loadingText.textContent = 'Loading image ' + (idx + 1) + ' / ' + imageFiles.length + (isHeic(imageFiles[idx]) ? ' (converting HEIC)…' : '…');
+      loadImageFile(imageFiles[idx]).then(function (result) {
+        loaded.push(result);
+        idx++;
+        loadNext();
+      }).catch(function () {
+        idx++;
+        loadNext();
+      });
+    }
+
+    loadNext();
   }
 
   // ── Frame list UI ──
