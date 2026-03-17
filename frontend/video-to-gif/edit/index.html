@@ -11,7 +11,7 @@
   <script src="/theme.js"></script>
   <style>
     .vtg-app { display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden; }
-    .vtg-header { display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;min-height:48px;background:var(--bg-secondary);border-bottom:1px solid var(--border); }
+
     .vtg-body { display:flex;flex:1;overflow:hidden; }
     .vtg-preview { flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden;min-width:0; }
     .vtg-preview-stage { flex:1;display:flex;align-items:center;justify-content:center;min-height:0; }
@@ -26,10 +26,32 @@
     .vtg-convert-btn { width:100%;padding:12px;background:var(--cat-gif);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
     .vtg-convert-btn:disabled { opacity:.4;cursor:not-allowed; }
     .vtg-convert-btn:hover:not(:disabled) { opacity:.9; }
-    .vtg-result { text-align:center;padding:12px; }
-    .vtg-result img { max-width:100%;max-height:200px;border-radius:4px;margin-bottom:8px; }
-    .vtg-dl-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:14px;font-weight:700;text-decoration:none; }
-    .vtg-dl-btn:hover { text-decoration:none; }
+    .vtg-result-modal { max-width:480px; }
+    .vtg-result-preview {
+      display:flex;justify-content:center;align-items:center;
+      padding:12px;margin-bottom:1rem;
+      border-radius:10px;background:var(--bg-base);overflow:hidden;
+    }
+    .vtg-result-preview img {
+      max-width:100%;max-height:280px;display:block;border-radius:8px;
+      box-shadow:var(--shadow-md);
+    }
+    .vtg-result-info {
+      font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:1rem;
+    }
+    .vtg-result-actions { display:flex;flex-direction:column;align-items:center;gap:10px; }
+    .vtg-dl-btn {
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;padding:14px;border:none;border-radius:var(--radius-md);
+      background:var(--cat-gif);color:#fff;font-size:15px;font-weight:700;
+      cursor:pointer;transition:opacity .15s;
+    }
+    .vtg-dl-btn:hover { opacity:.9; }
+    .vtg-save-photos-link {
+      background:none;border:none;color:var(--text-secondary);font-size:13px;
+      cursor:pointer;text-decoration:underline;padding:4px;
+    }
+    .vtg-save-photos-link:hover { color:var(--text-primary); }
     .vtg-trim-track {
       position:relative;height:36px;
       background:var(--bg-tertiary);border-radius:6px;overflow:hidden;cursor:pointer;
@@ -75,16 +97,16 @@
 </head>
 <body class="editor-body">
 <div class="vtg-app" id="app">
-  <header class="vtg-header">
-    <a href="/video-to-gif/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Video to GIF</span></a>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button id="btn-new" class="btn btn-ghost btn-small" aria-label="Load new video">
+  <header class="editor-header">
+    <a href="/video-to-gif/" class="logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="header-actions">
+      <button id="btn-new" class="btn btn-ghost" aria-label="Load new video" title="Load a different video">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        New Video
+        New
       </button>
-      <button id="btn-dl-header" class="btn btn-accent btn-small" disabled aria-label="Download GIF">
+      <button id="btn-download" class="btn btn-ghost" disabled aria-label="Download GIF" title="Download GIF">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download GIF
+        Download
       </button>
     </div>
   </header>
@@ -161,18 +183,24 @@
         <p id="convert-status" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
         <button class="vtg-convert-btn" id="btn-convert">Convert to GIF</button>
       </div>
-      <div class="vtg-section vtg-result hidden" id="result-section">
-        <div class="vtg-section-title">Result</div>
-        <img id="result-gif" alt="Converted GIF" />
-        <p id="result-info" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
-        <a class="vtg-dl-btn btn btn-accent btn-full" id="btn-download" href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download GIF
-        </a>
-        <div style="margin-top:10px">
-          <a href="/gif-editor/" style="font-size:12px;color:var(--cat-gif)">→ Add captions in GIF Editor</a>
-        </div>
-      </div>
+    </div>
+  </div>
+</div>
+
+<div id="result-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="GIF result">
+  <div class="modal vtg-result-modal">
+    <button id="result-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Your GIF is ready</h2>
+    <div class="vtg-result-preview">
+      <img id="result-gif" alt="Converted GIF" />
+    </div>
+    <p id="result-info" class="vtg-result-info"></p>
+    <div class="vtg-result-actions">
+      <button id="btn-dl-modal" class="vtg-dl-btn" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download GIF
+      </button>
+      <button id="btn-save-photos" class="vtg-save-photos-link" type="button">Save to Photos</button>
     </div>
   </div>
 </div>
@@ -198,11 +226,12 @@
   var loadingOverlay = document.getElementById('loading-overlay');
   var loadingText = document.getElementById('loading-text');
   var progressFill = document.getElementById('progress-fill');
-  var resultSection = document.getElementById('result-section');
+  var resultModal = document.getElementById('result-modal');
   var resultGif = document.getElementById('result-gif');
   var resultInfo = document.getElementById('result-info');
-  var dlBtn = document.getElementById('btn-download');
-  var dlBtnHeader = document.getElementById('btn-dl-header');
+  var dlBtn = document.getElementById('btn-dl-modal');
+  var btnSavePhotos = document.getElementById('btn-save-photos');
+  var dlBtnHeader = document.getElementById('btn-download');
 
   // Trim bar elements
   var trimTrack = document.getElementById('trim-track');
@@ -215,6 +244,9 @@
   var clipDurationEl = document.getElementById('clip-duration');
 
   var videoFilename = 'video';
+  var lastGifUrl = null;
+  var lastGifBlob = null;
+  var lastGifFilename = 'video.gif';
   var workerBlobUrl = null;
   var wasPlayingBeforeSeek = false;
   var duration = 0;
@@ -437,7 +469,7 @@
     if (outTime <= inTime) { alert('End time must be after start time.'); return; }
 
     convertBtn.disabled = true;
-    resultSection.classList.add('hidden');
+    resultModal.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
     loadingText.textContent = 'Extracting frames…';
@@ -494,21 +526,48 @@
       loadingOverlay.classList.add('hidden');
       convertBtn.disabled = false;
       var url = URL.createObjectURL(blob);
+      lastGifUrl = url;
+      lastGifBlob = blob;
+      lastGifFilename = videoFilename + '.gif';
       resultGif.src = url;
       resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
-      dlBtn.href = url;
-      dlBtn.download = videoFilename + '.gif';
       dlBtnHeader.disabled = false;
-      dlBtnHeader.onclick = function () {
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = videoFilename + '.gif';
-        a.click();
-      };
-      resultSection.classList.remove('hidden');
+      dlBtnHeader.onclick = function () { downloadGif(); };
+      resultModal.classList.remove('hidden');
     });
     gif.render();
   }
+
+  // ── Result modal ──
+
+  function downloadGif() {
+    if (!lastGifUrl) return;
+    var a = document.createElement('a');
+    a.href = lastGifUrl;
+    a.download = lastGifFilename;
+    a.click();
+  }
+
+  function closeResultModal() {
+    resultModal.classList.add('hidden');
+  }
+
+  dlBtn.addEventListener('click', function () { downloadGif(); });
+
+  btnSavePhotos.addEventListener('click', function () {
+    if (!lastGifBlob) return;
+    var file = new File([lastGifBlob], lastGifFilename, { type: 'image/gif' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Converted GIF' }).catch(function () {});
+    } else {
+      downloadGif();
+    }
+  });
+
+  document.getElementById('result-modal-close').addEventListener('click', closeResultModal);
+  resultModal.addEventListener('click', function (e) {
+    if (e.target === resultModal) closeResultModal();
+  });
 
   // ── New video ──
 
@@ -525,7 +584,9 @@
         convertBtn.disabled = true;
         dlBtnHeader.disabled = true;
         dlBtnHeader.onclick = null;
-        resultSection.classList.add('hidden');
+        resultModal.classList.add('hidden');
+        lastGifUrl = null;
+        lastGifBlob = null;
         frameScrubber.value = 0;
         frameScrubber.max = 0;
         frameCounter.textContent = '0 / 0';
