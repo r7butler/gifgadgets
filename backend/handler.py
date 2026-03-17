@@ -94,6 +94,10 @@ def handler(event, context):
         return handle_upload(event)
     elif method == "POST" and path == "/share":
         return handle_share(event)
+    elif method == "POST" and path == "/share/presign":
+        return handle_share_presign(event)
+    elif method == "POST" and path == "/share/finalize":
+        return handle_share_finalize(event)
     elif method == "POST" and path == "/report-issue":
         return handle_report_issue(event)
     elif method == "POST" and path == "/convert/presign-upload":
@@ -190,6 +194,70 @@ def handle_share(event):
     gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
 
     # Generate share page HTML and upload to site bucket
+    share_html = _build_share_page(title, gif_url, slug)
+    s3.put_object(
+        Bucket=SITE_BUCKET,
+        Key=f"g/{slug}.html",
+        Body=share_html.encode("utf-8"),
+        ContentType="text/html; charset=utf-8",
+        CacheControl="public, max-age=86400",
+    )
+
+    share_url = f"{SITE_CDN_URL}/g/{slug}.html"
+    return _cors_response(200, {
+        "slug": slug,
+        "share_url": share_url,
+        "gif_url": gif_url,
+    })
+
+
+def handle_share_presign(event):
+    """POST /share/presign — return a presigned PUT URL for direct GIF upload."""
+    try:
+        body = _parse_body(event)
+    except Exception:
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    filename = body.get("filename") or None
+    title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
+
+    slug_base = _sanitize_slug_base(filename)
+    short_id = uuid.uuid4().hex[:8]
+    slug = f"{slug_base}-captioned-{short_id}"
+    s3_key = f"shared/{slug}.gif"
+
+    presigned_url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": ASSETS_BUCKET,
+            "Key": s3_key,
+            "ContentType": "image/gif",
+        },
+        ExpiresIn=300,
+    )
+
+    return _cors_response(200, {
+        "upload_url": presigned_url,
+        "slug": slug,
+        "title": title,
+    })
+
+
+def handle_share_finalize(event):
+    """POST /share/finalize — create the share page after GIF was uploaded via presigned URL."""
+    try:
+        body = _parse_body(event)
+    except Exception:
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    slug = body.get("slug")
+    title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
+    if not slug:
+        return _cors_response(400, {"error": "Missing 'slug' field"})
+
+    s3_key = f"shared/{slug}.gif"
+    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+
     share_html = _build_share_page(title, gif_url, slug)
     s3.put_object(
         Bucket=SITE_BUCKET,

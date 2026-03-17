@@ -108,6 +108,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download
       </button>
+      <button id="btn-share" class="btn btn-accent" disabled aria-label="Share GIF" title="Share GIF">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share
+      </button>
     </div>
   </header>
 
@@ -205,6 +209,45 @@
   </div>
 </div>
 
+<div id="share-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share confirmation">
+  <div class="modal modal-sm"><h2 class="modal-title">Create a share link?</h2><p class="modal-body-text">This will upload your GIF and create a public link. The image will remain publicly accessible on the internet indefinitely.</p><div class="modal-actions"><button id="share-consent-no" class="btn btn-ghost">No, just save it</button><button id="share-consent-yes" class="btn btn-accent">Yes, create link</button></div></div>
+</div>
+
+<div id="share-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share your GIF">
+  <div class="modal">
+    <button id="share-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Your GIF is ready!</h2>
+    <div id="share-preview" class="share-preview"></div>
+    <div id="share-skeletons">
+      <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
+      <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
+    </div>
+    <div id="share-ready" class="hidden">
+      <div class="share-link-row">
+        <input type="text" id="share-url" class="share-url-input" readonly />
+        <button id="btn-copy-link" class="btn btn-accent">Copy Link</button>
+      </div>
+      <div class="share-link-row" id="share-image-url-row" style="display:none">
+        <input type="text" id="share-image-url" class="share-url-input" readonly placeholder="Direct image URL" />
+        <button id="btn-copy-image-url" class="btn btn-ghost">Copy Image URL</button>
+      </div>
+    </div>
+    <div class="share-buttons">
+      <button id="btn-share-download" class="btn btn-primary btn-full">Download GIF</button>
+      <button id="btn-share-save-photos" class="btn btn-ghost btn-full">Save to Photos</button>
+      <div id="share-social-skeletons" class="skeleton-social">
+        <div class="skeleton skeleton-social-btn"></div>
+        <div class="skeleton skeleton-social-btn"></div>
+      </div>
+      <div id="share-social-ready" class="share-social hidden">
+        <a id="btn-share-reddit" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on Reddit</a>
+        <a id="btn-share-twitter" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on X</a>
+      </div>
+    </div>
+    <p class="share-status" id="share-status"></p>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -232,6 +275,7 @@
   var dlBtn = document.getElementById('btn-dl-modal');
   var btnSavePhotos = document.getElementById('btn-save-photos');
   var dlBtnHeader = document.getElementById('btn-download');
+  var btnShare = document.getElementById('btn-share');
 
   // Trim bar elements
   var trimTrack = document.getElementById('trim-track');
@@ -247,6 +291,7 @@
   var lastGifUrl = null;
   var lastGifBlob = null;
   var lastGifFilename = 'video.gif';
+  var pendingShareAfterConvert = false;
   var workerBlobUrl = null;
   var wasPlayingBeforeSeek = false;
   var duration = 0;
@@ -459,6 +504,7 @@
       document.getElementById('editor-screen').classList.remove('hidden');
       convertBtn.disabled = false;
       dlBtnHeader.disabled = false;
+      btnShare.disabled = false;
       // Force first frame to render on mobile Safari
       video.play().then(function () { video.pause(); video.currentTime = 0; }).catch(function () {});
     };
@@ -537,7 +583,12 @@
       lastGifFilename = videoFilename + '.gif';
       resultGif.src = url;
       resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
-      resultModal.classList.remove('hidden');
+      if (pendingShareAfterConvert) {
+        pendingShareAfterConvert = false;
+        shareConsentModal.classList.remove('hidden');
+      } else {
+        resultModal.classList.remove('hidden');
+      }
     });
     gif.render();
   }
@@ -587,6 +638,7 @@
         document.getElementById('upload-screen').classList.remove('hidden');
         convertBtn.disabled = true;
         dlBtnHeader.disabled = true;
+        btnShare.disabled = true;
         resultModal.classList.add('hidden');
         lastGifUrl = null;
         lastGifBlob = null;
@@ -610,6 +662,179 @@
   dropZone.addEventListener('drop', function (e) {
     e.preventDefault(); dropZone.classList.remove('dragover');
     if (e.dataTransfer.files[0]) loadVideo(e.dataTransfer.files[0]);
+  });
+
+  // ── Share ──
+
+  var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+  var shareModal = document.getElementById('share-modal');
+  var shareConsentModal = document.getElementById('share-consent-modal');
+
+  function shareUpload(blob, title, filename) {
+    // Step 1: Get a presigned S3 URL
+    return fetch(API_BASE_URL + '/share/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title, filename: filename || null })
+    }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Presign failed'); });
+      return r.json();
+    }).then(function (presign) {
+      // Step 2: Upload GIF directly to S3
+      return fetch(presign.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/gif' },
+        body: blob
+      }).then(function (r) {
+        if (!r.ok) throw new Error('Upload failed');
+        // Step 3: Finalize the share page
+        return fetch(API_BASE_URL + '/share/finalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: presign.slug, title: presign.title })
+        });
+      });
+    }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Finalize failed'); });
+      return r.json();
+    });
+  }
+
+  function setShareStatus(msg, cls) {
+    var el = document.getElementById('share-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'share-status' + (cls ? ' ' + cls : '');
+  }
+
+  function showShareModal(blob) {
+    var preview = document.getElementById('share-preview');
+    preview.innerHTML = '';
+    var blobUrl = URL.createObjectURL(blob);
+    var img = document.createElement('img');
+    img.src = blobUrl;
+    img.alt = 'Your converted GIF';
+    preview.appendChild(img);
+
+    shareModal._blob = blob;
+    shareModal._blobUrl = blobUrl;
+
+    document.getElementById('share-url').value = '';
+    document.getElementById('share-image-url').value = '';
+    document.getElementById('share-image-url-row').style.display = 'none';
+    document.getElementById('share-skeletons').classList.remove('hidden');
+    document.getElementById('share-ready').classList.add('hidden');
+    document.getElementById('share-social-skeletons').classList.remove('hidden');
+    document.getElementById('share-social-ready').classList.add('hidden');
+    setShareStatus('Uploading…', '');
+
+    shareModal.classList.remove('hidden');
+
+    shareUpload(blob, 'Converted GIF', lastGifFilename).then(function (result) {
+      document.getElementById('share-url').value = result.share_url;
+      if (result.gif_url) {
+        document.getElementById('share-image-url').value = result.gif_url;
+        document.getElementById('share-image-url-row').style.display = '';
+      }
+      var enc = encodeURIComponent;
+      var reddit = document.getElementById('btn-share-reddit');
+      if (reddit) reddit.href = 'https://www.reddit.com/submit?url=' + enc(result.share_url) + '&title=' + enc('Converted GIF');
+      var twitter = document.getElementById('btn-share-twitter');
+      if (twitter) twitter.href = 'https://twitter.com/intent/tweet?url=' + enc(result.share_url) + '&text=' + enc('Converted GIF — made with GifWidgets');
+      document.getElementById('share-skeletons').classList.add('hidden');
+      document.getElementById('share-ready').classList.remove('hidden');
+      document.getElementById('share-social-skeletons').classList.add('hidden');
+      document.getElementById('share-social-ready').classList.remove('hidden');
+      setShareStatus('Link ready — copy and share!', 'success');
+    }).catch(function (err) {
+      document.getElementById('share-skeletons').classList.add('hidden');
+      document.getElementById('share-social-skeletons').classList.add('hidden');
+      setShareStatus('Upload failed: ' + err.message, 'error');
+    });
+  }
+
+  function closeShareModal() {
+    shareModal.classList.add('hidden');
+    if (shareModal._blobUrl) {
+      URL.revokeObjectURL(shareModal._blobUrl);
+      shareModal._blobUrl = null;
+    }
+    shareModal._blob = null;
+  }
+
+  // Share button triggers consent or conversion
+  btnShare.addEventListener('click', function () {
+    if (!duration) return;
+    if (lastGifBlob) {
+      shareConsentModal.classList.remove('hidden');
+    } else {
+      // Need to convert first, then share
+      pendingShareAfterConvert = true;
+      startConversion();
+    }
+  });
+
+  document.getElementById('share-consent-yes').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
+    showShareModal(lastGifBlob);
+  });
+  document.getElementById('share-consent-no').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
+    resultModal.classList.remove('hidden');
+  });
+  shareConsentModal.addEventListener('click', function (e) {
+    if (e.target === shareConsentModal) shareConsentModal.classList.add('hidden');
+  });
+
+  document.getElementById('share-modal-close').addEventListener('click', closeShareModal);
+  shareModal.addEventListener('click', function (e) {
+    if (e.target === shareModal) closeShareModal();
+  });
+
+  document.getElementById('btn-copy-link').addEventListener('click', function () {
+    var input = document.getElementById('share-url');
+    if (!input || !input.value) return;
+    navigator.clipboard.writeText(input.value).then(function () {
+      setShareStatus('Copied!', 'success');
+    }).catch(function () {
+      input.select();
+      document.execCommand('copy');
+      setShareStatus('Copied!', 'success');
+    });
+  });
+
+  document.getElementById('btn-copy-image-url').addEventListener('click', function () {
+    var input = document.getElementById('share-image-url');
+    if (!input || !input.value) return;
+    navigator.clipboard.writeText(input.value).then(function () {
+      setShareStatus('Image URL copied!', 'success');
+    }).catch(function () {
+      input.select();
+      document.execCommand('copy');
+      setShareStatus('Image URL copied!', 'success');
+    });
+  });
+
+  document.getElementById('btn-share-download').addEventListener('click', function () {
+    if (shareModal._blob) {
+      var a = document.createElement('a');
+      a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
+      a.download = lastGifFilename;
+      a.click();
+    }
+  });
+
+  document.getElementById('btn-share-save-photos').addEventListener('click', function () {
+    if (!shareModal._blob) return;
+    var file = new File([shareModal._blob], lastGifFilename, { type: 'image/gif' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Converted GIF' }).catch(function () {});
+    } else {
+      var a = document.createElement('a');
+      a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
+      a.download = lastGifFilename;
+      a.click();
+    }
   });
 
   // Load from IndexedDB (redirected from landing page)
