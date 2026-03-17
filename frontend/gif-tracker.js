@@ -172,7 +172,7 @@
 
   /**
    * Build strided frame list and locate the click frame within it.
-   * Targets ~25 sampled frames: stride = ceil(total/25).
+   * Skips redundant frames based on FPS — targets ~10 inferred fps.
    *
    * Returns { frames: [{data, width, height, frameIndex}], clickFrameIdx }
    * where clickFrameIdx is the index within the returned frames array.
@@ -181,8 +181,11 @@
     var total = state.frames.length;
     if (total === 0) return { frames: [], clickFrameIdx: 0 };
 
-    var stride = 1;
-    // var stride = Math.ceil(total / 25);
+    // Calculate stride based on FPS — target ~10 inferred fps.
+    // High-FPS GIFs have redundant frames safe to skip; low-FPS GIFs need every frame.
+    var avgDelay = state.frames.reduce(function (sum, f) { return sum + f.delay; }, 0) / total;
+    var fps = 1000 / avgDelay;
+    var stride = Math.max(1, Math.floor(fps / 10));
 
     // Collect strided indices, always including clickFrame.
     var indices = [];

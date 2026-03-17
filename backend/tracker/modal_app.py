@@ -36,7 +36,7 @@ image = (
 
 
 @app.function(
-    gpu="A10G",
+    gpu="L40S",
     image=image,
     timeout=120,
     scaledown_window=300,  # scale to zero after 5 min idle
