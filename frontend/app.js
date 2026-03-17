@@ -68,11 +68,18 @@ function fileToBase64(file) {
 
 /**
  * Share a captioned GIF — upload the blob and get back a public share URL.
+ * Uses base64 via Lambda for small GIFs, presigned S3 URL for large ones.
  * @param {Blob} blob  GIF blob from the encoder
  * @param {string} title  Caption/title text for the share page
+ * @param {string} [filename]  Original filename for slug generation
  * @returns {{ slug, share_url, gif_url }}
  */
 async function shareGif(blob, title, filename) {
+  // Lambda function URLs have a 6MB payload limit; base64 adds ~33% overhead
+  if (blob.size > 4 * 1024 * 1024) {
+    return _shareViaPresign(blob, title, filename);
+  }
+
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -95,4 +102,35 @@ async function shareGif(blob, title, filename) {
   }
 
   return response.json();
+}
+
+async function _shareViaPresign(blob, title, filename) {
+  const presignRes = await fetch(API_BASE_URL + "/share/presign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, filename: filename || null }),
+  });
+  if (!presignRes.ok) {
+    const err = await presignRes.json().catch(() => ({}));
+    throw new Error(err.error || "Presign failed");
+  }
+  const presign = await presignRes.json();
+
+  const uploadRes = await fetch(presign.upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": "image/gif" },
+    body: blob,
+  });
+  if (!uploadRes.ok) throw new Error("Upload failed");
+
+  const finalRes = await fetch(API_BASE_URL + "/share/finalize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: presign.slug, title: presign.title }),
+  });
+  if (!finalRes.ok) {
+    const err = await finalRes.json().catch(() => ({}));
+    throw new Error(err.error || "Finalize failed");
+  }
+  return finalRes.json();
 }
