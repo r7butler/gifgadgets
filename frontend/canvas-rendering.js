@@ -354,6 +354,13 @@
       context.fill();
     });
 
+    // Mid-edge handles (square)
+    var edges = GC.getEdgeHandles(bbox);
+    var ehs = hs * 0.85;
+    edges.forEach(function (eh) {
+      context.fillRect(eh.x - ehs / 2, eh.y - ehs / 2, ehs, ehs);
+    });
+
     // Rotation handle: stem + circle below bottom-centre
     var stemLen = 20;
     var rotHandleX = bbox.x + bbox.w / 2;
@@ -386,6 +393,21 @@
       x: bbox.x + bbox.w / 2,
       y: bbox.y + bbox.h + 5 + stemLen,
     };
+  };
+
+  /**
+   * Return the four mid-edge handle centres for a caption selection box.
+   * Order: top, right, bottom, left. Each has { x, y, axis } where
+   * axis is 'h' (horizontal resize = changes width) or 'v' (vertical = changes height).
+   */
+  GC.getEdgeHandles = function (bbox) {
+    var pad = 5;
+    return [
+      { x: bbox.x + bbox.w / 2, y: bbox.y - pad,            axis: 'v' },  // top
+      { x: bbox.x + bbox.w + pad, y: bbox.y + bbox.h / 2,   axis: 'h' },  // right
+      { x: bbox.x + bbox.w / 2, y: bbox.y + bbox.h + pad,   axis: 'v' },  // bottom
+      { x: bbox.x - pad,          y: bbox.y + bbox.h / 2,    axis: 'h' },  // left
+    ];
   };
 
   /**
@@ -460,11 +482,17 @@
     var w = ov.img.naturalWidth * ov.scale;
     var h = ov.img.naturalHeight * ov.scale;
     // Position is the center of the overlay
-    var x = px * state.width - w / 2;
-    var y = py * state.height - h / 2;
+    var cx = px * state.width;
+    var cy = py * state.height;
+    var rot = (ov.rotation || 0) * Math.PI / 180;
     context.save();
     context.globalAlpha = ov.opacity != null ? ov.opacity : 1;
-    context.drawImage(ov.img, x, y, w, h);
+    if (rot) {
+      context.translate(cx, cy);
+      context.rotate(rot);
+      context.translate(-cx, -cy);
+    }
+    context.drawImage(ov.img, cx - w / 2, cy - h / 2, w, h);
     context.restore();
   };
 
@@ -486,11 +514,21 @@
     };
   };
 
-  /** Draw selection box around an overlay. */
+  /** Draw selection box around an overlay (with rotation handle). */
   GC.drawOverlaySelectionBox = function (context, ov, frameIndex) {
     var bbox = GC.getOverlayBBox(ov, frameIndex);
     if (!bbox) return;
+    var rot = (ov.rotation || 0) * Math.PI / 180;
+    var cx = bbox.x + bbox.w / 2;
+    var cy = bbox.y + bbox.h / 2;
+
     context.save();
+    if (rot) {
+      context.translate(cx, cy);
+      context.rotate(rot);
+      context.translate(-cx, -cy);
+    }
+
     context.strokeStyle = '#f59e0b';
     context.lineWidth = 2;
     context.setLineDash([6, 3]);
@@ -498,18 +536,54 @@
     context.fillStyle = '#f59e0b';
     context.setLineDash([]);
     var hs = GC.HANDLE_SIZE;
-    var corners = [
-      { x: bbox.x - 3 - hs / 2, y: bbox.y - 3 - hs / 2 },
-      { x: bbox.x + bbox.w + 3 - hs / 2, y: bbox.y - 3 - hs / 2 },
-      { x: bbox.x - 3 - hs / 2, y: bbox.y + bbox.h + 3 - hs / 2 },
-      { x: bbox.x + bbox.w + 3 - hs / 2, y: bbox.y + bbox.h + 3 - hs / 2 },
-    ];
+    var corners = GC.getOverlaySelectionCorners(bbox);
     corners.forEach(function (p) {
       context.beginPath();
       context.arc(p.x + hs / 2, p.y + hs / 2, hs / 2, 0, Math.PI * 2);
       context.fill();
     });
+
+    // Rotation handle
+    var stemLen = 20;
+    var rotHandleX = bbox.x + bbox.w / 2;
+    var rotHandleY = bbox.y + bbox.h + 3 + stemLen;
+    context.beginPath();
+    context.strokeStyle = '#f59e0b';
+    context.lineWidth = 2;
+    context.moveTo(rotHandleX, bbox.y + bbox.h + 3);
+    context.lineTo(rotHandleX, rotHandleY);
+    context.stroke();
+    context.beginPath();
+    context.arc(rotHandleX, rotHandleY, hs / 2 + 2, 0, Math.PI * 2);
+    context.fillStyle = '#f59e0b';
+    context.fill();
+    context.beginPath();
+    context.arc(rotHandleX, rotHandleY, hs / 2 - 1, -0.5, Math.PI * 1.3, false);
+    context.strokeStyle = '#fff';
+    context.lineWidth = 1.5;
+    context.stroke();
+
     context.restore();
+  };
+
+  /** Return the four corner positions of an overlay's selection box. */
+  GC.getOverlaySelectionCorners = function (bbox) {
+    var pad = 3;
+    var hs = GC.HANDLE_SIZE;
+    return [
+      { x: bbox.x - pad - hs / 2, y: bbox.y - pad - hs / 2 },
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y - pad - hs / 2 },
+      { x: bbox.x - pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },
+      { x: bbox.x + bbox.w + pad - hs / 2, y: bbox.y + bbox.h + pad - hs / 2 },
+    ];
+  };
+
+  /** Get the rotation handle centre for an overlay. */
+  GC.getOverlayRotationHandlePos = function (bbox) {
+    return {
+      x: bbox.x + bbox.w / 2,
+      y: bbox.y + bbox.h + 3 + 20,
+    };
   };
 
   /** Find overlay by ID. */

@@ -173,6 +173,7 @@
           x: 0.1,
           y: 0.1,
           scale: scale,
+          rotation: 0,
           opacity: 1,
           startFrame: 0,
           endFrame: state.frames.length - 1,
@@ -396,32 +397,51 @@
       }
     }
 
-    // 1a. Hit-test corner resize handles (selected overlay)
+    // 1a. Hit-test rotation handle + corner resize handles (selected overlay)
     if (state.selectedOverlayId) {
       var selOv = GC.findOverlay(state.selectedOverlayId);
       if (selOv && state.currentFrame >= selOv.startFrame && state.currentFrame <= selOv.endFrame) {
         var ovBbox = GC.getOverlayBBox(selOv, state.currentFrame);
         if (ovBbox) {
-          // corners: TL, TR, BL, BR — opposite corner is the anchor
-          var ovCornerDefs = [
-            { x: ovBbox.x - 3, y: ovBbox.y - 3, ax: ovBbox.x + ovBbox.w, ay: ovBbox.y + ovBbox.h },
-            { x: ovBbox.x + ovBbox.w + 3, y: ovBbox.y - 3, ax: ovBbox.x, ay: ovBbox.y + ovBbox.h },
-            { x: ovBbox.x - 3, y: ovBbox.y + ovBbox.h + 3, ax: ovBbox.x + ovBbox.w, ay: ovBbox.y },
-            { x: ovBbox.x + ovBbox.w + 3, y: ovBbox.y + ovBbox.h + 3, ax: ovBbox.x, ay: ovBbox.y },
-          ];
+          var lm = GC.unrotatePoint(m.x, m.y, ovBbox, selOv.rotation || 0);
           var hs = GC.HANDLE_SIZE;
           var hitRadius = hs * 0.8;
-          for (var oc = 0; oc < ovCornerDefs.length; oc++) {
-            var ocDef = ovCornerDefs[oc];
-            var odx = m.x - ocDef.x, ody = m.y - ocDef.y;
+
+          // Rotation handle
+          var ovRh = GC.getOverlayRotationHandlePos(ovBbox);
+          var ovRhDx = lm.x - ovRh.x, ovRhDy = lm.y - ovRh.y;
+          if (ovRhDx * ovRhDx + ovRhDy * ovRhDy <= (hitRadius + 2) * (hitRadius + 2)) {
+            var ovCx = ovBbox.x + ovBbox.w / 2;
+            var ovCy = ovBbox.y + ovBbox.h / 2;
+            state.rotateState = {
+              overlayId: selOv.id,
+              centerX: ovCx,
+              centerY: ovCy,
+              startAngle: Math.atan2(m.y - ovCy, m.x - ovCx),
+              startRotation: selOv.rotation || 0,
+            };
+            GC.canvas.style.cursor = 'grabbing';
+            return;
+          }
+
+          // Corner resize handles
+          var ovCorners = GC.getOverlaySelectionCorners(ovBbox);
+          var ovOppositeIdx = [3, 2, 1, 0];
+          for (var oc = 0; oc < ovCorners.length; oc++) {
+            var ocx = ovCorners[oc].x + hs / 2;
+            var ocy = ovCorners[oc].y + hs / 2;
+            var odx = lm.x - ocx, ody = lm.y - ocy;
             if (odx * odx + ody * ody <= hitRadius * hitRadius) {
-              var ancX = ocDef.ax, ancY = ocDef.ay;
+              var opp = ovCorners[ovOppositeIdx[oc]];
+              var ancX = opp.x + hs / 2, ancY = opp.y + hs / 2;
               state.resizeState = {
                 overlayId: selOv.id,
                 startScale: selOv.scale,
-                startDist: Math.sqrt(Math.pow(m.x - ancX, 2) + Math.pow(m.y - ancY, 2)),
+                startDist: Math.sqrt(Math.pow(lm.x - ancX, 2) + Math.pow(lm.y - ancY, 2)),
                 anchorX: ancX,
                 anchorY: ancY,
+                rotation: selOv.rotation || 0,
+                bboxForUnrotate: ovBbox,
               };
               GC.canvas.style.cursor = 'nwse-resize';
               return;
@@ -486,6 +506,28 @@
               return;
             }
           }
+
+          // Edge handle hit-test (one-dimensional stretch)
+          var edges = GC.getEdgeHandles(bbox);
+          for (var ei = 0; ei < edges.length; ei++) {
+            var eh = edges[ei];
+            var edx = lm.x - eh.x, edy = lm.y - eh.y;
+            if (edx * edx + edy * edy <= hitRadius * hitRadius) {
+              state.edgeResizeState = {
+                captionId: selCap.id,
+                axis: eh.axis,
+                startBoxWidth: selCap.boxWidth || 0.55,
+                startBoxHeight: selCap.boxHeight || 0.25,
+                startPos: eh.axis === 'h' ? lm.x : lm.y,
+                edgeIndex: ei,
+                rotation: selCap.rotation || 0,
+                bboxForUnrotate: bbox,
+                bbox: bbox,
+              };
+              GC.canvas.style.cursor = eh.axis === 'h' ? 'ew-resize' : 'ns-resize';
+              return;
+            }
+          }
         }
       }
     }
@@ -530,8 +572,9 @@
       if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
       var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
       if (!ovBbox) continue;
-      if (m.x >= ovBbox.x - 6 && m.x <= ovBbox.x + ovBbox.w + 6 &&
-          m.y >= ovBbox.y - 6 && m.y <= ovBbox.y + ovBbox.h + 6) {
+      var olm = GC.unrotatePoint(m.x, m.y, ovBbox, ov.rotation || 0);
+      if (olm.x >= ovBbox.x - 6 && olm.x <= ovBbox.x + ovBbox.w + 6 &&
+          olm.y >= ovBbox.y - 6 && olm.y <= ovBbox.y + ovBbox.h + 6) {
         state.selectedOverlayId = ov.id;
         state.selectedCaptionId = null;
         var ovIp = (ov.motion && ov.motion.length > 0)
@@ -616,12 +659,39 @@
       var rs = state.rotateState;
       var angle = Math.atan2(m.y - rs.centerY, m.x - rs.centerX);
       var delta = (angle - rs.startAngle) * 180 / Math.PI;
-      var cap = GC.findCaption(rs.captionId);
+      var newRot = rs.startRotation + delta;
+      // Snap to 0° when close
+      if (Math.abs(newRot % 360) < 3) newRot = Math.round(newRot / 360) * 360;
+      if (rs.captionId) {
+        var cap = GC.findCaption(rs.captionId);
+        if (cap) cap.rotation = newRot;
+      } else if (rs.overlayId) {
+        var ov = GC.findOverlay(rs.overlayId);
+        if (ov) ov.rotation = newRot;
+      }
+      GC.renderCurrentFrame();
+      return;
+    }
+
+    // Active edge resize drag (one-dimensional stretch)
+    if (state.edgeResizeState) {
+      var es = state.edgeResizeState;
+      var cap = GC.findCaption(es.captionId);
       if (cap) {
-        cap.rotation = rs.startRotation + delta;
-        // Snap to 0° when close
-        if (Math.abs(cap.rotation % 360) < 3) cap.rotation = Math.round(cap.rotation / 360) * 360;
+        var elm = GC.unrotatePoint(m.x, m.y, es.bboxForUnrotate, es.rotation);
+        var curPos = es.axis === 'h' ? elm.x : elm.y;
+        var delta = curPos - es.startPos;
+        // edges: 0=top, 1=right, 2=bottom, 3=left
+        if (es.axis === 'h') {
+          // Right or left edge: delta in pixels → normalise to fraction of canvas width
+          var sign = (es.edgeIndex === 1) ? 1 : -1;
+          cap.boxWidth = Math.max(0.05, Math.min(1, es.startBoxWidth + sign * delta / state.width));
+        } else {
+          var sign = (es.edgeIndex === 2) ? 1 : -1;
+          cap.boxHeight = Math.max(0.03, Math.min(1, es.startBoxHeight + sign * delta / state.height));
+        }
         GC.renderCurrentFrame();
+        updateCaptionEditor();
       }
       return;
     }
@@ -631,7 +701,10 @@
       if (state.resizeState.overlayId) {
         var ov = GC.findOverlay(state.resizeState.overlayId);
         if (!ov) return;
-        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.anchorX, 2) + Math.pow(m.y - state.resizeState.anchorY, 2));
+        var rlm = state.resizeState.bboxForUnrotate
+          ? GC.unrotatePoint(m.x, m.y, state.resizeState.bboxForUnrotate, state.resizeState.rotation)
+          : m;
+        var dist = Math.sqrt(Math.pow(rlm.x - state.resizeState.anchorX, 2) + Math.pow(rlm.y - state.resizeState.anchorY, 2));
         ov.scale = Math.max(0.01, state.resizeState.startScale * (dist / state.resizeState.startDist));
         GC.renderCurrentFrame();
         updateOverlayEditor();
@@ -654,6 +727,7 @@
     if (!state.dragState) {
       var onHandle = false;
       var onRotate = false;
+      var onEdge = null; // 'h' or 'v'
       if (state.selectedCaptionId) {
         var selCap = GC.findCaption(state.selectedCaptionId);
         if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
@@ -675,12 +749,50 @@
                 var dx = lm.x - cx, dy = lm.y - cy;
                 if (dx * dx + dy * dy <= hitRadius * hitRadius) { onHandle = true; break; }
               }
+              // Edge handle hover
+              if (!onHandle) {
+                var edgesH = GC.getEdgeHandles(bbox);
+                for (var ehi = 0; ehi < edgesH.length; ehi++) {
+                  var ehd = edgesH[ehi];
+                  var ehdx = lm.x - ehd.x, ehdy = lm.y - ehd.y;
+                  if (ehdx * ehdx + ehdy * ehdy <= hitRadius * hitRadius) {
+                    onEdge = ehd.axis; break;
+                  }
+                }
+              }
             }
           }
         }
       }
+      // Overlay handle hover
+      if (!onHandle && !onRotate && state.selectedOverlayId) {
+        var selOvH = GC.findOverlay(state.selectedOverlayId);
+        if (selOvH && state.currentFrame >= selOvH.startFrame && state.currentFrame <= selOvH.endFrame) {
+          var ovBboxH = GC.getOverlayBBox(selOvH, state.currentFrame);
+          if (ovBboxH) {
+            var ovLm = GC.unrotatePoint(m.x, m.y, ovBboxH, selOvH.rotation || 0);
+            var ovHs = GC.HANDLE_SIZE;
+            var ovHitR = ovHs * 0.8;
+            var ovRhH = GC.getOverlayRotationHandlePos(ovBboxH);
+            var ovRhDxH = ovLm.x - ovRhH.x, ovRhDyH = ovLm.y - ovRhH.y;
+            if (ovRhDxH * ovRhDxH + ovRhDyH * ovRhDyH <= (ovHitR + 2) * (ovHitR + 2)) {
+              onRotate = true;
+            } else {
+              var ovCornersH = GC.getOverlaySelectionCorners(ovBboxH);
+              for (var ovc = 0; ovc < ovCornersH.length; ovc++) {
+                var ovcx = ovCornersH[ovc].x + ovHs / 2;
+                var ovcy = ovCornersH[ovc].y + ovHs / 2;
+                var ovdx = ovLm.x - ovcx, ovdy = ovLm.y - ovcy;
+                if (ovdx * ovdx + ovdy * ovdy <= ovHitR * ovHitR) { onHandle = true; break; }
+              }
+            }
+          }
+        }
+      }
+
       if (onRotate) { GC.canvas.style.cursor = 'grab'; return; }
       if (onHandle) { GC.canvas.style.cursor = 'nwse-resize'; return; }
+      if (onEdge) { GC.canvas.style.cursor = onEdge === 'h' ? 'ew-resize' : 'ns-resize'; return; }
 
       var hovering = false;
       for (var i = state.captions.length - 1; i >= 0; i--) {
@@ -701,8 +813,10 @@
         var ov = state.overlays[oi];
         if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
         var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
-        if (ovBbox && m.x >= ovBbox.x - 6 && m.x <= ovBbox.x + ovBbox.w + 6 &&
-            m.y >= ovBbox.y - 6 && m.y <= ovBbox.y + ovBbox.h + 6) {
+        if (!ovBbox) continue;
+        var ohlm = GC.unrotatePoint(m.x, m.y, ovBbox, ov.rotation || 0);
+        if (ohlm.x >= ovBbox.x - 6 && ohlm.x <= ovBbox.x + ovBbox.w + 6 &&
+            ohlm.y >= ovBbox.y - 6 && ohlm.y <= ovBbox.y + ovBbox.h + 6) {
           hovering = true; break;
         }
       }
@@ -766,6 +880,11 @@
     }
     if (state.rotateState) {
       state.rotateState = null;
+      GC.canvas.style.cursor = 'default';
+      return;
+    }
+    if (state.edgeResizeState) {
+      state.edgeResizeState = null;
       GC.canvas.style.cursor = 'default';
       return;
     }
