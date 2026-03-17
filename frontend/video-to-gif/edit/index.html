@@ -458,12 +458,15 @@
       document.getElementById('upload-screen').classList.add('hidden');
       document.getElementById('editor-screen').classList.remove('hidden');
       convertBtn.disabled = false;
+      dlBtnHeader.disabled = false;
+      // Force first frame to render on mobile Safari
+      video.play().then(function () { video.pause(); video.currentTime = 0; }).catch(function () {});
     };
   }
 
   // ── Convert ──
 
-  convertBtn.addEventListener('click', function () {
+  function startConversion() {
     var fps = parseInt(slFps.value);
     var maxWidth = parseInt(slWidth.value);
     if (outTime <= inTime) { alert('End time must be after start time.'); return; }
@@ -507,7 +510,10 @@
     };
 
     extractNextFrame();
-  });
+  }
+
+  convertBtn.addEventListener('click', startConversion);
+  dlBtnHeader.addEventListener('click', startConversion);
 
   function encodeGif(frames, w, h, fps) {
     loadingText.textContent = 'Encoding GIF…';
@@ -531,8 +537,6 @@
       lastGifFilename = videoFilename + '.gif';
       resultGif.src = url;
       resultInfo.textContent = frames.length + ' frames · ' + w + '×' + h + ' · ' + formatSize(blob.size);
-      dlBtnHeader.disabled = false;
-      dlBtnHeader.onclick = function () { downloadGif(); };
       resultModal.classList.remove('hidden');
     });
     gif.render();
@@ -583,7 +587,6 @@
         document.getElementById('upload-screen').classList.remove('hidden');
         convertBtn.disabled = true;
         dlBtnHeader.disabled = true;
-        dlBtnHeader.onclick = null;
         resultModal.classList.add('hidden');
         lastGifUrl = null;
         lastGifBlob = null;
