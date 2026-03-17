@@ -96,6 +96,17 @@
         del.objectStore('files').delete('pending');
         if (file.type && file.type.startsWith('video/')) {
           GC.loadVideoAsGif(file);
+        } else if (file.type && file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif')) {
+          // Static image uploaded to GIF editor — redirect to image editor
+          GC.hideLoading();
+          var imgReq = indexedDB.open('gifwidgets_imgcap', 1);
+          imgReq.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+          imgReq.onsuccess = function (e) {
+            var imgDb = e.target.result;
+            var tx = imgDb.transaction('files', 'readwrite');
+            tx.objectStore('files').put(file, 'pending');
+            tx.oncomplete = function () { window.location.href = '/image-editor/edit/?source=imgcap'; };
+          };
         } else {
           GC.loadGifFromFile(file);
         }
