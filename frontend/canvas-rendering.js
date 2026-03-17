@@ -360,10 +360,11 @@
       var interp = GC.getInterpolatedPosition(motion, frameIndex);
       if (interp) { px = interp.x; py = interp.y; }
     }
-    var x = px * state.width;
-    var y = py * state.height;
     var w = ov.img.naturalWidth * ov.scale;
     var h = ov.img.naturalHeight * ov.scale;
+    // Position is the center of the overlay
+    var x = px * state.width - w / 2;
+    var y = py * state.height - h / 2;
     context.save();
     context.globalAlpha = ov.opacity != null ? ov.opacity : 1;
     context.drawImage(ov.img, x, y, w, h);
@@ -378,11 +379,13 @@
       var interp = GC.getInterpolatedPosition(motion, frameIndex);
       if (interp) { px = interp.x; py = interp.y; }
     }
+    var w = ov.img.naturalWidth * ov.scale;
+    var h = ov.img.naturalHeight * ov.scale;
     return {
-      x: px * state.width,
-      y: py * state.height,
-      w: ov.img.naturalWidth * ov.scale,
-      h: ov.img.naturalHeight * ov.scale
+      x: px * state.width - w / 2,
+      y: py * state.height - h / 2,
+      w: w,
+      h: h
     };
   };
 

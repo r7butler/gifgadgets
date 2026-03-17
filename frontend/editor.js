@@ -437,25 +437,25 @@
           var corners = GC.getSelectionCorners(bbox);
           var hs = GC.HANDLE_SIZE;
           var hitRadius = hs * 0.8;
+          // Opposite corner indices: TL↔BR, TR↔BL
+          var oppositeIdx = [3, 2, 1, 0];
           for (var c = 0; c < corners.length; c++) {
             var cx = corners[c].x + hs / 2;
             var cy = corners[c].y + hs / 2;
             var dx = m.x - cx, dy = m.y - cy;
             if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-              // Use interpolated position for resize distance calculation
-              var rip = (selCap.motion && selCap.motion.length > 0)
-                ? GC.getInterpolatedPosition(selCap.motion, state.currentFrame)
-                : null;
-              var rpx = rip ? rip.x : selCap.x;
-              var rpy = rip ? rip.y : selCap.y;
+              // Use the opposite corner as anchor so dragging toward it shrinks
+              var opp = corners[oppositeIdx[c]];
+              var ancX = opp.x + hs / 2;
+              var ancY = opp.y + hs / 2;
               state.resizeState = {
                 captionId: selCap.id,
                 startFontSize: selCap.fontSize,
                 startY: m.y,
                 startX: m.x,
-                refX: rpx,
-                refY: rpy,
-                startDist: Math.sqrt(Math.pow(m.x - rpx * state.width, 2) + Math.pow(m.y - rpy * state.height, 2)),
+                anchorX: ancX,
+                anchorY: ancY,
+                startDist: Math.sqrt(Math.pow(m.x - ancX, 2) + Math.pow(m.y - ancY, 2)),
               };
               GC.canvas.style.cursor = 'nwse-resize';
               return;
@@ -597,7 +597,7 @@
       } else {
         var cap = GC.findCaption(state.resizeState.captionId);
         if (!cap) return;
-        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.refX * state.width, 2) + Math.pow(m.y - state.resizeState.refY * state.height, 2));
+        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.anchorX, 2) + Math.pow(m.y - state.resizeState.anchorY, 2));
         var scale = dist / state.resizeState.startDist;
         cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
         GC.renderCurrentFrame();
