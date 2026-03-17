@@ -696,7 +696,7 @@
     var tempCanvas = document.createElement('canvas');
     tempCanvas.width = dims.width;
     tempCanvas.height = dims.height;
-    var tempCtx = tempCanvas.getContext('2d');
+    var tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
     var frameDataList = []; // { imageData, delay }
 
