@@ -136,6 +136,36 @@
             </div>
           </div>
 
+          <div class="sidebar-section collapsed" id="overlay-section">
+            <button class="section-toggle collapsed" id="overlay-toggle" aria-expanded="false">Image Overlays</button>
+            <div class="overlay-section-body">
+              <div class="section-header">
+                <h3>Overlays</h3>
+                <button id="btn-add-overlay" class="btn btn-small btn-accent">+ Add Image</button>
+                <input type="file" id="overlay-file-input" accept="image/*" hidden />
+              </div>
+              <div id="overlay-list" class="caption-list">
+                <div class="caption-list-empty">No overlays yet.<br>Click <strong>+ Add Image</strong> to upload.</div>
+              </div>
+              <div id="overlay-editor" class="caption-editor hidden">
+                <h3>Edit Overlay</h3>
+                <p id="overlay-name" style="font-size:12px;color:var(--text-muted);margin:0 0 8px"></p>
+                <div class="form-group"><label>Scale: <span id="ov-scale-val">1.0</span>x</label><input type="range" id="ov-scale" min="0.01" max="3" step="0.01" value="1" /></div>
+                <div class="form-group"><label>Opacity: <span id="ov-opacity-val">100</span>%</label><input type="range" id="ov-opacity" min="0" max="100" value="100" /></div>
+                <div class="form-group">
+                  <label>Motion</label>
+                  <p id="ov-motion-info" class="sub-hint" style="margin:0 0 6px"></p>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <button id="btn-ov-add-keyframe" class="btn btn-ghost btn-xs">+ Keyframe here</button>
+                    <button id="btn-ov-track-ai" class="btn btn-accent btn-xs" style="display:none" title="Click on an object — the overlay will follow it">Follow an Object</button>
+                    <button id="btn-ov-clear-motion" class="btn btn-ghost btn-xs" style="display:none">Clear motion</button>
+                  </div>
+                </div>
+                <button id="btn-delete-overlay" class="btn btn-danger btn-full delete-caption-btn">Delete Overlay</button>
+              </div>
+            </div>
+          </div>
+
           <div class="sidebar-section box-caption-section collapsed" id="box-caption-section">
             <button class="section-toggle collapsed" id="box-caption-toggle" aria-expanded="false">Box Caption</button>
             <div class="box-caption-body">

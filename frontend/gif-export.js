@@ -106,6 +106,11 @@
 
       expCtx.save();
       expCtx.translate(0, offsetY);
+      // Image overlays (behind text captions)
+      for (var oi = 0; oi < state.overlays.length; oi++) {
+        var ov = state.overlays[oi];
+        if (i >= ov.startFrame && i <= ov.endFrame) GC.drawOverlay(expCtx, ov, i);
+      }
       for (var j = 0; j < state.captions.length; j++) {
         var cap = state.captions[j];
         if (i >= cap.startFrame && i <= cap.endFrame) GC.drawCaption(expCtx, cap, i);
@@ -329,6 +334,12 @@
 
     saveCtx.save();
     saveCtx.translate(0, offsetY);
+    for (var oi = 0; oi < state.overlays.length; oi++) {
+      var ov = state.overlays[oi];
+      if (state.currentFrame >= ov.startFrame && state.currentFrame <= ov.endFrame) {
+        GC.drawOverlay(saveCtx, ov, state.currentFrame);
+      }
+    }
     for (var i = 0; i < state.captions.length; i++) {
       var cap = state.captions[i];
       if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {

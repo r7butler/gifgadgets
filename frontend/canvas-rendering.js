@@ -144,9 +144,18 @@
     ctx.clearRect(0, 0, size.w, size.h);
     drawFrameAdjusted(ctx, state.frames[state.currentFrame], 0, offsetY);
 
-    // Overlay on-image captions (coordinates are relative to the GIF area)
+    // Overlay on-image captions and image overlays (coordinates are relative to the GIF area)
     ctx.save();
     ctx.translate(0, offsetY);
+
+    // Image overlays (drawn behind text captions)
+    for (var oi = 0; oi < state.overlays.length; oi++) {
+      var ov = state.overlays[oi];
+      if (state.currentFrame >= ov.startFrame && state.currentFrame <= ov.endFrame) {
+        GC.drawOverlay(ctx, ov, state.currentFrame);
+      }
+    }
+
     for (var i = 0; i < state.captions.length; i++) {
       var cap = state.captions[i];
       if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
@@ -167,6 +176,15 @@
         ctx.save();
         ctx.translate(0, offsetY);
         GC.drawSelectionBox(ctx, sel, state.currentFrame);
+        ctx.restore();
+      }
+    }
+    if (state.selectedOverlayId && !sidebarCollapsed) {
+      var selOv = GC.findOverlay(state.selectedOverlayId);
+      if (selOv && state.currentFrame >= selOv.startFrame && state.currentFrame <= selOv.endFrame) {
+        ctx.save();
+        ctx.translate(0, offsetY);
+        GC.drawOverlaySelectionBox(ctx, selOv, state.currentFrame);
         ctx.restore();
       }
     }
@@ -330,6 +348,76 @@
     }
     if (line) lines.push(line);
     return lines.length ? lines : [''];
+  };
+
+  // ── Image Overlays ──────────────────────────
+
+  /** Draw a single image overlay on the canvas. */
+  GC.drawOverlay = function (context, ov, frameIndex) {
+    var motion = ov.motion || [];
+    var px = ov.x, py = ov.y;
+    if (motion.length > 0 && frameIndex != null) {
+      var interp = GC.getInterpolatedPosition(motion, frameIndex);
+      if (interp) { px = interp.x; py = interp.y; }
+    }
+    var x = px * state.width;
+    var y = py * state.height;
+    var w = ov.img.naturalWidth * ov.scale;
+    var h = ov.img.naturalHeight * ov.scale;
+    context.save();
+    context.globalAlpha = ov.opacity != null ? ov.opacity : 1;
+    context.drawImage(ov.img, x, y, w, h);
+    context.restore();
+  };
+
+  /** Get the bounding box of an overlay in GIF-area pixel coords. */
+  GC.getOverlayBBox = function (ov, frameIndex) {
+    var motion = ov.motion || [];
+    var px = ov.x, py = ov.y;
+    if (motion.length > 0 && frameIndex != null) {
+      var interp = GC.getInterpolatedPosition(motion, frameIndex);
+      if (interp) { px = interp.x; py = interp.y; }
+    }
+    return {
+      x: px * state.width,
+      y: py * state.height,
+      w: ov.img.naturalWidth * ov.scale,
+      h: ov.img.naturalHeight * ov.scale
+    };
+  };
+
+  /** Draw selection box around an overlay. */
+  GC.drawOverlaySelectionBox = function (context, ov, frameIndex) {
+    var bbox = GC.getOverlayBBox(ov, frameIndex);
+    if (!bbox) return;
+    context.save();
+    context.strokeStyle = '#f59e0b';
+    context.lineWidth = 2;
+    context.setLineDash([6, 3]);
+    context.strokeRect(bbox.x - 3, bbox.y - 3, bbox.w + 6, bbox.h + 6);
+    context.fillStyle = '#f59e0b';
+    context.setLineDash([]);
+    var hs = GC.HANDLE_SIZE;
+    var corners = [
+      { x: bbox.x - 3 - hs / 2, y: bbox.y - 3 - hs / 2 },
+      { x: bbox.x + bbox.w + 3 - hs / 2, y: bbox.y - 3 - hs / 2 },
+      { x: bbox.x - 3 - hs / 2, y: bbox.y + bbox.h + 3 - hs / 2 },
+      { x: bbox.x + bbox.w + 3 - hs / 2, y: bbox.y + bbox.h + 3 - hs / 2 },
+    ];
+    corners.forEach(function (p) {
+      context.beginPath();
+      context.arc(p.x + hs / 2, p.y + hs / 2, hs / 2, 0, Math.PI * 2);
+      context.fill();
+    });
+    context.restore();
+  };
+
+  /** Find overlay by ID. */
+  GC.findOverlay = function (id) {
+    for (var i = 0; i < state.overlays.length; i++) {
+      if (state.overlays[i].id === id) return state.overlays[i];
+    }
+    return null;
   };
 
   // ── Watermark ────────────────────────────────

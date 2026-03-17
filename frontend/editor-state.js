@@ -44,6 +44,8 @@
     isPlaying: false,       // Whether playback is running
     speed: 1,               // Playback speed multiplier (0.25 – 3)
     selectedCaptionId: null, // ID of the currently-selected caption (or null)
+    overlays: [],           // Image overlays: [{ id, img, name, x, y, scale, startFrame, endFrame, motion }]
+    selectedOverlayId: null, // ID of the currently-selected overlay (or null)
     dragState: null,        // Active position drag: { captionId, offsetX, offsetY }
     resizeState: null,      // Active resize drag: { captionId, startFontSize, startDist, … }
     cropDrag: null,         // Active crop drag: { edge, startX, startY, origRect }
@@ -92,6 +94,7 @@
   GC.canvas = null;           // the <canvas> element
   GC.ctx = null;              // its CanvasRenderingContext2D
   GC.nextCaptionId = 1;       // auto-incrementing caption ID counter
+  GC.nextOverlayId = 1;       // auto-incrementing overlay ID counter
   GC.playbackTimer = null;    // setTimeout handle for frame scheduling
   GC.timelineState = null;    // { xScale, playhead } – set by buildTimeline()
   GC.exportInProgress = false; // guard to prevent concurrent exports

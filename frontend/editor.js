@@ -103,8 +103,11 @@
     };
     state.captions.push(cap);
     state.selectedCaptionId = cap.id;
+    state.selectedOverlayId = null;
     GC.updateCaptionList();
     updateCaptionEditor();
+    updateOverlayList();
+    updateOverlayEditor();
     GC.buildTimeline();
     GC.renderCurrentFrame();
     return cap;
@@ -124,8 +127,11 @@
   /** Select a caption by ID — highlights it on the canvas and opens the editor. */
   GC.selectCaption = function (id) {
     state.selectedCaptionId = id;
+    state.selectedOverlayId = null;
     GC.updateCaptionList();
     updateCaptionEditor();
+    updateOverlayList();
+    updateOverlayEditor();
     GC.renderCurrentFrame();
   };
 
@@ -145,6 +151,113 @@
     }
     return null;
   };
+
+  // ── Overlay CRUD ──────────────────────────────
+
+  function addOverlayFromFile(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        // Auto-scale so the overlay fits within the GIF
+        var maxDim = Math.max(state.width, state.height);
+        var imgMax = Math.max(img.naturalWidth, img.naturalHeight);
+        var scale = imgMax > maxDim * 0.5 ? (maxDim * 0.5) / imgMax : 1;
+        var ov = {
+          id: 'ov-' + (GC.nextOverlayId++),
+          img: img,
+          name: file.name,
+          x: 0.1,
+          y: 0.1,
+          scale: scale,
+          opacity: 1,
+          startFrame: 0,
+          endFrame: state.frames.length - 1,
+          motion: [],
+        };
+        state.overlays.push(ov);
+        state.selectedOverlayId = ov.id;
+        state.selectedCaptionId = null;
+        updateOverlayList();
+        updateOverlayEditor();
+        GC.updateCaptionList();
+        updateCaptionEditor();
+        GC.buildTimeline();
+        GC.renderCurrentFrame();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeOverlay(id) {
+    state.overlays = state.overlays.filter(function (o) { return o.id !== id; });
+    if (state.selectedOverlayId === id) {
+      state.selectedOverlayId = state.overlays.length ? state.overlays[0].id : null;
+    }
+    updateOverlayList();
+    updateOverlayEditor();
+    GC.buildTimeline();
+    GC.renderCurrentFrame();
+  }
+
+  GC.selectOverlay = function (id) {
+    state.selectedOverlayId = id;
+    state.selectedCaptionId = null;
+    updateOverlayList();
+    updateOverlayEditor();
+    GC.updateCaptionList();
+    updateCaptionEditor();
+    GC.renderCurrentFrame();
+  };
+
+  function updateOverlayList() {
+    var list = $('#overlay-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (state.overlays.length === 0) {
+      list.innerHTML = '<div class="caption-list-empty">No overlays yet.<br>Click <strong>+ Add Image</strong> to upload.</div>';
+      return;
+    }
+    state.overlays.forEach(function (ov, idx) {
+      var item = document.createElement('div');
+      item.className = 'caption-list-item' + (ov.id === state.selectedOverlayId ? ' selected' : '');
+      item.innerHTML =
+        '<div class="caption-color-dot" style="background:#f59e0b"></div>' +
+        '<div class="caption-item-text">' + GC.escapeHtml(ov.name) + '</div>' +
+        '<button class="caption-item-remove" title="Remove overlay" aria-label="Remove overlay">&times;</button>';
+      item.addEventListener('click', function () { GC.selectOverlay(ov.id); });
+      item.querySelector('.caption-item-remove').addEventListener('click', function (e) {
+        e.stopPropagation();
+        removeOverlay(ov.id);
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function updateOverlayEditor() {
+    var editor = $('#overlay-editor');
+    if (!editor) return;
+    var ov = GC.findOverlay(state.selectedOverlayId);
+    if (!ov) { editor.classList.add('hidden'); return; }
+    editor.classList.remove('hidden');
+    $('#overlay-name').textContent = ov.name;
+    $('#ov-scale').value = ov.scale;
+    $('#ov-scale-val').textContent = ov.scale.toFixed(2);
+    $('#ov-opacity').value = Math.round((ov.opacity != null ? ov.opacity : 1) * 100);
+    $('#ov-opacity-val').textContent = Math.round((ov.opacity != null ? ov.opacity : 1) * 100);
+    var motionCount = ov.motion ? ov.motion.length : 0;
+    var motionInfo = $('#ov-motion-info');
+    if (motionInfo) {
+      motionInfo.textContent = motionCount > 0
+        ? motionCount + ' keyframe' + (motionCount !== 1 ? 's' : '') + ' — drag overlay to set position per frame'
+        : 'No motion — drag overlay to move (static)';
+    }
+    var btnClear = $('#btn-ov-clear-motion');
+    if (btnClear) btnClear.style.display = motionCount > 0 ? '' : 'none';
+    var btnTrack = $('#btn-ov-track-ai');
+    if (btnTrack) btnTrack.style.display = GC.trackerAvailable && GC.trackerAvailable() ? '' : 'none';
+  }
 
   // ── Canvas Drag & Resize ─────────────────────
 
@@ -280,7 +393,42 @@
       }
     }
 
-    // 1. Hit-test corner resize handles (selected caption only)
+    // 1a. Hit-test corner resize handles (selected overlay)
+    if (state.selectedOverlayId) {
+      var selOv = GC.findOverlay(state.selectedOverlayId);
+      if (selOv && state.currentFrame >= selOv.startFrame && state.currentFrame <= selOv.endFrame) {
+        var ovBbox = GC.getOverlayBBox(selOv, state.currentFrame);
+        if (ovBbox) {
+          // corners: TL, TR, BL, BR — opposite corner is the anchor
+          var ovCornerDefs = [
+            { x: ovBbox.x - 3, y: ovBbox.y - 3, ax: ovBbox.x + ovBbox.w, ay: ovBbox.y + ovBbox.h },
+            { x: ovBbox.x + ovBbox.w + 3, y: ovBbox.y - 3, ax: ovBbox.x, ay: ovBbox.y + ovBbox.h },
+            { x: ovBbox.x - 3, y: ovBbox.y + ovBbox.h + 3, ax: ovBbox.x + ovBbox.w, ay: ovBbox.y },
+            { x: ovBbox.x + ovBbox.w + 3, y: ovBbox.y + ovBbox.h + 3, ax: ovBbox.x, ay: ovBbox.y },
+          ];
+          var hs = GC.HANDLE_SIZE;
+          var hitRadius = hs * 0.8;
+          for (var oc = 0; oc < ovCornerDefs.length; oc++) {
+            var ocDef = ovCornerDefs[oc];
+            var odx = m.x - ocDef.x, ody = m.y - ocDef.y;
+            if (odx * odx + ody * ody <= hitRadius * hitRadius) {
+              var ancX = ocDef.ax, ancY = ocDef.ay;
+              state.resizeState = {
+                overlayId: selOv.id,
+                startScale: selOv.scale,
+                startDist: Math.sqrt(Math.pow(m.x - ancX, 2) + Math.pow(m.y - ancY, 2)),
+                anchorX: ancX,
+                anchorY: ancY,
+              };
+              GC.canvas.style.cursor = 'nwse-resize';
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // 1b. Hit-test corner resize handles (selected caption only)
     if (state.selectedCaptionId) {
       var selCap = GC.findCaption(state.selectedCaptionId);
       if (selCap && state.currentFrame >= selCap.startFrame && state.currentFrame <= selCap.endFrame) {
@@ -326,6 +474,7 @@
       if (m.x >= bbox.x - 6 && m.x <= bbox.x + bbox.w + 6 &&
           m.y >= bbox.y - 6 && m.y <= bbox.y + bbox.h + 6) {
         state.selectedCaptionId = cap.id;
+        state.selectedOverlayId = null;
         // For motion captions, offset from interpolated position; otherwise from static
         var dip = (cap.motion && cap.motion.length > 0)
           ? GC.getInterpolatedPosition(cap.motion, state.currentFrame)
@@ -340,6 +489,39 @@
           motionFrame: state.currentFrame,
         };
         GC.canvas.style.cursor = 'grabbing';
+        GC.updateCaptionList();
+        updateCaptionEditor();
+        updateOverlayList();
+        updateOverlayEditor();
+        GC.renderCurrentFrame();
+        return;
+      }
+    }
+
+    // 3. Hit-test image overlays in reverse order
+    for (var oi = state.overlays.length - 1; oi >= 0; oi--) {
+      var ov = state.overlays[oi];
+      if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
+      var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
+      if (!ovBbox) continue;
+      if (m.x >= ovBbox.x - 6 && m.x <= ovBbox.x + ovBbox.w + 6 &&
+          m.y >= ovBbox.y - 6 && m.y <= ovBbox.y + ovBbox.h + 6) {
+        state.selectedOverlayId = ov.id;
+        state.selectedCaptionId = null;
+        var ovIp = (ov.motion && ov.motion.length > 0)
+          ? GC.getInterpolatedPosition(ov.motion, state.currentFrame) : null;
+        var ovPx = ovIp ? ovIp.x : ov.x;
+        var ovPy = ovIp ? ovIp.y : ov.y;
+        state.dragState = {
+          overlayId: ov.id,
+          offsetX: m.x - ovPx * state.width,
+          offsetY: m.y - ovPy * state.height,
+          motionEnabled: ov.motion && ov.motion.length > 0,
+          motionFrame: state.currentFrame,
+        };
+        GC.canvas.style.cursor = 'grabbing';
+        updateOverlayList();
+        updateOverlayEditor();
         GC.updateCaptionList();
         updateCaptionEditor();
         GC.renderCurrentFrame();
@@ -405,13 +587,22 @@
 
     // Active resize drag
     if (state.resizeState) {
-      var cap = GC.findCaption(state.resizeState.captionId);
-      if (!cap) return;
-      var dist = Math.sqrt(Math.pow(m.x - state.resizeState.refX * state.width, 2) + Math.pow(m.y - state.resizeState.refY * state.height, 2));
-      var scale = dist / state.resizeState.startDist;
-      cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
-      GC.renderCurrentFrame();
-      updateCaptionEditor();
+      if (state.resizeState.overlayId) {
+        var ov = GC.findOverlay(state.resizeState.overlayId);
+        if (!ov) return;
+        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.anchorX, 2) + Math.pow(m.y - state.resizeState.anchorY, 2));
+        ov.scale = Math.max(0.01, state.resizeState.startScale * (dist / state.resizeState.startDist));
+        GC.renderCurrentFrame();
+        updateOverlayEditor();
+      } else {
+        var cap = GC.findCaption(state.resizeState.captionId);
+        if (!cap) return;
+        var dist = Math.sqrt(Math.pow(m.x - state.resizeState.refX * state.width, 2) + Math.pow(m.y - state.resizeState.refY * state.height, 2));
+        var scale = dist / state.resizeState.startDist;
+        cap.fontSize = Math.max(10, Math.min(200, Math.round(state.resizeState.startFontSize * scale)));
+        GC.renderCurrentFrame();
+        updateCaptionEditor();
+      }
       return;
     }
 
@@ -449,6 +640,18 @@
       }
       if (hovering) { GC.canvas.style.cursor = 'grab'; return; }
 
+      // Overlay hover
+      for (var oi = state.overlays.length - 1; oi >= 0; oi--) {
+        var ov = state.overlays[oi];
+        if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
+        var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
+        if (ovBbox && m.x >= ovBbox.x - 6 && m.x <= ovBbox.x + ovBbox.w + 6 &&
+            m.y >= ovBbox.y - 6 && m.y <= ovBbox.y + ovBbox.h + 6) {
+          hovering = true; break;
+        }
+      }
+      if (hovering) { GC.canvas.style.cursor = 'grab'; return; }
+
       // Crop hover cursor
       var cropHit = hitTestCrop(m);
       if (state._trackingMode) { /* keep crosshair set by startTrackingMode */ }
@@ -459,26 +662,37 @@
     }
 
     // Active position drag
-    var cap = GC.findCaption(state.dragState.captionId);
-    if (!cap) return;
     var newX = Math.max(0, Math.min(1, (m.x - state.dragState.offsetX) / state.width));
     var newY = Math.max(0, Math.min(1, (m.y - state.dragState.offsetY) / state.height));
-    if (state.dragState.motionEnabled) {
-      // Update or create a keyframe at the frame where the drag started
-      var mf = state.dragState.motionFrame;
-      var existingKf = null;
-      for (var ki = 0; ki < cap.motion.length; ki++) {
-        if (cap.motion[ki].frame === mf) { existingKf = cap.motion[ki]; break; }
-      }
-      if (existingKf) {
-        existingKf.x = newX;
-        existingKf.y = newY;
+
+    if (state.dragState.overlayId) {
+      var ov = GC.findOverlay(state.dragState.overlayId);
+      if (!ov) return;
+      if (state.dragState.motionEnabled) {
+        var mf = state.dragState.motionFrame;
+        var existingKf = null;
+        for (var ki = 0; ki < ov.motion.length; ki++) {
+          if (ov.motion[ki].frame === mf) { existingKf = ov.motion[ki]; break; }
+        }
+        if (existingKf) { existingKf.x = newX; existingKf.y = newY; }
+        else { ov.motion.push({ frame: mf, x: newX, y: newY }); }
       } else {
-        cap.motion.push({ frame: mf, x: newX, y: newY });
+        ov.x = newX; ov.y = newY;
       }
     } else {
-      cap.x = newX;
-      cap.y = newY;
+      var cap = GC.findCaption(state.dragState.captionId);
+      if (!cap) return;
+      if (state.dragState.motionEnabled) {
+        var mf = state.dragState.motionFrame;
+        var existingKf = null;
+        for (var ki = 0; ki < cap.motion.length; ki++) {
+          if (cap.motion[ki].frame === mf) { existingKf = cap.motion[ki]; break; }
+        }
+        if (existingKf) { existingKf.x = newX; existingKf.y = newY; }
+        else { cap.motion.push({ frame: mf, x: newX, y: newY }); }
+      } else {
+        cap.x = newX; cap.y = newY;
+      }
     }
     GC.renderCurrentFrame();
   }
@@ -567,6 +781,8 @@
   GC.updateUI = function () {
     GC.updateCaptionList();
     updateCaptionEditor();
+    updateOverlayList();
+    updateOverlayEditor();
     GC.updatePlaybackUI();
   };
 
@@ -750,7 +966,9 @@
             GC.pause();
             state.frames = [];
             state.captions = [];
+            state.overlays = [];
             state.selectedCaptionId = null;
+            state.selectedOverlayId = null;
             state.currentFrame = 0;
             state.cropActive = false;
             state.cropRect = null;
@@ -762,6 +980,7 @@
             state.originalFileSize = 0;
             state.isStillImage = false;
             GC.nextCaptionId = 1;
+            GC.nextOverlayId = 1;
             $('#editor-workspace').classList.add('hidden');
             $('#upload-zone').classList.remove('hidden');
             var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
@@ -852,6 +1071,93 @@
         var collapsed = section.classList.toggle('collapsed');
         onImageCapToggle.classList.toggle('collapsed', collapsed);
         onImageCapToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+
+    // ── Image Overlay section toggle & controls ──
+    var overlayToggle = $('#overlay-toggle');
+    if (overlayToggle) {
+      overlayToggle.addEventListener('click', function () {
+        var section = $('#overlay-section');
+        var collapsed = section.classList.toggle('collapsed');
+        overlayToggle.classList.toggle('collapsed', collapsed);
+        overlayToggle.setAttribute('aria-expanded', String(!collapsed));
+      });
+    }
+    var btnAddOverlay = $('#btn-add-overlay');
+    var overlayFileInput = $('#overlay-file-input');
+    if (btnAddOverlay && overlayFileInput) {
+      btnAddOverlay.addEventListener('click', function () { overlayFileInput.click(); });
+      overlayFileInput.addEventListener('change', function () {
+        if (overlayFileInput.files[0]) addOverlayFromFile(overlayFileInput.files[0]);
+        overlayFileInput.value = '';
+      });
+    }
+    var ovScaleSlider = $('#ov-scale');
+    if (ovScaleSlider) {
+      ovScaleSlider.addEventListener('input', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov) return;
+        ov.scale = parseFloat(ovScaleSlider.value);
+        $('#ov-scale-val').textContent = ov.scale.toFixed(2);
+        GC.renderCurrentFrame();
+      });
+    }
+    var ovOpacitySlider = $('#ov-opacity');
+    if (ovOpacitySlider) {
+      ovOpacitySlider.addEventListener('input', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov) return;
+        ov.opacity = parseInt(ovOpacitySlider.value, 10) / 100;
+        $('#ov-opacity-val').textContent = ovOpacitySlider.value;
+        GC.renderCurrentFrame();
+      });
+    }
+    var btnOvAddKf = $('#btn-ov-add-keyframe');
+    if (btnOvAddKf) {
+      btnOvAddKf.addEventListener('click', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov) return;
+        var frame = state.currentFrame;
+        for (var ki = 0; ki < ov.motion.length; ki++) {
+          if (ov.motion[ki].frame === frame) return;
+        }
+        var px = ov.x, py = ov.y;
+        if (ov.motion.length > 0) {
+          var ip = GC.getInterpolatedPosition(ov.motion, frame);
+          if (ip) { px = ip.x; py = ip.y; }
+        }
+        ov.motion.push({ frame: frame, x: px, y: py });
+        updateOverlayEditor();
+        GC.buildTimeline();
+      });
+    }
+    var btnOvTrackAI = $('#btn-ov-track-ai');
+    if (btnOvTrackAI) {
+      btnOvTrackAI.addEventListener('click', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov || state.frames.length === 0) return;
+        GC.warmUpTracker();
+        GC.startTrackingMode(ov, 'overlay');
+      });
+    }
+    var btnOvClearMotion = $('#btn-ov-clear-motion');
+    if (btnOvClearMotion) {
+      btnOvClearMotion.addEventListener('click', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov || !ov.motion.length) return;
+        var ip = GC.getInterpolatedPosition(ov.motion, state.currentFrame);
+        if (ip) { ov.x = ip.x; ov.y = ip.y; }
+        ov.motion = [];
+        updateOverlayEditor();
+        GC.buildTimeline();
+        GC.renderCurrentFrame();
+      });
+    }
+    var btnDeleteOverlay = $('#btn-delete-overlay');
+    if (btnDeleteOverlay) {
+      btnDeleteOverlay.addEventListener('click', function () {
+        if (state.selectedOverlayId) removeOverlay(state.selectedOverlayId);
       });
     }
 
@@ -1268,7 +1574,8 @@
           GC.seekFrame((state.currentFrame + 1) % state.frames.length);
           break;
         case 'Delete':
-          if (state.selectedCaptionId) { e.preventDefault(); removeCaption(state.selectedCaptionId); }
+          if (state.selectedOverlayId) { e.preventDefault(); removeOverlay(state.selectedOverlayId); }
+          else if (state.selectedCaptionId) { e.preventDefault(); removeCaption(state.selectedCaptionId); }
           break;
       }
     });

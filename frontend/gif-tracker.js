@@ -27,7 +27,7 @@
   // ── Worker lifecycle ─────────────────────────
 
   var _worker = null;
-  var _trackingCap = null;   // caption being tracked (set during a run)
+  var _trackingCap = null;   // caption or overlay being tracked (set during a run)
   var _timelineBuilt = false;
 
   function _getWorker() {
@@ -102,10 +102,18 @@
     _getWorker();
   };
 
-  GC.startTrackingMode = function (cap) {
-    if (!cap) return;
+  /**
+   * Enter tracking mode for a caption or overlay.
+   * @param {Object} target  A caption or overlay object (must have .id and .motion)
+   * @param {string} [kind]  'caption' (default) or 'overlay'
+   */
+  GC.startTrackingMode = function (target, kind) {
+    if (!target) return;
     if (state.isPlaying) GC.pause();
-    state._trackingMode = { captionId: cap.id };
+    kind = kind || 'caption';
+    state._trackingMode = kind === 'overlay'
+      ? { overlayId: target.id }
+      : { captionId: target.id };
     GC.canvas.style.cursor = 'crosshair';
     var overlay = document.getElementById('tracking-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -135,15 +143,17 @@
     GC.stopTrackingMode();
     if (!trackingMode) return;
 
-    var cap = GC.findCaption(trackingMode.captionId);
-    if (!cap) return;
+    var target = trackingMode.overlayId
+      ? GC.findOverlay(trackingMode.overlayId)
+      : GC.findCaption(trackingMode.captionId);
+    if (!target) return;
 
     var sampled = _buildSampledFrames(clickFrame);
     if (sampled.frames.length === 0) return;
 
     // Clear existing motion and start fresh.
-    cap.motion = [];
-    _trackingCap = cap;
+    target.motion = [];
+    _trackingCap = target;
     _timelineBuilt = false;
 
     _showTrackingProgress('Initializing…');
