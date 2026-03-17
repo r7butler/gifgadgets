@@ -128,6 +128,12 @@
         <button class="gc-reset-btn" id="btn-reset-crop">Reset to full size</button>
       </div>
       <div class="gc-section">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">
+          <input type="checkbox" id="chk-watermark" checked style="accent-color:var(--cat-gif)" />
+          Include GifWidgets watermark
+        </label>
+      </div>
+      <div class="gc-section">
         <button class="gc-crop-btn" id="btn-crop" disabled>Crop GIF</button>
       </div>
     </div>
@@ -205,6 +211,24 @@
     .then(function(r){ return r.blob(); })
     .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
     .catch(function(){});
+
+  var chkWatermark = document.getElementById('chk-watermark');
+
+  function drawWatermark(ctx2d, w, h) {
+    if (!chkWatermark.checked) return;
+    var fontSize = Math.max(10, Math.round(w * 0.028));
+    ctx2d.save();
+    ctx2d.font = fontSize + 'px sans-serif';
+    ctx2d.textAlign = 'right';
+    ctx2d.textBaseline = 'bottom';
+    ctx2d.globalAlpha = 0.35;
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.strokeStyle = '#000000';
+    ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
+    ctx2d.strokeText('GifWidgets', w - 6, h - 4);
+    ctx2d.fillText('GifWidgets', w - 6, h - 4);
+    ctx2d.restore();
+  }
 
   function formatSize(b) {
     if (b < 1024) return b + ' B';
@@ -467,12 +491,17 @@
     var srcCanvas = document.createElement('canvas');
     srcCanvas.width = origWidth; srcCanvas.height = origHeight;
     var srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+    var wmCanvas = document.createElement('canvas');
+    wmCanvas.width = crop.w; wmCanvas.height = crop.h;
+    var wmCtx = wmCanvas.getContext('2d', { willReadFrequently: true });
 
     var croppedFrames = [];
     for (var i = 0; i < frames.length; i++) {
       srcCtx.putImageData(frames[i].imageData, 0, 0);
       var cropped = srcCtx.getImageData(crop.x, crop.y, crop.w, crop.h);
-      croppedFrames.push({ imageData: cropped, delay: frames[i].delay });
+      wmCtx.putImageData(cropped, 0, 0);
+      drawWatermark(wmCtx, crop.w, crop.h);
+      croppedFrames.push({ imageData: wmCtx.getImageData(0, 0, crop.w, crop.h), delay: frames[i].delay });
       progressFill.style.width = ((i + 1) / frames.length * 40) + '%';
     }
 

@@ -184,6 +184,12 @@
         </div>
       </div>
       <div class="vtg-section">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">
+          <input type="checkbox" id="chk-watermark" checked style="accent-color:var(--cat-gif)" />
+          Include GifWidgets watermark
+        </label>
+      </div>
+      <div class="vtg-section">
         <p id="convert-status" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
         <button class="vtg-convert-btn" id="btn-convert">Convert to GIF</button>
       </div>
@@ -306,6 +312,24 @@
     .then(function(r){ return r.blob(); })
     .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
     .catch(function(){});
+
+  var chkWatermark = document.getElementById('chk-watermark');
+
+  function drawWatermark(ctx2d, w, h) {
+    if (!chkWatermark.checked) return;
+    var fontSize = Math.max(10, Math.round(w * 0.028));
+    ctx2d.save();
+    ctx2d.font = fontSize + 'px sans-serif';
+    ctx2d.textAlign = 'right';
+    ctx2d.textBaseline = 'bottom';
+    ctx2d.globalAlpha = 0.35;
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.strokeStyle = '#000000';
+    ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
+    ctx2d.strokeText('GifWidgets', w - 6, h - 4);
+    ctx2d.fillText('GifWidgets', w - 6, h - 4);
+    ctx2d.restore();
+  }
 
   function formatSize(b) {
     if (b < 1024) return b + ' B';
@@ -550,6 +574,7 @@
         canvas.height = Math.round(video.videoHeight * scale);
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      drawWatermark(ctx, canvas.width, canvas.height);
       frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       frameIndex++;
       extractNextFrame();
