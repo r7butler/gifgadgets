@@ -565,6 +565,9 @@
     });
   });
 
+  // Warm up the Modal converter container
+  fetch(MODAL_CONVERTER_ENDPOINT + '/warmup', { method: 'POST' }).catch(function () {});
+
   // Upload
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');

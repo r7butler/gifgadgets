@@ -40,6 +40,7 @@
     bindEvents();
     GC.initKfMenu();
     GC.preloadGifWorker();
+    GC.warmUpTracker();
 
     // Check URL params for a GIF to auto-load
     var params = new URLSearchParams(window.location.search);

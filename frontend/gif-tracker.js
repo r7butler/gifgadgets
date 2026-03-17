@@ -98,8 +98,7 @@
   GC.warmUpTracker = function () {
     if (GC._trackerWarmupSent) return;
     GC._trackerWarmupSent = true;
-    // Just instantiate the worker — it will load the model on first 'track' message.
-    _getWorker();
+    _getWorker().postMessage({ type: 'warmup' });
   };
 
   /**
