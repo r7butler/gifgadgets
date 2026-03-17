@@ -202,7 +202,7 @@
     var tmpCanvas = document.createElement('canvas');
     tmpCanvas.width = state.width;
     tmpCanvas.height = state.height;
-    var ctx = tmpCanvas.getContext('2d');
+    var ctx = tmpCanvas.getContext('2d', { willReadFrequently: true });
 
     var frames = indices.map(function (idx) {
       ctx.putImageData(state.frames[idx].imageData, 0, 0);
