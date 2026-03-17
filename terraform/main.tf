@@ -324,10 +324,6 @@ resource "aws_cloudfront_function" "add_coop_headers" {
     function handler(event) {
       var response = event.response;
       var uri = event.request.uri;
-      if (uri.indexOf('/video-converter/') === 0) {
-        response.headers['cross-origin-opener-policy'] = { value: 'same-origin' };
-        response.headers['cross-origin-embedder-policy'] = { value: 'credentialless' };
-      }
       return response;
     }
   EOF
