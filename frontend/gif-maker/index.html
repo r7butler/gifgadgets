@@ -37,7 +37,7 @@
     "@type": "FAQPage",
     "mainEntity": [
       { "@type": "Question", "name": "How do I make a GIF from images?", "acceptedAnswer": { "@type": "Answer", "text": "Upload your images (JPG, PNG, WebP, etc.), arrange them in the order you want, set the delay between frames, and click Make GIF. Your animated GIF will be ready to download in seconds." } },
-      { "@type": "Question", "name": "What image formats are supported?", "acceptedAnswer": { "@type": "Answer", "text": "The GIF maker accepts JPG, PNG, WebP, GIF, BMP, and HEIC images. You can mix different formats in the same GIF." } },
+      { "@type": "Question", "name": "What image formats are supported?", "acceptedAnswer": { "@type": "Answer", "text": "The GIF maker accepts JPG, PNG, WebP, BMP, and HEIC images. You can mix different formats in the same GIF." } },
       { "@type": "Question", "name": "Can I reorder frames?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Drag and drop the frame thumbnails to rearrange them in any order before creating your GIF." } },
       { "@type": "Question", "name": "What is crossfade?", "acceptedAnswer": { "@type": "Answer", "text": "Crossfade generates intermediate frames that smoothly blend one image into the next, creating a slideshow-like transition effect." } }
     ]
@@ -67,11 +67,11 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Upload images to get started
     </a>
-    <input type="file" id="hero-file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic" multiple hidden />
+    <input type="file" id="hero-file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.bmp,.heic,.heif" multiple hidden />
   </header>
   <main class="tool-content">
     <div class="tool-features">
-      <div class="tool-feature"><h3>Multiple images</h3><p>Upload as many images as you want. Mix JPG, PNG, WebP, GIF, and other formats freely.</p></div>
+      <div class="tool-feature"><h3>Multiple images</h3><p>Upload as many images as you want. Mix JPG, PNG, WebP, HEIC, and other formats freely.</p></div>
       <div class="tool-feature"><h3>Reorder frames</h3><p>Drag and drop frame thumbnails to arrange them in exactly the order you want.</p></div>
       <div class="tool-feature"><h3>Crossfade transitions</h3><p>Enable crossfade to smoothly blend between frames for a polished slideshow effect.</p></div>
       <div class="tool-feature"><h3>In-browser processing</h3><p>Everything runs in your browser. Your images never leave your device.</p></div>
@@ -79,7 +79,7 @@
     <section class="tool-section">
       <h2>How to Make a GIF from Images</h2>
       <ol class="tool-steps">
-        <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your images</h3><p>Click upload or drag multiple image files onto the button. Supports JPG, PNG, WebP, GIF, BMP, and HEIC.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your images</h3><p>Click upload or drag multiple image files onto the button. Supports JPG, PNG, WebP, BMP, and HEIC.</p></div></li>
         <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Arrange and configure</h3><p>Drag frames to reorder them. Set the delay between frames and choose whether to resize images to match.</p></div></li>
         <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Optional: enable crossfade</h3><p>Turn on crossfade for smooth transitions between frames. Adjust the number of intermediate frames.</p></div></li>
         <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Download your GIF</h3><p>Click Make GIF and download the result. You can also open it in the GIF Editor to add captions.</p></div></li>
@@ -89,7 +89,7 @@
       <h2>Frequently Asked Questions</h2>
       <dl class="tool-faq">
         <div class="tool-faq-item"><dt>How do I make a GIF from images?</dt><dd>Upload your images, arrange them in order, set the delay, and click Make GIF. Download the result when ready.</dd></div>
-        <div class="tool-faq-item"><dt>What image formats are supported?</dt><dd>JPG, PNG, WebP, GIF, BMP, and HEIC. You can mix different formats in the same GIF.</dd></div>
+        <div class="tool-faq-item"><dt>What image formats are supported?</dt><dd>JPG, PNG, WebP, BMP, and HEIC. You can mix different formats in the same GIF.</dd></div>
         <div class="tool-faq-item"><dt>What happens if my images are different sizes?</dt><dd>You can choose to resize all images to match the smallest one, or keep original sizes (smaller images will be centered with empty space around them).</dd></div>
         <div class="tool-faq-item"><dt>What is crossfade?</dt><dd>Crossfade generates intermediate frames that smoothly blend one image into the next, creating a slideshow-like transition.</dd></div>
         <div class="tool-faq-item"><dt>Can I add captions to the GIF?</dt><dd>Yes! Open the downloaded GIF in the <a href="/gif-editor/">GIF Editor</a> to add text, captions, and more.</dd></div>
