@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /gif-editor/edit/
+Disallow: /image-editor/edit/
+Disallow: /video-to-gif/edit/
+Disallow: /gif-maker/edit/
+Disallow: /gif-resizer/edit/
+Disallow: /crop-gif/edit/
+Disallow: /trim-video/edit/
+Disallow: /gif-editor-advanced/
+
+Sitemap: https://gifwidgets.com/sitemap.xml

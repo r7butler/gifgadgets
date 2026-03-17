@@ -347,7 +347,7 @@
     ctx2d.fillStyle = '#ffffff';
     ctx2d.strokeStyle = '#000000';
     ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
-    var text = 'GifWidgets';
+    var text = 'GifWidgets.com';
     var x = compSize.w - 6;
     var y = compSize.h - 4;
     ctx2d.strokeText(text, x, y);
