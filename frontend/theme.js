@@ -365,28 +365,6 @@
       statusEl.style.color = isError ? 'var(--danger, #ef4444)' : 'var(--success, #22c55e)';
     }
 
-    function resolveApiBase() {
-      if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
-        return Promise.resolve(API_BASE_URL);
-      }
-      if (window.__gifwidgetsApiBaseUrl) {
-        return Promise.resolve(window.__gifwidgetsApiBaseUrl);
-      }
-      if (!window.__gifwidgetsApiBaseUrlPromise) {
-        window.__gifwidgetsApiBaseUrlPromise = fetch('/app.js', { cache: 'no-store' })
-          .then(function (res) { return res.ok ? res.text() : ''; })
-          .then(function (source) {
-            var match = source.match(/const API_BASE_URL = "([^"]+)"/);
-            window.__gifwidgetsApiBaseUrl = match ? match[1] : '';
-            return window.__gifwidgetsApiBaseUrl;
-          })
-          .catch(function () {
-            return '';
-          });
-      }
-      return window.__gifwidgetsApiBaseUrlPromise;
-    }
-
     submitBtn.addEventListener('click', function () {
       var title = titleInput.value.trim();
       if (!title) { titleInput.focus(); return; }
@@ -504,4 +482,68 @@
       setupEditorHeader(header, headerActions);
     }
   });
+
+  // ── Global error reporting ──
+
+  var reportedErrors = {};
+  var ERROR_COOLDOWN = 60000; // 1 minute between duplicate reports
+
+  function reportErrorToGithub(title, body) {
+    var key = title;
+    var now = Date.now();
+    if (reportedErrors[key] && now - reportedErrors[key] < ERROR_COOLDOWN) return;
+    reportedErrors[key] = now;
+
+    var fullBody = body +
+      '\n\n---\n' +
+      '**Page:** ' + location.href + '\n' +
+      '**UA:** ' + navigator.userAgent + '\n' +
+      '**Time:** ' + new Date().toISOString();
+
+    resolveApiBase().then(function (apiBase) {
+      if (!apiBase) return;
+      fetch(apiBase + '/report-issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '[Auto] ' + title, body: fullBody })
+      }).catch(function () {});
+    });
+  }
+
+  function resolveApiBase() {
+    if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
+      return Promise.resolve(API_BASE_URL);
+    }
+    if (window.__gifwidgetsApiBaseUrl) {
+      return Promise.resolve(window.__gifwidgetsApiBaseUrl);
+    }
+    if (!window.__gifwidgetsApiBaseUrlPromise) {
+      window.__gifwidgetsApiBaseUrlPromise = fetch('/app.js', { cache: 'no-store' })
+        .then(function (res) { return res.ok ? res.text() : ''; })
+        .then(function (source) {
+          var match = source.match(/const API_BASE_URL = "([^"]+)"/);
+          window.__gifwidgetsApiBaseUrl = match ? match[1] : '';
+          return window.__gifwidgetsApiBaseUrl;
+        })
+        .catch(function () { return ''; });
+    }
+    return window.__gifwidgetsApiBaseUrlPromise;
+  }
+
+  window.onerror = function (message, source, lineno, colno) {
+    var title = String(message).substring(0, 150);
+    var body = '**Error:** `' + message + '`\n' +
+      '**Source:** `' + (source || '?') + ':' + (lineno || '?') + ':' + (colno || '?') + '`';
+    reportErrorToGithub(title, body);
+  };
+
+  window.addEventListener('unhandledrejection', function (e) {
+    var reason = e.reason;
+    var msg = (reason && reason.message) ? reason.message : String(reason);
+    var stack = (reason && reason.stack) ? '\n```\n' + reason.stack.substring(0, 500) + '\n```' : '';
+    var title = 'Unhandled rejection: ' + msg.substring(0, 120);
+    var body = '**Rejection:** `' + msg + '`' + stack;
+    reportErrorToGithub(title, body);
+  });
+
 })();
