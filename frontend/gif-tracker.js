@@ -1,7 +1,7 @@
 /* ==========================================================
-   GifCaption – Client-side Object Tracker (EdgeSAM via Web Worker)
+   GifCaption – Client-side Object Tracker (SAM2 via Web Worker)
 
-   Uses EdgeSAM running in a Web Worker via onnxruntime-web (WebGPU/WASM).
+   Uses SAM2 running in a Web Worker via onnxruntime-web (WebGPU/WASM).
    Model files are served from /models/ on the same origin.
    Results stream in frame-by-frame as each inference completes.
 
