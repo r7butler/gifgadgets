@@ -309,7 +309,8 @@
 
   // ── State ──
   var frames = []; // { img: HTMLImageElement, name: string, width: number, height: number }
-  var currentFrame = 0;
+  var previewFrames = []; // built from frames + crossfade; each { type:'source'|'crossfade', sourceIndex, img?, alphaA?, imgA?, imgB? }
+  var currentPreviewFrame = 0;
   var isPlaying = false;
   var playTimer = null;
   var lastGifUrl = null;
@@ -371,8 +372,7 @@
   function onFramesChanged() {
     renderFrameList();
     checkSizeWarning();
-    updatePreview();
-    updateFrameCounter();
+    rebuildPreviewFrames();
     makeBtn.disabled = frames.length < 2;
     makeStatus.textContent = frames.length + ' frame' + (frames.length !== 1 ? 's' : '');
   }
@@ -418,7 +418,7 @@
       removeBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         frames.splice(i, 1);
-        if (currentFrame >= frames.length) currentFrame = Math.max(0, frames.length - 1);
+        currentPreviewFrame = 0;
         onFramesChanged();
       });
 
@@ -429,7 +429,13 @@
       // Click to select
       item.addEventListener('click', function () {
         stopPlayback();
-        currentFrame = i;
+        // Find this source frame's position in previewFrames
+        for (var p = 0; p < previewFrames.length; p++) {
+          if (previewFrames[p].type === 'source' && previewFrames[p].sourceIndex === i) {
+            currentPreviewFrame = p;
+            break;
+          }
+        }
         updatePreview();
         updateFrameCounter();
       });
@@ -455,7 +461,7 @@
         if (fromIndex === toIndex) return;
         var moved = frames.splice(fromIndex, 1)[0];
         frames.splice(toIndex, 0, moved);
-        currentFrame = toIndex;
+        currentPreviewFrame = 0;
         onFramesChanged();
       });
 
@@ -485,48 +491,98 @@
     }
   }
 
-  function drawFrame(index) {
-    if (!frames.length) return;
+  function drawSourceImage(targetCtx, f, dims) {
+    if (chkResize.checked) {
+      targetCtx.drawImage(f.img, 0, 0, dims.width, dims.height);
+    } else {
+      var x = Math.round((dims.width - f.width) / 2);
+      var y = Math.round((dims.height - f.height) / 2);
+      targetCtx.drawImage(f.img, x, y);
+    }
+  }
+
+  function rebuildPreviewFrames() {
+    previewFrames = [];
+    if (!frames.length) {
+      currentPreviewFrame = 0;
+      updatePreview();
+      updateFrameCounter();
+      return;
+    }
+    var useCrossfade = chkCrossfade.checked;
+    var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+
+    for (var i = 0; i < frames.length; i++) {
+      previewFrames.push({ type: 'source', sourceIndex: i });
+      if (useCrossfade && i < frames.length - 1) {
+        for (var c = 1; c <= crossfadeCount; c++) {
+          previewFrames.push({
+            type: 'crossfade',
+            sourceIndex: i,
+            indexA: i,
+            indexB: i + 1,
+            alpha: c / (crossfadeCount + 1)
+          });
+        }
+      }
+    }
+
+    if (currentPreviewFrame >= previewFrames.length) currentPreviewFrame = 0;
+    updatePreview();
+    updateFrameCounter();
+  }
+
+  function drawPreviewFrame(pf) {
     var dims = getOutputDimensions();
     canvas.width = dims.width;
     canvas.height = dims.height;
     ctx.clearRect(0, 0, dims.width, dims.height);
 
-    var f = frames[index];
-    if (chkResize.checked) {
-      // Resize: draw scaled to fill canvas
-      ctx.drawImage(f.img, 0, 0, dims.width, dims.height);
+    if (pf.type === 'source') {
+      drawSourceImage(ctx, frames[pf.sourceIndex], dims);
     } else {
-      // Center the image
-      var x = Math.round((dims.width - f.width) / 2);
-      var y = Math.round((dims.height - f.height) / 2);
-      ctx.drawImage(f.img, x, y);
+      // Crossfade: draw frame A, then blend frame B on top
+      drawSourceImage(ctx, frames[pf.indexA], dims);
+      ctx.globalAlpha = pf.alpha;
+      drawSourceImage(ctx, frames[pf.indexB], dims);
+      ctx.globalAlpha = 1;
     }
   }
 
   function updatePreview() {
-    if (!frames.length) return;
-    if (currentFrame >= frames.length) currentFrame = 0;
-    drawFrame(currentFrame);
-    // Highlight active frame in list
+    if (!previewFrames.length) return;
+    if (currentPreviewFrame >= previewFrames.length) currentPreviewFrame = 0;
+    drawPreviewFrame(previewFrames[currentPreviewFrame]);
+    // Highlight active source frame in list
+    var activeSourceIndex = previewFrames[currentPreviewFrame].sourceIndex;
     var items = frameListEl.querySelectorAll('.gm-frame-item');
     items.forEach(function (el, i) {
-      el.style.borderColor = i === currentFrame ? 'var(--cat-gif)' : '';
+      el.style.borderColor = i === activeSourceIndex ? 'var(--cat-gif)' : '';
     });
   }
 
   function updateFrameCounter() {
-    if (!frames.length) {
+    if (!previewFrames.length) {
       frameCounter.textContent = '0 / 0';
       return;
     }
-    frameCounter.textContent = (currentFrame + 1) + ' / ' + frames.length;
+    frameCounter.textContent = (currentPreviewFrame + 1) + ' / ' + previewFrames.length;
   }
 
   // ── Playback ──
 
+  function getPreviewDelay() {
+    var delay = parseInt(slDelay.value, 10);
+    var pf = previewFrames[currentPreviewFrame];
+    if (pf && pf.type === 'crossfade') {
+      var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+      return Math.round(delay / (crossfadeCount + 1));
+    }
+    return delay;
+  }
+
   function startPlayback() {
-    if (frames.length < 2) return;
+    if (previewFrames.length < 2) return;
     isPlaying = true;
     playIcon.classList.add('hidden');
     pauseIcon.classList.remove('hidden');
@@ -541,11 +597,11 @@
   }
 
   function advanceFrame() {
-    if (!isPlaying || frames.length < 2) { stopPlayback(); return; }
-    currentFrame = (currentFrame + 1) % frames.length;
+    if (!isPlaying || previewFrames.length < 2) { stopPlayback(); return; }
+    currentPreviewFrame = (currentPreviewFrame + 1) % previewFrames.length;
     updatePreview();
     updateFrameCounter();
-    playTimer = setTimeout(advanceFrame, parseInt(slDelay.value, 10));
+    playTimer = setTimeout(advanceFrame, getPreviewDelay());
   }
 
   btnPlayPause.addEventListener('click', function () {
@@ -553,15 +609,15 @@
   });
   btnPrevFrame.addEventListener('click', function () {
     stopPlayback();
-    if (!frames.length) return;
-    currentFrame = (currentFrame - 1 + frames.length) % frames.length;
+    if (!previewFrames.length) return;
+    currentPreviewFrame = (currentPreviewFrame - 1 + previewFrames.length) % previewFrames.length;
     updatePreview();
     updateFrameCounter();
   });
   btnNextFrame.addEventListener('click', function () {
     stopPlayback();
-    if (!frames.length) return;
-    currentFrame = (currentFrame + 1) % frames.length;
+    if (!previewFrames.length) return;
+    currentPreviewFrame = (currentPreviewFrame + 1) % previewFrames.length;
     updatePreview();
     updateFrameCounter();
   });
@@ -572,8 +628,12 @@
   chkResize.addEventListener('change', function () { updatePreview(); });
   chkCrossfade.addEventListener('change', function () {
     crossfadeOptions.classList.toggle('hidden', !chkCrossfade.checked);
+    rebuildPreviewFrames();
   });
-  slCrossfadeCount.addEventListener('input', function () { valCrossfadeCount.textContent = slCrossfadeCount.value; });
+  slCrossfadeCount.addEventListener('input', function () {
+    valCrossfadeCount.textContent = slCrossfadeCount.value;
+    rebuildPreviewFrames();
+  });
 
   // ── Add more images ──
 
@@ -758,7 +818,8 @@
       onConfirm: function () {
         stopPlayback();
         frames = [];
-        currentFrame = 0;
+        previewFrames = [];
+        currentPreviewFrame = 0;
         if (lastGifUrl) URL.revokeObjectURL(lastGifUrl);
         lastGifUrl = null;
         lastGifBlob = null;
