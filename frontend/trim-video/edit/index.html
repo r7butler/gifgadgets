@@ -401,6 +401,15 @@
     }
 
     clampRange();
+
+    // Seek video to the handle being dragged so the user sees the cut point
+    if (trimDrag.mode === 'start') {
+      video.currentTime = inTime;
+    } else if (trimDrag.mode === 'end') {
+      video.currentTime = outTime;
+    } else if (trimDrag.mode === 'move') {
+      video.currentTime = inTime;
+    }
   }
 
   function endTrimDrag() {
