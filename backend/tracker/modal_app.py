@@ -1,5 +1,5 @@
 """
-gifcaption-tracker — Modal serverless GPU endpoint
+gifwidgets-tracker — Modal serverless GPU endpoint
 
 Deploy:
   pip install modal
@@ -11,7 +11,7 @@ Paste the printed URL into gif-tracker-worker.js as MODAL_ENDPOINT.
 
 import modal
 
-app = modal.App("gifcaption-tracker")
+app = modal.App("gifwidgets-tracker")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -36,10 +36,10 @@ image = (
 
 
 @app.function(
-    gpu="L40S",
+    gpu="L4",
     image=image,
     timeout=120,
-    scaledown_window=300,  # scale to zero after 5 min idle
+    scaledown_window=240,  # scale to zero after 4 min idle
 )
 @modal.asgi_app()
 def fastapi_app():

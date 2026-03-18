@@ -26,7 +26,7 @@ locals {
   assets_domain_name     = var.assets_domain_name
   site_certificate_arn   = var.acm_certificate_arn != null ? var.acm_certificate_arn : aws_acm_certificate_validation.site[0].certificate_arn
   assets_certificate_arn = var.content_acm_certificate_arn != null ? var.content_acm_certificate_arn : aws_acm_certificate_validation.assets[0].certificate_arn
-  github_pat_secret_name = "${var.project_slug}/github-pat"
+  github_pat_secret_name = "${var.project_slug}/github-issue-post-pat"
   lambda_role_name       = "${var.project_slug}-lambda-role"
   lambda_policy_name     = "${var.project_slug}-lambda-policy"
   lambda_function_name   = "${var.project_slug}-api"

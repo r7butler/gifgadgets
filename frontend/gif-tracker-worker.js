@@ -75,11 +75,16 @@ async function doTracking(msg) {
 
 self.onmessage = function (e) {
   if (e.data.type === 'warmup') {
+    post({ type: 'warmup-pending' });
     fetch('/api/track/warmup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ warmup: true }),
-    }).catch(function () { /* best-effort, ignore errors */ });
+    }).then(function () {
+      post({ type: 'warmup-done' });
+    }).catch(function () {
+      post({ type: 'warmup-done' });
+    });
   } else if (e.data.type === 'track') {
     doTracking(e.data).catch(function (err) {
       post({ type: 'error', message: err.message });

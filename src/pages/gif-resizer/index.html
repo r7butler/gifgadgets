@@ -104,12 +104,12 @@
   var fileInput = document.getElementById('hero-file-input');
   function storeAndGo(file) {
     if (!file) return;
-    var req = indexedDB.open('gifcaption', 1);
+    var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
-        db.close(); indexedDB.deleteDatabase('gifcaption').onsuccess = function(){ storeAndGo(file); }; return;
+        db.close(); indexedDB.deleteDatabase('gifwidgets').onsuccess = function(){ storeAndGo(file); }; return;
       }
       var tx = db.transaction('files', 'readwrite');
       tx.objectStore('files').put(file, 'pending');

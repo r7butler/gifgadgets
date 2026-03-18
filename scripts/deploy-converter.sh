@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploy the gifcaption GPU video converter to Modal.
+# Deploy the gifwidgets GPU video converter to Modal.
 #
 # Prerequisites:
-#   modal secret create gifcaption-aws \
+#   modal secret create gifwidgets-aws \
 #     AWS_ACCESS_KEY_ID=<key> \
 #     AWS_SECRET_ACCESS_KEY=<secret> \
 #     ASSETS_BUCKET=<bucket-name>
@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "==> Deploying gifcaption-converter to Modal..."
+echo "==> Deploying gifwidgets-converter to Modal..."
 modal deploy "$PROJECT_DIR/backend/converter/modal_app.py"
 
 echo ""

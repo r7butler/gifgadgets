@@ -529,7 +529,7 @@ def handle_report_issue(event):
             "Content-Type": "application/json",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "gifcaption-app",
+            "User-Agent": "gifwidgets-app",
         },
         method="POST",
     )

@@ -81,7 +81,7 @@
   /** Load a pending GIF from IndexedDB (set by the landing page). */
   GC.loadGifFromIndexedDB = function () {
     GC.showLoading('Loading GIF…');
-    var req = indexedDB.open('gifcaption', 1);
+    var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
       var db = e.target.result;

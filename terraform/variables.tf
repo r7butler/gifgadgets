@@ -14,7 +14,7 @@ variable "expected_account_id" {
 variable "project_slug" {
   description = "Slug used for naming AWS resources"
   type        = string
-  default     = "gifcaption"
+  default     = "gifwidgets"
 }
 
 variable "site_brand_name" {
@@ -83,11 +83,11 @@ variable "github_pat" {
 variable "modal_tracker_url" {
   description = "URL of the Modal tracker endpoint (SAM2 tracking)"
   type        = string
-  default     = "https://robert-butler-dev--gifcaption-tracker-fastapi-app.modal.run"
+  default     = "https://robert-butler-dev--gifwidgets-tracker-fastapi-app.modal.run"
 }
 
 variable "modal_converter_url" {
   description = "URL of the Modal converter endpoint (video trimming/conversion)"
   type        = string
-  default     = "https://robert-butler-dev--gifcaption-converter-converter-web.modal.run"
+  default     = "https://robert-butler-dev--gifwidgets-converter-converter-web.modal.run"
 }

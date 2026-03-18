@@ -215,13 +215,13 @@
     if (!file) return;
     var isStaticImage = file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif');
     if (isStaticImage) { redirectToImageEditor(file); return; }
-    var req = indexedDB.open('gifcaption', 1);
+    var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
         db.close();
-        indexedDB.deleteDatabase('gifcaption').onsuccess = function () { storeAndGo(file); };
+        indexedDB.deleteDatabase('gifwidgets').onsuccess = function () { storeAndGo(file); };
         return;
       }
       var tx = db.transaction('files', 'readwrite');

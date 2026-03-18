@@ -44,7 +44,14 @@
 
   function _handleWorkerMessage(e) {
     var msg = e.data;
-    if (msg.type === 'progress') {
+    if (msg.type === 'warmup-pending') {
+      _setProgressText('Loading tracker…');
+
+    } else if (msg.type === 'warmup-done') {
+      GC._trackerWarm = true;
+      _hideTrackingProgress();
+
+    } else if (msg.type === 'progress') {
       _setProgressText(msg.text);
 
     } else if (msg.type === 'keyframe') {
@@ -96,7 +103,7 @@
    * request doesn't have to wait for the download.
    */
   GC.warmUpTracker = function () {
-    if (GC._trackerWarmupSent) return;
+    if (GC._trackerWarm || GC._trackerWarmupSent) return;
     GC._trackerWarmupSent = true;
     _getWorker().postMessage({ type: 'warmup' });
   };

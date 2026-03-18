@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploy the gifcaption tracker to Modal.
+# Deploy the gifwidgets tracker to Modal.
 #
 # Usage:
 #   ./scripts/deploy-tracker.sh
@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "==> Deploying gifcaption-tracker to Modal..."
+echo "==> Deploying gifwidgets-tracker to Modal..."
 modal deploy "$PROJECT_DIR/backend/tracker/modal_app.py"
 
 echo ""

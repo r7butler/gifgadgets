@@ -86,9 +86,11 @@
   <nav class="site-nav" role="navigation" aria-label="Main navigation">
   <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
   <div class="site-nav-links">
-    <a href="/gif-editor/" class="active">GIF Editor</a>
-    <a href="/image-editor/">Image Editor</a>
-    <a href="/photo-converter/">Photo Converters</a>
+      <a href="/gif-editor/" class="active">GIF Editor</a>
+      <a href="/video-to-gif/">Video to GIF</a>
+      <a href="/gif-maker/">GIF Maker</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/photo-converter/">Photo Converters</a>
   </div>
 </nav>
 
@@ -245,13 +247,13 @@
     if (!file) return;
     var isStaticImage = file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif');
     if (isStaticImage) { redirectToImageEditor(file); return; }
-    var req = indexedDB.open('gifcaption', 1);
+    var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
         db.close();
-        indexedDB.deleteDatabase('gifcaption').onsuccess = function () { storeAndGo(file); };
+        indexedDB.deleteDatabase('gifwidgets').onsuccess = function () { storeAndGo(file); };
         return;
       }
       var tx = db.transaction('files', 'readwrite');

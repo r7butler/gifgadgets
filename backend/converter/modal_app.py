@@ -1,5 +1,5 @@
 """
-gifcaption-converter — Modal GPU endpoint for WebM→MP4 conversion
+gifwidgets-converter — Modal GPU endpoint for WebM→MP4 conversion
 
 Uses NVIDIA T4 GPU with NVENC for hardware-accelerated H.264 encoding.
 Memory snapshots reduce cold start time by pre-loading boto3 + imports.
@@ -10,13 +10,13 @@ Deploy:
 After deployment, update MODAL_CONVERTER_ENDPOINT in
 frontend/trim-video/edit/index.html with the printed URL.
 
-Required Modal secret "gifcaption-aws" with keys:
+Required Modal secret "gifwidgets-aws" with keys:
   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ASSETS_BUCKET
 """
 
 import modal
 
-app = modal.App("gifcaption-converter")
+app = modal.App("gifwidgets-converter")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

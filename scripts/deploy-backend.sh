@@ -34,7 +34,7 @@ echo "==> Done! Lambda zip created at: terraform/lambda.zip"
 echo "==> Updating Lambda function code..."
 aws lambda update-function-code \
   --region us-east-1 \
-  --function-name gifcaption-api \
+  --function-name gifwidgets-api \
   --zip-file "fileb://$OUTPUT_ZIP" \
   --no-cli-pager
 

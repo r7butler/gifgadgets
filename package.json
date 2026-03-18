@@ -1,5 +1,5 @@
 {
-  "name": "gifcaption",
+  "name": "gifwidgets",
   "private": true,
   "scripts": {
     "build": "docker build -f Dockerfile.build -t gifwidgets-build . && docker run --rm -v \"$PWD:/app\" gifwidgets-build",
