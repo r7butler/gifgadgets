@@ -24,6 +24,7 @@
 
   /** No AI object tracking in still-image mode. */
   GC.trackerAvailable = function () { return false; };
+  GC.warmUpTracker = function () {};
 
   /** Tell the drop handler what file types are expected. */
   GC.dropErrorMessage = 'Please drop a JPEG, PNG, WebP, or HEIC image.';
