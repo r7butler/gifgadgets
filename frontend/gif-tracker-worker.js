@@ -18,6 +18,19 @@ var MODAL_ENDPOINT = '/api/track/submit';
 
 function post(msg) { self.postMessage(msg); }
 
+async function apiFetch(url, options) {
+  if (options && options.body) {
+    var raw = typeof options.body === 'string'
+      ? new TextEncoder().encode(options.body) : options.body;
+    var hashBuf = await crypto.subtle.digest('SHA-256', raw);
+    var hashHex = Array.from(new Uint8Array(hashBuf))
+      .map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    options.headers = options.headers || {};
+    options.headers['x-amz-content-sha256'] = hashHex;
+  }
+  return fetch(url, options);
+}
+
 async function frameToJpegB64(frame) {
   var canvas = new OffscreenCanvas(frame.width, frame.height);
   var ctx    = canvas.getContext('2d');
@@ -45,7 +58,7 @@ async function doTracking(msg) {
 
   post({ type: 'progress', text: 'Creating motion keyframes…' });
 
-  var resp = await fetch(MODAL_ENDPOINT, {
+  var resp = await apiFetch(MODAL_ENDPOINT, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -76,7 +89,7 @@ async function doTracking(msg) {
 self.onmessage = function (e) {
   if (e.data.type === 'warmup') {
     post({ type: 'warmup-pending' });
-    fetch('/api/track/warmup', {
+    apiFetch('/api/track/warmup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ warmup: true }),

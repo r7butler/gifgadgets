@@ -328,6 +328,15 @@ resource "aws_lambda_permission" "cloudfront" {
   source_arn    = aws_cloudfront_distribution.site.arn
 }
 
+# Dual Auth requirement (since Oct 2025): Lambda Function URLs need both permissions
+resource "aws_lambda_permission" "cloudfront_invoke" {
+  statement_id  = "AllowCloudFrontInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.site.arn
+}
+
 # ---------- CloudFront Function: Directory Index Rewrite ----------
 
 resource "aws_cloudfront_function" "rewrite_index" {
@@ -675,7 +684,7 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  # Route /api/* to Lambda Function URL (no caching, forward everything)
+  # Route /api/* to Lambda Function URL (no caching, forward needed headers)
   ordered_cache_behavior {
     path_pattern           = "/api/*"
     target_origin_id       = "lambda-api"

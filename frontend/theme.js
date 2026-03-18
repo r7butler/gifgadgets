@@ -1,6 +1,21 @@
 (function () {
   'use strict';
 
+  function _signedFetch(url, options) {
+    if (options && options.body) {
+      var raw = typeof options.body === 'string'
+        ? new TextEncoder().encode(options.body) : options.body;
+      return crypto.subtle.digest('SHA-256', raw).then(function (buf) {
+        var hex = Array.from(new Uint8Array(buf))
+          .map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+        options.headers = options.headers || {};
+        options.headers['x-amz-content-sha256'] = hex;
+        return fetch(url, options);
+      });
+    }
+    return fetch(url, options);
+  }
+
   var KEY = 'gw-theme';
 
   // Apply immediately (runs synchronously in <head>) to prevent flash of wrong theme
@@ -377,7 +392,7 @@
       resolveApiBase()
         .then(function (apiBase) {
           if (!apiBase) throw new Error('Missing API base URL');
-          return fetch(apiBase + '/report-issue', {
+          return _signedFetch(apiBase + '/report-issue', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: title, body: bodyInput.value.trim() })
@@ -503,7 +518,7 @@
 
     resolveApiBase().then(function (apiBase) {
       if (!apiBase) return;
-      fetch(apiBase + '/report-issue', {
+      _signedFetch(apiBase + '/report-issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: '[Auto] ' + title, body: fullBody })

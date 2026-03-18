@@ -14,6 +14,28 @@
 const API_BASE_URL = "/api";
 
 /**
+ * Fetch wrapper that computes SHA-256 of the request body and includes it
+ * as x-amz-content-sha256. Required for CloudFront OAC + Lambda Function URL
+ * signing on POST/PUT requests.
+ */
+async function apiFetch(url, options) {
+  if (options && options.body) {
+    var raw = typeof options.body === "string"
+      ? new TextEncoder().encode(options.body)
+      : options.body instanceof Blob
+        ? new Uint8Array(await options.body.arrayBuffer())
+        : options.body;
+    var hashBuf = await crypto.subtle.digest("SHA-256", raw);
+    var hashHex = Array.from(new Uint8Array(hashBuf))
+      .map(function (b) { return b.toString(16).padStart(2, "0"); })
+      .join("");
+    options.headers = options.headers || {};
+    options.headers["x-amz-content-sha256"] = hashHex;
+  }
+  return fetch(url, options);
+}
+
+/**
  * Upload a GIF file to the backend.
  * Reads the file as base64 and POSTs it to /upload.
  * Returns { id } on success.
@@ -21,7 +43,7 @@ const API_BASE_URL = "/api";
 async function uploadGif(file) {
   const base64 = await fileToBase64(file);
 
-  const response = await fetch(API_BASE_URL + "/upload", {
+  const response = await apiFetch(API_BASE_URL + "/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file: base64, filename: file.name }),
@@ -40,7 +62,7 @@ async function uploadGif(file) {
  * Returns { id, gif_url, created_at }.
  */
 async function fetchGif(id) {
-  const response = await fetch(API_BASE_URL + "/gif/" + encodeURIComponent(id));
+  const response = await apiFetch(API_BASE_URL + "/gif/" + encodeURIComponent(id));
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -98,7 +120,7 @@ async function shareGif(blob, title, filename, contentType) {
   const body = { file: base64, title };
   if (filename) body.filename = filename;
 
-  const response = await fetch(API_BASE_URL + "/share", {
+  const response = await apiFetch(API_BASE_URL + "/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -116,7 +138,7 @@ async function _shareViaBinary(blob, title, filename) {
   var headers = { "Content-Type": "image/gif", "X-Title": title || "" };
   if (filename) headers["X-Filename"] = filename;
 
-  const response = await fetch(API_BASE_URL + "/share/upload", {
+  const response = await apiFetch(API_BASE_URL + "/share/upload", {
     method: "POST",
     headers: headers,
     body: blob,
@@ -131,7 +153,7 @@ async function _shareViaBinary(blob, title, filename) {
 
 async function _shareViaPresign(blob, title, filename, contentType) {
   var ct = contentType || "image/gif";
-  const presignRes = await fetch(API_BASE_URL + "/share/presign", {
+  const presignRes = await apiFetch(API_BASE_URL + "/share/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, filename: filename || null, content_type: ct }),
@@ -149,7 +171,7 @@ async function _shareViaPresign(blob, title, filename, contentType) {
   });
   if (!uploadRes.ok) throw new Error("Upload failed");
 
-  const finalRes = await fetch(API_BASE_URL + "/share/finalize", {
+  const finalRes = await apiFetch(API_BASE_URL + "/share/finalize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ slug: presign.slug, title: presign.title, content_type: ct }),
