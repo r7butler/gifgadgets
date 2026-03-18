@@ -87,6 +87,7 @@
       $('#editor-workspace').classList.remove('hidden');
       $('#upload-zone').classList.add('hidden');
       $('#btn-download').disabled = false;
+      var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
       GC.hideLoading();
     };
     img.onerror = function () {
