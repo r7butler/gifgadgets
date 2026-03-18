@@ -200,14 +200,34 @@
   </div>
 </div>
 
-<!-- Share consent modal -->
-<div id="share-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share confirmation">
-  <div class="modal modal-sm">
-    <h2 class="modal-title">Create a share link?</h2>
-    <p class="modal-body-text">This will upload your video clip and create a public link. The clip will remain publicly accessible on the internet indefinitely.</p>
-    <div class="modal-actions">
-      <button id="share-consent-no" class="btn btn-ghost">Cancel</button>
-      <button id="share-consent-yes" class="btn btn-accent">Yes, create link</button>
+<!-- Share format picker modal -->
+<div id="share-format-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Choose share format">
+  <div class="modal ve-export-modal">
+    <button id="share-format-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Share this clip</h2>
+    <p class="ve-export-note">Choose a format. This will upload your clip and create a public link that remains accessible indefinitely.</p>
+    <div class="ve-export-options">
+      <button id="share-as-mp4" class="ve-export-option ve-export-option-primary" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span>
+          <span class="ve-export-option-title">Share as MP4</span>
+          <span class="ve-export-option-copy" id="share-mp4-copy">Best compatibility. Converts to MP4 on our server before sharing.</span>
+        </span>
+      </button>
+      <button id="share-as-webm" class="ve-export-option" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span>
+          <span class="ve-export-option-title">Share as WebM</span>
+          <span class="ve-export-option-copy">Fastest option. Shares the clip directly without conversion.</span>
+        </span>
+      </button>
+      <a class="ve-export-option" href="/video-to-gif/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
+        <span>
+          <span class="ve-export-option-title">Share as GIF</span>
+          <span class="ve-export-option-copy">Open the Video to GIF tool — it has its own share button.</span>
+        </span>
+      </a>
     </div>
   </div>
 </div>
@@ -643,8 +663,9 @@
   // ── Share ──
 
   var shareModal = document.getElementById('share-modal');
-  var shareConsentModal = document.getElementById('share-consent-modal');
+  var shareFormatModal = document.getElementById('share-format-modal');
   var btnShare = document.getElementById('btn-share');
+  var shareMp4Copy = document.getElementById('share-mp4-copy');
   var lastClipBlob = null;
   var lastClipFilename = 'clip.webm';
 
@@ -655,25 +676,26 @@
     el.className = 'share-status' + (type ? ' share-status-' + type : '');
   }
 
-  function shareUpload(blob, title, filename) {
+  function shareUpload(blob, title, filename, contentType) {
+    var ct = contentType || 'video/webm';
     return fetch(API_BASE_URL + '/share/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: title, filename: filename || null, content_type: 'video/webm' })
+      body: JSON.stringify({ title: title, filename: filename || null, content_type: ct })
     }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Presign failed'); });
       return r.json();
     }).then(function (presign) {
       return fetch(presign.upload_url, {
         method: 'PUT',
-        headers: { 'Content-Type': 'video/webm' },
+        headers: { 'Content-Type': ct },
         body: blob
       }).then(function (r) {
         if (!r.ok) throw new Error('Upload failed');
         return fetch(API_BASE_URL + '/share/finalize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: presign.slug, title: presign.title, content_type: 'video/webm' })
+          body: JSON.stringify({ slug: presign.slug, title: presign.title, content_type: ct })
         });
       });
     }).then(function (r) {
@@ -682,7 +704,47 @@
     });
   }
 
-  function showShareModal(blob) {
+  /**
+   * Upload the original video to S3, then call Modal /trim to trim + convert server-side.
+   * Returns a Promise that resolves with the trimmed blob.
+   */
+  function serverTrimAndConvert(format, onStatus) {
+    var ct = videoFile.type || 'video/mp4';
+    onStatus('Uploading video…');
+    return fetch(API_BASE_URL + '/convert/presign-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: videoFile.name, content_type: ct })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      var sizeMB = (videoFile.size / 1024 / 1024).toFixed(1);
+      onStatus('Uploading video (' + sizeMB + ' MB)…');
+      return fetch(data.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': ct },
+        body: videoFile
+      }).then(function (r) {
+        if (!r.ok) throw new Error('Upload failed');
+        return data.job_id;
+      });
+    }).then(function (jobId) {
+      onStatus('Trimming & converting on server…');
+      return fetch(MODAL_CONVERTER_ENDPOINT + '/trim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, start: inTime, end: outTime, format: format })
+      }).then(function (r) { return r.json(); });
+    }).then(function (data) {
+      if (data.error) throw new Error(data.error);
+      onStatus('Downloading trimmed clip…');
+      return fetch(data.download_url).then(function (r) {
+        if (!r.ok) throw new Error('Failed to download trimmed clip');
+        return r.blob();
+      });
+    });
+  }
+
+  function showShareModal(blob, contentType) {
+    var ct = contentType || 'video/webm';
     var preview = document.getElementById('share-preview');
     preview.innerHTML = '';
     var blobUrl = URL.createObjectURL(blob);
@@ -699,6 +761,7 @@
 
     shareModal._blob = blob;
     shareModal._blobUrl = blobUrl;
+    shareModal._contentType = ct;
 
     document.getElementById('share-url').value = '';
     document.getElementById('share-image-url').value = '';
@@ -711,7 +774,7 @@
 
     shareModal.classList.remove('hidden');
 
-    shareUpload(blob, 'Trimmed Clip', lastClipFilename).then(function (result) {
+    shareUpload(blob, 'Trimmed Clip', lastClipFilename, ct).then(function (result) {
       document.getElementById('share-url').value = result.share_url;
       if (result.gif_url) {
         document.getElementById('share-image-url').value = result.gif_url;
@@ -739,33 +802,62 @@
     if (shareModal._blobUrl) { URL.revokeObjectURL(shareModal._blobUrl); shareModal._blobUrl = null; }
   }
 
+  function closeShareFormatModal() {
+    shareFormatModal.classList.add('hidden');
+    shareMp4Copy.textContent = 'Best compatibility. Converts to MP4 on our server before sharing.';
+    document.getElementById('share-as-mp4').disabled = false;
+    document.getElementById('share-as-webm').disabled = false;
+  }
+
   btnShare.addEventListener('click', function () {
     if (!videoFile) return;
-    statusText.textContent = 'Recording clip…';
-    btnShare.disabled = true;
-    recordClipAsWebM().then(function (blob) {
+    shareFormatModal.classList.remove('hidden');
+  });
+
+  document.getElementById('share-as-webm').addEventListener('click', function () {
+    var mp4Btn = document.getElementById('share-as-mp4');
+    var webmBtn = document.getElementById('share-as-webm');
+    var webmCopy = webmBtn.querySelector('.ve-export-option-copy');
+    mp4Btn.disabled = true;
+    webmBtn.disabled = true;
+
+    serverTrimAndConvert('webm', function (msg) {
+      webmCopy.textContent = msg;
+    }).then(function (blob) {
       lastClipBlob = blob;
       lastClipFilename = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.webm';
-      statusText.textContent = '';
-      btnShare.disabled = false;
-      shareConsentModal.classList.remove('hidden');
+      closeShareFormatModal();
+      showShareModal(blob, 'video/webm');
     }).catch(function (err) {
-      statusText.textContent = 'Recording failed: ' + err.message;
-      btnShare.disabled = false;
+      webmCopy.textContent = 'Error: ' + err.message;
+      mp4Btn.disabled = false;
+      webmBtn.disabled = false;
     });
   });
 
-  document.getElementById('share-consent-yes').addEventListener('click', function () {
-    shareConsentModal.classList.add('hidden');
-    if (lastClipBlob) showShareModal(lastClipBlob);
+  document.getElementById('share-as-mp4').addEventListener('click', function () {
+    var mp4Btn = document.getElementById('share-as-mp4');
+    var webmBtn = document.getElementById('share-as-webm');
+    mp4Btn.disabled = true;
+    webmBtn.disabled = true;
+
+    serverTrimAndConvert('mp4', function (msg) {
+      shareMp4Copy.textContent = msg;
+    }).then(function (blob) {
+      lastClipBlob = blob;
+      lastClipFilename = (videoFile.name.replace(/\.[^.]+$/, '') || 'clip') + '_trimmed.mp4';
+      closeShareFormatModal();
+      showShareModal(blob, 'video/mp4');
+    }).catch(function (err) {
+      shareMp4Copy.textContent = 'Error: ' + err.message;
+      mp4Btn.disabled = false;
+      webmBtn.disabled = false;
+    });
   });
 
-  document.getElementById('share-consent-no').addEventListener('click', function () {
-    shareConsentModal.classList.add('hidden');
-  });
-
-  shareConsentModal.addEventListener('click', function (e) {
-    if (e.target === shareConsentModal) shareConsentModal.classList.add('hidden');
+  document.getElementById('share-format-close').addEventListener('click', closeShareFormatModal);
+  shareFormatModal.addEventListener('click', function (e) {
+    if (e.target === shareFormatModal) closeShareFormatModal();
   });
 
   document.getElementById('share-modal-close').addEventListener('click', closeShareModal);
@@ -798,7 +890,8 @@
 
   document.getElementById('btn-share-save-photos').addEventListener('click', function () {
     if (!shareModal._blob) return;
-    var file = new File([shareModal._blob], lastClipFilename, { type: 'video/webm' });
+    var ct = shareModal._contentType || 'video/webm';
+    var file = new File([shareModal._blob], lastClipFilename, { type: ct });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title: 'Trimmed Clip' }).catch(function () {});
     } else {

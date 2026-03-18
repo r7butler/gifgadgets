@@ -404,13 +404,15 @@ def _parse_body(event):
 
 
 def handle_presign_upload(event):
-    """POST /convert/presign-upload — return a presigned PUT URL for WebM upload."""
+    """POST /convert/presign-upload — return a presigned PUT URL for video upload."""
     try:
         body = _parse_body(event)
     except Exception:
         return _cors_response(400, {"error": "Invalid JSON body"})
 
+    content_type = body.get("content_type") or "video/webm"
     job_id = uuid.uuid4().hex[:12]
+    # Keep .webm key for backward compat — ffmpeg detects format from contents
     s3_key = f"convert/{job_id}/input.webm"
 
     presigned_url = s3.generate_presigned_url(
@@ -418,7 +420,7 @@ def handle_presign_upload(event):
         Params={
             "Bucket": ASSETS_BUCKET,
             "Key": s3_key,
-            "ContentType": "video/webm",
+            "ContentType": content_type,
         },
         ExpiresIn=300,
     )
