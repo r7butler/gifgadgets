@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Upload GIF — Add Captions to Your GIF | GifCaption{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Upload your GIF to start adding frame-perfect captions with GifCaption. Free online GIF caption maker — no signup, no watermark." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
+{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Upload a GIF</h1>
+    <a href="index.html">&larr; Back to home</a>
+
+    <form id="upload-form">
+      <label for="gif-file">Select a GIF file:</label>
+      <input type="file" id="gif-file" accept="image/gif" required />
+      <button type="submit" class="btn btn-primary">Upload &amp; Edit</button>
+    </form>
+
+    <div id="upload-result" class="result hidden">
+      <p>GIF uploaded! Redirecting to editor…</p>
+    </div>
+
+    <div id="upload-error" class="error hidden">
+      <p>Upload failed: <span id="error-message"></span></p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("upload-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById("gif-file");
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      try {
+        const result = await uploadGif(file);
+        document.getElementById("upload-result").classList.remove("hidden");
+        document.getElementById("upload-error").classList.add("hidden");
+        // Redirect to editor with the uploaded GIF
+        window.location.href = "editor.html?id=" + encodeURIComponent(result.id);
+      } catch (err) {
+        document.getElementById("error-message").textContent = err.message;
+        document.getElementById("upload-error").classList.remove("hidden");
+        document.getElementById("upload-result").classList.add("hidden");
+      }
+    });
+  </script>
+{% endblock %}

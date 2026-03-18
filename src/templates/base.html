@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  {% block viewport %}<meta name="viewport" content="width=device-width, initial-scale=1.0" />{% endblock %}
+  <title>{% block title %}GifWidgets{% endblock %}</title>
+  {% block meta %}{% endblock %}
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/theme.js"></script>
+  {% block head_extra %}{% endblock %}
+  {% block structured_data %}{% endblock %}
+  {% include 'partials/gtm.html' %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+{% block content %}{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% set active_nav = "photo-converter" %}
+
+{% block title %}WebP to JPG Converter — Free Online | GifWidgets{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Convert WebP images to JPG format online for free. Adjustable quality, instant conversion in your browser — no upload, no signup required." />
+  <meta name="keywords" content="webp to jpg, webp to jpeg converter, convert webp to jpg online free, webp jpg online" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/webp-to-jpg/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="WebP to JPG Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Convert WebP images to universally compatible JPG format. Adjustable quality, instant, runs entirely in your browser." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/webp-to-jpg/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="WebP to JPG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert WebP to JPG instantly in your browser. Free, private, no signup." />
+{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "WebP to JPG Converter",
+    "url": "https://gifwidgets.com/photo-converter/webp-to-jpg/",
+    "description": "Free browser-based tool to convert WebP images to JPG with adjustable quality. No file upload required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "Adjustable quality 0-100", "No file upload", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why convert WebP to JPG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "WebP is not supported by all apps, email clients, or older software. Converting to JPG ensures maximum compatibility with any platform or device."}
+      },
+      {
+        "@type": "Question",
+        "name": "Will converting WebP to JPG lose quality?",
+        "acceptedAnswer": {"@type": "Answer", "text": "There may be a small quality loss since JPG is a lossy format. Setting quality to 90 or above produces results virtually indistinguishable from the original."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does this work with animated WebP files?",
+        "acceptedAnswer": {"@type": "Answer", "text": "This converter extracts the first frame of animated WebP files and converts it to a static JPG. It does not convert all frames."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is my WebP file uploaded to a server?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The conversion runs entirely in your browser. Your file never leaves your device."}
+      },
+      {
+        "@type": "Question",
+        "name": "What if my browser doesn't display the WebP preview?",
+        "acceptedAnswer": {"@type": "Answer", "text": "All modern browsers (Chrome, Firefox, Safari 14+, Edge) support WebP. If you're on an older browser, consider updating it."}
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  {% include 'partials/nav.html' %}
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">WebP to JPG Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop a WebP image here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h2>Drop a WebP image here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .webp files</p>
+      <input type="file" id="file-input" accept="image/webp,.webp" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <div class="conv-options">
+        <div class="conv-option-row">
+          <label for="quality-slider">Quality: <strong id="quality-val">90</strong></label>
+          <input type="range" id="quality-slider" min="0" max="100" value="90" style="width:140px" />
+        </div>
+      </div>
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Convert to JPG</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Converting…</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Converted JPG image" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download JPG
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>Universal Compatibility</h3>
+          <p>JPG works everywhere — email clients, older apps, printers, and any device. WebP does not.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Adjustable Quality</h3>
+          <p>Choose quality 0–100. Quality 90 gives near-original fidelity with significantly smaller files than PNG.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>White Background</h3>
+          <p>Any transparent regions in the WebP are filled with white, since JPG has no transparency support.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>100% Browser-Based</h3>
+          <p>No server, no upload, no account. Conversion happens instantly in your browser.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert WebP to JPG</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Select your WebP file</h3><p>Drag a .webp file onto the drop zone or click to browse.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Set quality</h3><p>Choose a quality value between 0 and 100. 90 is recommended for most uses.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Convert and download</h3><p>Click "Convert to JPG", preview the result, then click Download.</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>Why convert WebP to JPG?</dt>
+            <dd>WebP is not universally supported. Some email clients, printers, older operating systems and apps don't handle WebP. Converting to JPG ensures your image works everywhere.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Will I lose quality?</dt>
+            <dd>There may be minor quality loss since JPG is lossy. Setting quality to 90 or above produces results visually indistinguishable from the original for most images.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Does this work with animated WebP?</dt>
+            <dd>Only the first frame is extracted and converted to a static JPG. Animated WebP files are not fully converted frame-by-frame.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is my file uploaded to a server?</dt>
+            <dd>No. The conversion runs entirely in your browser. Your file never leaves your device.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>What browsers support WebP?</dt>
+            <dd>All modern browsers — Chrome, Firefox, Safari 14+, and Edge — support WebP. If you're using an older browser, consider updating it.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related converters</h2>
+        <div class="related-tools">
+          <a href="/photo-converter/jpg-to-webp/" class="related-tool-link">JPG to WebP</a>
+          <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
+          <a href="/photo-converter/png-to-webp/" class="related-tool-link">PNG to WebP</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  {% include 'partials/footer.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+  var qualitySlider = document.getElementById('quality-slider');
+  var qualityVal = document.getElementById('quality-val');
+
+  var currentFile = null;
+
+  qualitySlider.addEventListener('input', function() {
+    qualityVal.textContent = qualitySlider.value;
+  });
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function showFile(file) {
+    if (!file.type.match(/image\/webp/) && !file.name.match(/\.webp$/i)) {
+      alert('Please select a WebP image.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    var quality = parseInt(qualitySlider.value, 10) / 100;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '30%';
+
+    var img = new Image();
+    var url = URL.createObjectURL(currentFile);
+    img.onload = function() {
+      fill.style.width = '70%';
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob) {
+        fill.style.width = '100%';
+        var outUrl = URL.createObjectURL(blob);
+        resultImg.src = outUrl;
+        resultInfoEl.textContent = formatSize(blob.size) + ' — ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.jpg';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      alert('Could not load the image. Please try another file.');
+      progressEl.classList.add('hidden');
+    };
+    img.src = url;
+  });
+})();
+</script>
+{% endblock %}

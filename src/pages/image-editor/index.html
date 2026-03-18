@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% set active_nav = "image-editor" %}
+
+{% block title %}Free Image Editor — Add Captions, Text & Title Bars to Photos | GifWidgets{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Add captions, text overlays, and title bars to any photo. Drag text anywhere, pick fonts and colors, adjust brightness and filters, then export as JPG, PNG, or WebP. Free, no signup." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="canonical" href="https://gifwidgets.com/image-editor/" />
+{% endblock %}
+
+{% block body_attrs %} style="--hero-color:var(--cat-image);--hero-icon-bg:var(--cat-image-dim);--hero-glow:rgba(14,165,233,.12)"{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+
+  {% include 'partials/nav.html' %}
+
+  <header class="tool-hero">
+    <div class="tool-hero-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    </div>
+    <h1>Image Editor</h1>
+    <p class="tool-hero-tagline">Add captions and title bars, adjust colours and filters, crop and resize — all in your browser, for free.</p>
+    <a href="/image-editor/edit/" class="tool-hero-cta" id="upload-cta">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload a photo to get started
+    </a>
+    <input type="file" id="hero-file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" hidden />
+  </header>
+
+  <main class="tool-content">
+    <div class="tool-features">
+      <div class="tool-feature"><h3>On-Image Text</h3><p>Drag captions anywhere on the photo. Resize by pinching or using the corner handles. Choose from 7 fonts with custom colours and outline.</p></div>
+      <div class="tool-feature"><h3>Title Bars</h3><p>Add solid top or bottom caption bars — the classic meme format. Set height, font size, text colour, and background colour.</p></div>
+      <div class="tool-feature"><h3>Photo Adjustments</h3><p>Brightness, contrast, saturation, hue, and six preset filters. Rotate, flip, crop, and resize your image non-destructively.</p></div>
+      <div class="tool-feature"><h3>Flexible Export</h3><p>Download as JPG, PNG, or WebP with adjustable quality. Everything runs in your browser — your photos never leave your device.</p></div>
+    </div>
+
+    <section class="tool-section">
+      <h2>How to Edit a Photo</h2>
+      <ol class="tool-steps">
+        <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your photo</h3><p>Click the upload button above or drag a photo onto it. Supports JPG, PNG, WebP, and HEIC.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Add text or title bars</h3><p>Drag caption overlays anywhere on the image, or add a top/bottom title bar with a custom background colour.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Adjust and filter</h3><p>Use the Adjustments panel to tune brightness, contrast, saturation, apply filters, crop, or resize.</p></div></li>
+        <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Export and download</h3><p>Choose JPG, PNG, or WebP and click Download. Your edited photo is saved directly to your device.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="tool-section">
+      <h2>Frequently Asked Questions</h2>
+      <dl class="tool-faq">
+        <div class="tool-faq-item"><dt>What image formats are supported?</dt><dd>Upload JPG, PNG, WebP, or HEIC. Export as JPG, PNG, or WebP with adjustable quality.</dd></div>
+        <div class="tool-faq-item"><dt>Is this tool free?</dt><dd>Yes — completely free. No account, no watermark, no limits.</dd></div>
+        <div class="tool-faq-item"><dt>Does my photo get uploaded to a server?</dt><dd>No. All editing runs in your browser. Your photos never leave your device.</dd></div>
+        <div class="tool-faq-item"><dt>Can I add multiple captions?</dt><dd>Yes. You can add as many on-image text overlays as you like, each with its own font, size, colour, and position.</dd></div>
+      </dl>
+    </section>
+
+    <section class="tool-section">
+      <h2>Related Tools</h2>
+      <div class="related-tools">
+        <a href="/gif-editor/" class="related-tool-link">GIF Editor</a>
+        <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+        <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
+        <a href="/photo-converter/jpg-to-webp/" class="related-tool-link">JPG to WebP</a>
+      </div>
+    </section>
+  </main>
+
+  {% include 'partials/footer.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+
+  var cta = document.getElementById('upload-cta');
+  var fileInput = document.getElementById('hero-file-input');
+
+  function isHeic(file) {
+    return file.type === 'image/heic' || file.type === 'image/heif' ||
+           /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+  }
+
+  function storeAndRedirect(file) {
+    var req = indexedDB.open('gifwidgets_imgcap', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(file, 'pending');
+      tx.oncomplete = function () {
+        window.location.href = '/image-editor/edit/?source=imgcap';
+      };
+    };
+  }
+
+  function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (isHeic(file)) {
+      heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+        .then(function (result) {
+          var blob = Array.isArray(result) ? result[0] : result;
+          var converted = new File([blob], file.name.replace(/\.heic?$/i, '.jpg'), { type: 'image/jpeg' });
+          storeAndRedirect(converted);
+        })
+        .catch(function () { storeAndRedirect(file); });
+    } else {
+      storeAndRedirect(file);
+    }
+  }
+
+  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.querySelector('.tool-hero').addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+})();
+</script>
+{% endblock %}

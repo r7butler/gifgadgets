@@ -4,24 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>View Captioned GIF — GifCaption</title>
+  
   <meta name="description" content="View a captioned GIF created with GifCaption. Open it in the editor to add more text overlays, adjust timing, or re-export." />
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#0c0c14" />
-  <link rel="stylesheet" href="styles.css" />
 
-  <!-- Google AdSense (disabled until traffic increases)
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
-  -->
-  <!-- Google tag (gtag.js) -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/theme.js"></script>
+  
+  
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-STTEFW2R1M"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-STTEFW2R1M');
-  </script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-STTEFW2R1M');
+</script>
+
 </head>
 <body>
+
   <div class="container">
     <h1>GIF Viewer</h1>
     <a href="index.html">&larr; Back to home</a>
@@ -39,16 +42,10 @@
     <div id="gif-error" class="error hidden">
       <p>Error: <span id="error-message"></span></p>
     </div>
-
-    <!-- Ad (disabled until traffic increases)
-    <div class="ad-container ad-utility">
-      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-6040277278451227" data-ad-slot="6524012174" data-ad-format="auto" data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-    -->
   </div>
+
+
   <script src="app.js"></script>
-  <!-- <script src="cookie-consent.js"></script> -->
   <script>
     (async () => {
       const params = new URLSearchParams(window.location.search);
@@ -74,5 +71,6 @@
       }
     })();
   </script>
+
 </body>
 </html>

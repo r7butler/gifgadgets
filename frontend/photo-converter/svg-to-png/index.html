@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SVG to PNG Converter — Free Online | GifWidgets</title>
+  
   <meta name="description" content="Convert SVG vector files to PNG images online for free. Choose 1x, 2x, or 4x scale for high-resolution output. Instant, browser-based, no upload required." />
   <meta name="keywords" content="svg to png, convert svg to png online free, rasterize svg, svg png converter, svg to png export" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#f59e0b" />
   <link rel="canonical" href="https://gifwidgets.com/photo-converter/svg-to-png/" />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
@@ -23,9 +23,11 @@
   <meta name="twitter:title" content="SVG to PNG Converter — Free Online | GifWidgets" />
   <meta name="twitter:description" content="Convert SVG to PNG at 1x, 2x, 4x scale. Free, private, browser-based." />
 
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
-
+  
+  
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -73,22 +75,29 @@
   }
   </script>
 
-  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-STTEFW2R1M"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-STTEFW2R1M');</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-STTEFW2R1M');
+</script>
+
 </head>
 <body>
+
 <div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
 
   <nav class="site-nav" role="navigation" aria-label="Main navigation">
-    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
-    <div class="site-nav-links">
-      <a href="/gif-editor/">GIF Editor</a>
-      <a href="/image-editor/">Image Editor</a>
-      <a href="/trim-video/">Video Trimmer</a>
-      <a href="/photo-converter/" class="active">Photo Converters</a>
-    </div>
-  </nav>
+  <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+  <div class="site-nav-links">
+    <a href="/gif-editor/">GIF Editor</a>
+    <a href="/image-editor/">Image Editor</a>
+    <a href="/trim-video/">Video Trimmer</a>
+    <a href="/photo-converter/" class="active">Photo Converters</a>
+  </div>
+</nav>
+
 
   <header class="converter-header">
     <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
@@ -198,7 +207,7 @@
           </div>
           <div class="tool-faq-item">
             <dt>What if my SVG has no width or height?</dt>
-            <dd>The converter reads the SVG's viewBox attribute. If neither width/height nor viewBox are present, a default of 800×600 px is used.</dd>
+            <dd>The converter reads the SVG's viewBox attribute. If neither width/height nor viewBox are present, a default of 800x600 px is used.</dd>
           </div>
           <div class="tool-faq-item">
             <dt>Is my SVG uploaded to a server?</dt>
@@ -221,16 +230,23 @@
   </main>
 
   <footer class="site-footer" role="contentinfo">
-    <div class="site-footer-inner">
-      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
-      <nav class="site-footer-links" aria-label="Footer navigation">
-        <a href="/">All Tools</a>
-        <a href="/photo-converter/">Photo Converters</a>
-      </nav>
-    </div>
-  </footer>
+  <div class="site-footer-inner">
+    <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+    <nav class="site-footer-links" aria-label="Footer navigation">
+      <a href="/">All Tools</a>
+      <a href="/gif-editor/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/trim-video/">Video Trimmer</a>
+      <a href="/video-to-gif/">Video to GIF</a>
+      <a href="/photo-converter/">Photo Converters</a>
+    </nav>
+  </div>
+</footer>
+
 
 </div>
+
+
 <script>
 (function() {
   var dropZone = document.getElementById('drop-zone');
@@ -366,5 +382,6 @@
   });
 })();
 </script>
+
 </body>
 </html>

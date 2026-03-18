@@ -1,0 +1,1106 @@
+{% extends "base.html" %}
+
+{% block title %}GIF Maker — GifWidgets{% endblock %}
+
+{% block meta %}
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0c14" />
+{% endblock %}
+
+{% block head_extra %}
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <style>
+    .gm-app { display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden; }
+    .gm-body { display:flex;flex:1;overflow:hidden; }
+    .gm-preview { flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden;min-width:0; }
+    .gm-preview-stage { flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:12px; }
+    .gm-preview-stage canvas { max-width:100%;max-height:100%;display:block; }
+    .gm-sidebar { width:300px;min-width:300px;background:var(--bg-secondary);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column; }
+    .gm-section { padding:12px;border-bottom:1px solid var(--border); }
+    .gm-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px; }
+    .gm-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
+    .gm-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
+    .gm-drop-zone:hover,.gm-drop-zone.dragover { border-color:var(--cat-gif);background:var(--cat-gif-dim); }
+
+    /* Frame list */
+    .gm-frame-list { display:flex;flex-direction:column;gap:6px;min-height:40px; }
+    .gm-frame-item {
+      display:flex;align-items:center;gap:8px;padding:6px 8px;
+      background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-md);
+      cursor:grab;user-select:none;transition:border-color .15s,box-shadow .15s;
+    }
+    .gm-frame-item:hover { border-color:var(--cat-gif); }
+    .gm-frame-item.dragging { opacity:.4; }
+    .gm-frame-item.drag-over { border-color:var(--cat-gif);box-shadow:0 0 0 2px rgba(99,102,241,.3); }
+    .gm-frame-thumb { width:48px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;background:var(--bg-tertiary); }
+    .gm-frame-info { flex:1;min-width:0; }
+    .gm-frame-name { font-size:12px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .gm-frame-dims { font-size:11px;color:var(--text-muted); }
+    .gm-frame-remove {
+      width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+      background:none;border:none;color:var(--text-muted);cursor:pointer;border-radius:4px;flex-shrink:0;
+      font-size:16px;line-height:1;
+    }
+    .gm-frame-remove:hover { background:var(--bg-tertiary);color:var(--danger); }
+
+    /* Size option */
+    .gm-size-warning {
+      padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);
+      border-radius:var(--radius-md);font-size:12px;color:var(--text-secondary);margin-bottom:10px;
+    }
+
+    .gm-make-btn { width:100%;padding:12px;background:var(--cat-gif);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-top:8px; }
+    .gm-make-btn:disabled { opacity:.4;cursor:not-allowed; }
+    .gm-make-btn:hover:not(:disabled) { opacity:.9; }
+
+    .gm-add-more-btn {
+      width:100%;padding:8px;background:none;border:1px dashed var(--border);
+      border-radius:var(--radius-md);color:var(--text-secondary);font-size:13px;
+      cursor:pointer;transition:border-color .15s,color .15s;margin-top:6px;
+    }
+    .gm-add-more-btn:hover { border-color:var(--cat-gif);color:var(--text-primary); }
+
+    .gm-result-modal { max-width:480px; }
+    .gm-result-preview {
+      display:flex;justify-content:center;align-items:center;
+      padding:12px;margin-bottom:1rem;
+      border-radius:10px;background:var(--bg-base);overflow:hidden;
+    }
+    .gm-result-preview img {
+      max-width:100%;max-height:280px;display:block;border-radius:8px;
+      box-shadow:var(--shadow-md);
+    }
+    .gm-result-info { font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:1rem; }
+    .gm-result-actions { display:flex;flex-direction:column;align-items:center;gap:10px; }
+    .gm-dl-btn {
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;padding:14px;border:none;border-radius:var(--radius-md);
+      background:var(--cat-gif);color:#fff;font-size:15px;font-weight:700;
+      cursor:pointer;transition:opacity .15s;
+    }
+    .gm-dl-btn:hover { opacity:.9; }
+    .gm-save-photos-link {
+      background:none;border:none;color:var(--text-secondary);font-size:13px;
+      cursor:pointer;text-decoration:underline;padding:4px;
+    }
+    .gm-save-photos-link:hover { color:var(--text-primary); }
+
+    .gm-checkbox-row { display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:8px; }
+    .gm-checkbox-row input[type="checkbox"] { accent-color:var(--cat-gif); }
+    .gm-crossfade-options { padding-left:4px;margin-top:4px; }
+
+    @media (max-width: 768px) {
+      .gm-body { flex-direction:column; }
+      .gm-preview { min-height:200px;min-width:0; }
+      .gm-sidebar { width:100%;min-width:0;max-height:55vh;border-left:none;border-top:1px solid var(--border); }
+    }
+  </style>
+{% endblock %}
+
+{% block body_attrs %} class="editor-body"{% endblock %}
+
+{% block content %}
+<div class="gm-app" id="app">
+  <header class="editor-header">
+    <a href="/gif-maker/" class="logo">Gif<span class="logo-accent">Widgets</span></a>
+    <div class="header-actions">
+      <button id="btn-new" class="btn btn-ghost" aria-label="Start over" title="Start over">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        New
+      </button>
+      <button id="btn-download" class="btn btn-ghost" disabled aria-label="Download GIF" title="Download GIF">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button id="btn-share" class="btn btn-accent" disabled aria-label="Share GIF" title="Share GIF">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share
+      </button>
+    </div>
+  </header>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="overlay hidden">
+    <div class="overlay-content">
+      <p class="progress-text" id="loading-text">Creating GIF…</p>
+      <div class="progress-bar" style="margin-top:12px"><div class="progress-bar-fill" id="progress-fill" style="background:var(--cat-gif)"></div></div>
+    </div>
+  </div>
+
+  <!-- Upload screen -->
+  <div id="upload-screen" class="gm-body" style="flex-direction:column;justify-content:center;align-items:center">
+    <div class="gm-upload-zone" style="width:100%">
+      <div class="gm-drop-zone" id="drop-zone">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-muted);margin-bottom:1rem"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+        <h2>Drop images here</h2>
+        <p style="color:var(--text-secondary)">or click to browse</p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Supports JPG, PNG, WebP, BMP, HEIC</p>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.bmp,.heic,.heif" multiple hidden />
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor workspace -->
+  <div id="editor-screen" class="gm-body hidden">
+    <div class="gm-preview" id="preview-area">
+      <div class="gm-preview-stage">
+        <canvas id="preview-canvas"></canvas>
+      </div>
+      <div class="playback-controls">
+        <button id="btn-prev-frame" class="ctrl-btn" title="Previous frame" aria-label="Previous frame">&laquo;</button>
+        <button id="btn-play-pause" class="ctrl-btn ctrl-btn-play" title="Play / Pause" aria-label="Play or pause">
+          <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+          <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button id="btn-next-frame" class="ctrl-btn" title="Next frame" aria-label="Next frame">&raquo;</button>
+        <span id="frame-counter" class="frame-counter">0 / 0</span>
+      </div>
+    </div>
+    <div class="gm-sidebar">
+      <div class="gm-section">
+        <div class="gm-section-title">Frames</div>
+        <div id="size-warning" class="gm-size-warning hidden">
+          Images have different sizes.
+          <div style="margin-top:6px">
+            <label class="gm-checkbox-row">
+              <input type="checkbox" id="chk-resize" checked />
+              Resize all to match the smallest image
+            </label>
+          </div>
+        </div>
+        <div class="gm-frame-list" id="frame-list"></div>
+        <button class="gm-add-more-btn" id="btn-add-more">+ Add more images</button>
+        <input type="file" id="add-file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.bmp,.heic,.heif" multiple hidden />
+      </div>
+      <div class="gm-section">
+        <div class="gm-section-title">Settings</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Delay: <span id="val-delay">500</span>ms</label>
+          <input type="range" id="sl-delay" min="20" max="5000" step="10" value="500" style="accent-color:var(--cat-gif)" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Loop count: </label>
+          <select id="sel-loop" style="padding:4px 8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;">
+            <option value="0">Infinite</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+      </div>
+      <div class="gm-section">
+        <div class="gm-section-title">Crossfade</div>
+        <label class="gm-checkbox-row">
+          <input type="checkbox" id="chk-crossfade" />
+          Enable crossfade between frames
+        </label>
+        <div id="crossfade-options" class="gm-crossfade-options hidden">
+          <div class="form-group">
+            <label>Intermediate frames: <span id="val-crossfade-count">5</span></label>
+            <input type="range" id="sl-crossfade-count" min="2" max="20" step="1" value="5" style="accent-color:var(--cat-gif)" />
+          </div>
+        </div>
+      </div>
+      <div class="gm-section">
+        <div class="gm-section-title">Options</div>
+        <label class="gm-checkbox-row">
+          <input type="checkbox" id="chk-watermark" checked />
+          Include GifWidgets watermark
+        </label>
+      </div>
+      <div class="gm-section">
+        <p id="make-status" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
+        <button class="gm-make-btn" id="btn-make" disabled>Make GIF!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result modal -->
+<div id="result-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="GIF result">
+  <div class="modal gm-result-modal">
+    <button id="result-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Your GIF is ready</h2>
+    <div class="gm-result-preview">
+      <img id="result-gif" alt="Created GIF" />
+    </div>
+    <p id="result-info" class="gm-result-info"></p>
+    <div class="gm-result-actions">
+      <button id="btn-dl-modal" class="gm-dl-btn" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download GIF
+      </button>
+      <button id="btn-save-photos" class="gm-save-photos-link" type="button">Save to Photos</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share consent modal -->
+<div id="share-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share confirmation">
+  <div class="modal modal-sm"><h2 class="modal-title">Create a share link?</h2><p class="modal-body-text">This will upload your GIF and create a public link. The image will remain publicly accessible on the internet indefinitely.</p><div class="modal-actions"><button id="share-consent-no" class="btn btn-ghost">No, just save it</button><button id="share-consent-yes" class="btn btn-accent">Yes, create link</button></div></div>
+</div>
+
+<!-- Share modal -->
+<div id="share-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share your GIF">
+  <div class="modal">
+    <button id="share-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Your GIF is ready!</h2>
+    <div id="share-preview" class="share-preview"></div>
+    <div id="share-skeletons">
+      <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
+      <div class="skeleton-row"><div class="skeleton skeleton-input"></div><div class="skeleton skeleton-btn"></div></div>
+    </div>
+    <div id="share-ready" class="hidden">
+      <div class="share-link-row">
+        <input type="text" id="share-url" class="share-url-input" readonly />
+        <button id="btn-copy-link" class="btn btn-accent">Copy Link</button>
+      </div>
+      <div class="share-link-row" id="share-image-url-row" style="display:none">
+        <input type="text" id="share-image-url" class="share-url-input" readonly placeholder="Direct image URL" />
+        <button id="btn-copy-image-url" class="btn btn-ghost">Copy Image URL</button>
+      </div>
+    </div>
+    <div class="share-buttons">
+      <button id="btn-share-download" class="btn btn-primary btn-full">Download GIF</button>
+      <button id="btn-share-save-photos" class="btn btn-ghost btn-full">Save to Photos</button>
+      <div id="share-social-skeletons" class="skeleton-social">
+        <div class="skeleton skeleton-social-btn"></div>
+        <div class="skeleton skeleton-social-btn"></div>
+      </div>
+      <div id="share-social-ready" class="share-social hidden">
+        <a id="btn-share-reddit" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on Reddit</a>
+        <a id="btn-share-twitter" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Share on X</a>
+      </div>
+    </div>
+    <p class="share-status" id="share-status"></p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── DOM refs ──
+  var canvas = document.getElementById('preview-canvas');
+  var ctx = canvas.getContext('2d');
+  var frameListEl = document.getElementById('frame-list');
+  var slDelay = document.getElementById('sl-delay');
+  var valDelay = document.getElementById('val-delay');
+  var selLoop = document.getElementById('sel-loop');
+  var chkResize = document.getElementById('chk-resize');
+  var sizeWarning = document.getElementById('size-warning');
+  var chkCrossfade = document.getElementById('chk-crossfade');
+  var crossfadeOptions = document.getElementById('crossfade-options');
+  var slCrossfadeCount = document.getElementById('sl-crossfade-count');
+  var valCrossfadeCount = document.getElementById('val-crossfade-count');
+  var makeBtn = document.getElementById('btn-make');
+  var makeStatus = document.getElementById('make-status');
+  var btnPrevFrame = document.getElementById('btn-prev-frame');
+  var btnPlayPause = document.getElementById('btn-play-pause');
+  var btnNextFrame = document.getElementById('btn-next-frame');
+  var frameCounter = document.getElementById('frame-counter');
+  var playIcon = document.getElementById('play-icon');
+  var pauseIcon = document.getElementById('pause-icon');
+  var loadingOverlay = document.getElementById('loading-overlay');
+  var loadingText = document.getElementById('loading-text');
+  var progressFill = document.getElementById('progress-fill');
+  var resultModal = document.getElementById('result-modal');
+  var resultGif = document.getElementById('result-gif');
+  var resultInfo = document.getElementById('result-info');
+  var dlBtn = document.getElementById('btn-dl-modal');
+  var btnSavePhotos = document.getElementById('btn-save-photos');
+  var dlBtnHeader = document.getElementById('btn-download');
+  var btnShare = document.getElementById('btn-share');
+
+  // ── State ──
+  var frames = []; // { img: HTMLImageElement, name: string, width: number, height: number }
+  var previewFrames = []; // built from frames + crossfade; each { type:'source'|'crossfade', sourceIndex, img?, alphaA?, imgA?, imgB? }
+  var currentPreviewFrame = 0;
+  var isPlaying = false;
+  var playTimer = null;
+  var lastGifUrl = null;
+  var lastGifBlob = null;
+  var lastGifFilename = 'animation.gif';
+  var pendingShareAfterMake = false;
+  var workerBlobUrl = null;
+
+  // Preload gif.js worker
+  fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+    .then(function(r){ return r.blob(); })
+    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
+    .catch(function(){});
+
+  var chkWatermark = document.getElementById('chk-watermark');
+
+  function drawWatermark(ctx2d, w, h) {
+    if (!chkWatermark.checked) return;
+    var fontSize = Math.max(10, Math.round(w * 0.028));
+    ctx2d.save();
+    ctx2d.font = fontSize + 'px sans-serif';
+    ctx2d.textAlign = 'right';
+    ctx2d.textBaseline = 'bottom';
+    ctx2d.globalAlpha = 0.35;
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.strokeStyle = '#000000';
+    ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
+    ctx2d.strokeText('GifWidgets.com', w - 6, h - 4);
+    ctx2d.fillText('GifWidgets.com', w - 6, h - 4);
+    ctx2d.restore();
+  }
+
+  function formatSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    return (b/1024/1024).toFixed(1) + ' MB';
+  }
+
+  // ── Image loading ──
+
+  function isHeic(file) {
+    if (file.type && (file.type === 'image/heic' || file.type === 'image/heif')) return true;
+    var name = (file.name || '').toLowerCase();
+    return name.endsWith('.heic') || name.endsWith('.heif');
+  }
+
+  function loadImageFile(file) {
+    var fileToLoad = isHeic(file)
+      ? heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 }).then(function (result) {
+          var blob = Array.isArray(result) ? result[0] : result;
+          return new File([blob], file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg'), { type: 'image/jpeg' });
+        })
+      : Promise.resolve(file);
+
+    return fileToLoad.then(function (f) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          var img = new Image();
+          img.onload = function () {
+            resolve({ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight });
+          };
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(f);
+      });
+    });
+  }
+
+  function addFiles(fileList) {
+    var imageFiles = [];
+    for (var i = 0; i < fileList.length; i++) {
+      var f = fileList[i];
+      var isImage = (f.type && f.type.startsWith('image/')) || isHeic(f);
+      if (isImage) imageFiles.push(f);
+    }
+    if (!imageFiles.length) return;
+
+    loadingOverlay.classList.remove('hidden');
+    progressFill.style.width = '0%';
+    loadingText.textContent = 'Loading image 1 / ' + imageFiles.length + '…';
+
+    var loaded = [];
+    var idx = 0;
+
+    function loadNext() {
+      if (idx >= imageFiles.length) {
+        loadingOverlay.classList.add('hidden');
+        frames = frames.concat(loaded);
+        onFramesChanged();
+        if (!document.getElementById('upload-screen').classList.contains('hidden')) {
+          document.getElementById('upload-screen').classList.add('hidden');
+          document.getElementById('editor-screen').classList.remove('hidden');
+        }
+        return;
+      }
+      var pct = (idx / imageFiles.length) * 100;
+      progressFill.style.width = pct + '%';
+      loadingText.textContent = 'Loading image ' + (idx + 1) + ' / ' + imageFiles.length + (isHeic(imageFiles[idx]) ? ' (converting HEIC)…' : '…');
+      loadImageFile(imageFiles[idx]).then(function (result) {
+        loaded.push(result);
+        idx++;
+        loadNext();
+      }).catch(function () {
+        idx++;
+        loadNext();
+      });
+    }
+
+    loadNext();
+  }
+
+  // ── Frame list UI ──
+
+  function onFramesChanged() {
+    renderFrameList();
+    checkSizeWarning();
+    rebuildPreviewFrames();
+    makeBtn.disabled = frames.length < 2;
+    makeStatus.textContent = frames.length + ' frame' + (frames.length !== 1 ? 's' : '');
+  }
+
+  function checkSizeWarning() {
+    if (frames.length < 2) { sizeWarning.classList.add('hidden'); return; }
+    var w = frames[0].width, h = frames[0].height;
+    var mixed = false;
+    for (var i = 1; i < frames.length; i++) {
+      if (frames[i].width !== w || frames[i].height !== h) { mixed = true; break; }
+    }
+    sizeWarning.classList.toggle('hidden', !mixed);
+  }
+
+  function renderFrameList() {
+    frameListEl.innerHTML = '';
+    frames.forEach(function (f, i) {
+      var item = document.createElement('div');
+      item.className = 'gm-frame-item';
+      item.draggable = true;
+      item.dataset.index = i;
+
+      var thumb = document.createElement('img');
+      thumb.className = 'gm-frame-thumb';
+      thumb.src = f.img.src;
+      thumb.alt = f.name;
+
+      var info = document.createElement('div');
+      info.className = 'gm-frame-info';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'gm-frame-name';
+      nameEl.textContent = (i + 1) + '. ' + f.name;
+      var dimsEl = document.createElement('div');
+      dimsEl.className = 'gm-frame-dims';
+      dimsEl.textContent = f.width + ' × ' + f.height;
+      info.appendChild(nameEl);
+      info.appendChild(dimsEl);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'gm-frame-remove';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.title = 'Remove frame';
+      removeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        frames.splice(i, 1);
+        currentPreviewFrame = 0;
+        onFramesChanged();
+      });
+
+      item.appendChild(thumb);
+      item.appendChild(info);
+      item.appendChild(removeBtn);
+
+      // Click to select
+      item.addEventListener('click', function () {
+        stopPlayback();
+        // Find this source frame's position in previewFrames
+        for (var p = 0; p < previewFrames.length; p++) {
+          if (previewFrames[p].type === 'source' && previewFrames[p].sourceIndex === i) {
+            currentPreviewFrame = p;
+            break;
+          }
+        }
+        updatePreview();
+        updateFrameCounter();
+      });
+
+      // Drag and drop reorder
+      item.addEventListener('dragstart', function (e) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', i);
+        item.classList.add('dragging');
+      });
+      item.addEventListener('dragend', function () { item.classList.remove('dragging'); });
+      item.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', function () { item.classList.remove('drag-over'); });
+      item.addEventListener('drop', function (e) {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        var fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        var toIndex = i;
+        if (fromIndex === toIndex) return;
+        var moved = frames.splice(fromIndex, 1)[0];
+        frames.splice(toIndex, 0, moved);
+        currentPreviewFrame = 0;
+        onFramesChanged();
+      });
+
+      frameListEl.appendChild(item);
+    });
+  }
+
+  // ── Preview ──
+
+  function getOutputDimensions() {
+    if (!frames.length) return { width: 1, height: 1 };
+    var shouldResize = chkResize.checked;
+    if (shouldResize) {
+      var minW = Infinity, minH = Infinity;
+      frames.forEach(function (f) {
+        if (f.width < minW) minW = f.width;
+        if (f.height < minH) minH = f.height;
+      });
+      return { width: minW, height: minH };
+    } else {
+      var maxW = 0, maxH = 0;
+      frames.forEach(function (f) {
+        if (f.width > maxW) maxW = f.width;
+        if (f.height > maxH) maxH = f.height;
+      });
+      return { width: maxW, height: maxH };
+    }
+  }
+
+  function drawSourceImage(targetCtx, f, dims) {
+    if (chkResize.checked) {
+      targetCtx.drawImage(f.img, 0, 0, dims.width, dims.height);
+    } else {
+      var x = Math.round((dims.width - f.width) / 2);
+      var y = Math.round((dims.height - f.height) / 2);
+      targetCtx.drawImage(f.img, x, y);
+    }
+  }
+
+  function rebuildPreviewFrames() {
+    previewFrames = [];
+    if (!frames.length) {
+      currentPreviewFrame = 0;
+      updatePreview();
+      updateFrameCounter();
+      return;
+    }
+    var useCrossfade = chkCrossfade.checked;
+    var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+
+    for (var i = 0; i < frames.length; i++) {
+      previewFrames.push({ type: 'source', sourceIndex: i });
+      if (useCrossfade && i < frames.length - 1) {
+        for (var c = 1; c <= crossfadeCount; c++) {
+          previewFrames.push({
+            type: 'crossfade',
+            sourceIndex: i,
+            indexA: i,
+            indexB: i + 1,
+            alpha: c / (crossfadeCount + 1)
+          });
+        }
+      }
+    }
+
+    if (currentPreviewFrame >= previewFrames.length) currentPreviewFrame = 0;
+    updatePreview();
+    updateFrameCounter();
+  }
+
+  function drawPreviewFrame(pf) {
+    var dims = getOutputDimensions();
+    canvas.width = dims.width;
+    canvas.height = dims.height;
+    ctx.clearRect(0, 0, dims.width, dims.height);
+
+    if (pf.type === 'source') {
+      drawSourceImage(ctx, frames[pf.sourceIndex], dims);
+    } else {
+      // Crossfade: draw frame A, then blend frame B on top
+      drawSourceImage(ctx, frames[pf.indexA], dims);
+      ctx.globalAlpha = pf.alpha;
+      drawSourceImage(ctx, frames[pf.indexB], dims);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function updatePreview() {
+    if (!previewFrames.length) return;
+    if (currentPreviewFrame >= previewFrames.length) currentPreviewFrame = 0;
+    drawPreviewFrame(previewFrames[currentPreviewFrame]);
+    // Highlight active source frame in list
+    var activeSourceIndex = previewFrames[currentPreviewFrame].sourceIndex;
+    var items = frameListEl.querySelectorAll('.gm-frame-item');
+    items.forEach(function (el, i) {
+      el.style.borderColor = i === activeSourceIndex ? 'var(--cat-gif)' : '';
+    });
+  }
+
+  function updateFrameCounter() {
+    if (!previewFrames.length) {
+      frameCounter.textContent = '0 / 0';
+      return;
+    }
+    frameCounter.textContent = (currentPreviewFrame + 1) + ' / ' + previewFrames.length;
+  }
+
+  // ── Playback ──
+
+  function getPreviewDelay() {
+    var delay = parseInt(slDelay.value, 10);
+    var pf = previewFrames[currentPreviewFrame];
+    if (pf && pf.type === 'crossfade') {
+      var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+      return Math.round(delay / (crossfadeCount + 1));
+    }
+    return delay;
+  }
+
+  function startPlayback() {
+    if (previewFrames.length < 2) return;
+    isPlaying = true;
+    playIcon.classList.add('hidden');
+    pauseIcon.classList.remove('hidden');
+    advanceFrame();
+  }
+
+  function stopPlayback() {
+    isPlaying = false;
+    playIcon.classList.remove('hidden');
+    pauseIcon.classList.add('hidden');
+    if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+  }
+
+  function advanceFrame() {
+    if (!isPlaying || previewFrames.length < 2) { stopPlayback(); return; }
+    currentPreviewFrame = (currentPreviewFrame + 1) % previewFrames.length;
+    updatePreview();
+    updateFrameCounter();
+    playTimer = setTimeout(advanceFrame, getPreviewDelay());
+  }
+
+  btnPlayPause.addEventListener('click', function () {
+    if (isPlaying) stopPlayback(); else startPlayback();
+  });
+  btnPrevFrame.addEventListener('click', function () {
+    stopPlayback();
+    if (!previewFrames.length) return;
+    currentPreviewFrame = (currentPreviewFrame - 1 + previewFrames.length) % previewFrames.length;
+    updatePreview();
+    updateFrameCounter();
+  });
+  btnNextFrame.addEventListener('click', function () {
+    stopPlayback();
+    if (!previewFrames.length) return;
+    currentPreviewFrame = (currentPreviewFrame + 1) % previewFrames.length;
+    updatePreview();
+    updateFrameCounter();
+  });
+
+  // ── Settings ──
+
+  slDelay.addEventListener('input', function () { valDelay.textContent = slDelay.value; });
+  chkResize.addEventListener('change', function () { updatePreview(); });
+  chkCrossfade.addEventListener('change', function () {
+    crossfadeOptions.classList.toggle('hidden', !chkCrossfade.checked);
+    rebuildPreviewFrames();
+  });
+  slCrossfadeCount.addEventListener('input', function () {
+    valCrossfadeCount.textContent = slCrossfadeCount.value;
+    rebuildPreviewFrames();
+  });
+
+  // ── Add more images ──
+
+  var addFileInput = document.getElementById('add-file-input');
+  document.getElementById('btn-add-more').addEventListener('click', function () { addFileInput.click(); });
+  addFileInput.addEventListener('change', function () {
+    if (addFileInput.files.length) addFiles(addFileInput.files);
+    addFileInput.value = '';
+  });
+
+  // ── Make GIF ──
+
+  function buildFrameData() {
+    var dims = getOutputDimensions();
+    var delay = parseInt(slDelay.value, 10);
+    var useCrossfade = chkCrossfade.checked;
+    var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+
+    var tempCanvas = document.createElement('canvas');
+    tempCanvas.width = dims.width;
+    tempCanvas.height = dims.height;
+    var tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+    var frameDataList = []; // { imageData, delay }
+
+    for (var i = 0; i < frames.length; i++) {
+      // Draw the main frame
+      tempCtx.clearRect(0, 0, dims.width, dims.height);
+      if (chkResize.checked) {
+        tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+      } else {
+        var x = Math.round((dims.width - frames[i].width) / 2);
+        var y = Math.round((dims.height - frames[i].height) / 2);
+        tempCtx.drawImage(frames[i].img, x, y);
+      }
+      drawWatermark(tempCtx, dims.width, dims.height);
+      frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: delay });
+
+      // Add crossfade frames to next image
+      if (useCrossfade && i < frames.length - 1) {
+        var nextFrame = frames[i + 1];
+        var crossDelay = Math.round(delay / (crossfadeCount + 1));
+        for (var c = 1; c <= crossfadeCount; c++) {
+          var alpha = c / (crossfadeCount + 1);
+          tempCtx.clearRect(0, 0, dims.width, dims.height);
+
+          // Draw current frame
+          if (chkResize.checked) {
+            tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+          } else {
+            var cx = Math.round((dims.width - frames[i].width) / 2);
+            var cy = Math.round((dims.height - frames[i].height) / 2);
+            tempCtx.drawImage(frames[i].img, cx, cy);
+          }
+
+          // Blend next frame on top
+          tempCtx.globalAlpha = alpha;
+          if (chkResize.checked) {
+            tempCtx.drawImage(nextFrame.img, 0, 0, dims.width, dims.height);
+          } else {
+            var nx = Math.round((dims.width - nextFrame.width) / 2);
+            var ny = Math.round((dims.height - nextFrame.height) / 2);
+            tempCtx.drawImage(nextFrame.img, nx, ny);
+          }
+          tempCtx.globalAlpha = 1;
+          drawWatermark(tempCtx, dims.width, dims.height);
+
+          frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: crossDelay });
+        }
+      }
+    }
+
+    return { frames: frameDataList, width: dims.width, height: dims.height };
+  }
+
+  function startMakeGif() {
+    if (frames.length < 2) return;
+    stopPlayback();
+
+    makeBtn.disabled = true;
+    resultModal.classList.add('hidden');
+    loadingOverlay.classList.remove('hidden');
+    progressFill.style.width = '0%';
+    loadingText.textContent = 'Preparing frames…';
+
+    // Use setTimeout to allow the UI to update
+    setTimeout(function () {
+      var data = buildFrameData();
+      loadingText.textContent = 'Encoding GIF…';
+      progressFill.style.width = '40%';
+
+      var loopCount = parseInt(selLoop.value, 10);
+      var gifOptions = {
+        workers: 2,
+        quality: 10,
+        width: data.width,
+        height: data.height,
+        repeat: loopCount
+      };
+      if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
+
+      var gif = new GIF(gifOptions);
+      data.frames.forEach(function (f) {
+        gif.addFrame(f.imageData, { delay: f.delay, copy: true });
+      });
+
+      gif.on('progress', function (p) {
+        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 60 + 40) + '%';
+        progressFill.style.width = (p * 60 + 40) + '%';
+      });
+
+      gif.on('finished', function (blob) {
+        progressFill.style.width = '100%';
+        loadingOverlay.classList.add('hidden');
+        makeBtn.disabled = false;
+
+        var url = URL.createObjectURL(blob);
+        if (lastGifUrl) URL.revokeObjectURL(lastGifUrl);
+        lastGifUrl = url;
+        lastGifBlob = blob;
+        lastGifFilename = 'animation.gif';
+
+        resultGif.src = url;
+        resultInfo.textContent = data.frames.length + ' frames · ' + data.width + '×' + data.height + ' · ' + formatSize(blob.size);
+
+        dlBtnHeader.disabled = false;
+        btnShare.disabled = false;
+
+        if (pendingShareAfterMake) {
+          pendingShareAfterMake = false;
+          shareConsentModal.classList.remove('hidden');
+        } else {
+          resultModal.classList.remove('hidden');
+        }
+      });
+
+      gif.render();
+    }, 50);
+  }
+
+  makeBtn.addEventListener('click', startMakeGif);
+  dlBtnHeader.addEventListener('click', function () {
+    if (lastGifBlob) {
+      downloadGif();
+    } else {
+      startMakeGif();
+    }
+  });
+
+  // ── Result modal ──
+
+  function downloadGif() {
+    if (!lastGifUrl) return;
+    var a = document.createElement('a');
+    a.href = lastGifUrl;
+    a.download = lastGifFilename;
+    a.click();
+  }
+
+  function closeResultModal() { resultModal.classList.add('hidden'); }
+
+  dlBtn.addEventListener('click', downloadGif);
+  btnSavePhotos.addEventListener('click', function () {
+    if (!lastGifBlob) return;
+    var file = new File([lastGifBlob], lastGifFilename, { type: 'image/gif' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Created GIF' }).catch(function () {});
+    } else {
+      downloadGif();
+    }
+  });
+
+  document.getElementById('result-modal-close').addEventListener('click', closeResultModal);
+  resultModal.addEventListener('click', function (e) { if (e.target === resultModal) closeResultModal(); });
+
+  // ── New ──
+
+  document.getElementById('btn-new').addEventListener('click', function () {
+    if (document.getElementById('editor-screen').classList.contains('hidden')) return;
+    window.GWConfirmAction({
+      title: 'Start over?',
+      message: 'Your current frames and GIF result will be lost if you continue.',
+      confirmLabel: 'Start Over',
+      onConfirm: function () {
+        stopPlayback();
+        frames = [];
+        previewFrames = [];
+        currentPreviewFrame = 0;
+        if (lastGifUrl) URL.revokeObjectURL(lastGifUrl);
+        lastGifUrl = null;
+        lastGifBlob = null;
+        document.getElementById('editor-screen').classList.add('hidden');
+        document.getElementById('upload-screen').classList.remove('hidden');
+        makeBtn.disabled = true;
+        dlBtnHeader.disabled = true;
+        btnShare.disabled = true;
+        resultModal.classList.add('hidden');
+        frameListEl.innerHTML = '';
+        frameCounter.textContent = '0 / 0';
+      }
+    });
+  });
+
+  // ── Upload ──
+
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  dropZone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files.length) addFiles(fileInput.files); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  // Also allow dropping on editor area to add more frames
+  var previewArea = document.getElementById('preview-area');
+  previewArea.addEventListener('dragover', function (e) { e.preventDefault(); });
+  previewArea.addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  // ── Share ──
+
+  var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+  var shareModal = document.getElementById('share-modal');
+  var shareConsentModal = document.getElementById('share-consent-modal');
+
+  function shareUpload(blob, title, filename) {
+    return fetch(API_BASE_URL + '/share/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title, filename: filename || null })
+    }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Presign failed'); });
+      return r.json();
+    }).then(function (presign) {
+      return fetch(presign.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/gif' },
+        body: blob
+      }).then(function (r) {
+        if (!r.ok) throw new Error('Upload failed');
+        return fetch(API_BASE_URL + '/share/finalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: presign.slug, title: presign.title })
+        });
+      });
+    }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Finalize failed'); });
+      return r.json();
+    });
+  }
+
+  function setShareStatus(msg, cls) {
+    var el = document.getElementById('share-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'share-status' + (cls ? ' ' + cls : '');
+  }
+
+  function showShareModal(blob) {
+    var preview = document.getElementById('share-preview');
+    preview.innerHTML = '';
+    var blobUrl = URL.createObjectURL(blob);
+    var img = document.createElement('img');
+    img.src = blobUrl;
+    img.alt = 'Your created GIF';
+    preview.appendChild(img);
+
+    shareModal._blob = blob;
+    shareModal._blobUrl = blobUrl;
+
+    document.getElementById('share-url').value = '';
+    document.getElementById('share-image-url').value = '';
+    document.getElementById('share-image-url-row').style.display = 'none';
+    document.getElementById('share-skeletons').classList.remove('hidden');
+    document.getElementById('share-ready').classList.add('hidden');
+    document.getElementById('share-social-skeletons').classList.remove('hidden');
+    document.getElementById('share-social-ready').classList.add('hidden');
+    setShareStatus('Uploading…', '');
+
+    shareModal.classList.remove('hidden');
+
+    shareUpload(blob, 'Created GIF', lastGifFilename).then(function (result) {
+      document.getElementById('share-url').value = result.share_url;
+      if (result.gif_url) {
+        document.getElementById('share-image-url').value = result.gif_url;
+        document.getElementById('share-image-url-row').style.display = '';
+      }
+      var enc = encodeURIComponent;
+      var reddit = document.getElementById('btn-share-reddit');
+      if (reddit) reddit.href = 'https://www.reddit.com/submit?url=' + enc(result.share_url) + '&title=' + enc('Created GIF');
+      var twitter = document.getElementById('btn-share-twitter');
+      if (twitter) twitter.href = 'https://twitter.com/intent/tweet?url=' + enc(result.share_url) + '&text=' + enc('Created GIF — made with GifWidgets');
+      document.getElementById('share-skeletons').classList.add('hidden');
+      document.getElementById('share-ready').classList.remove('hidden');
+      document.getElementById('share-social-skeletons').classList.add('hidden');
+      document.getElementById('share-social-ready').classList.remove('hidden');
+      setShareStatus('Link ready — copy and share!', 'success');
+    }).catch(function (err) {
+      document.getElementById('share-skeletons').classList.add('hidden');
+      document.getElementById('share-social-skeletons').classList.add('hidden');
+      setShareStatus('Upload failed: ' + err.message, 'error');
+    });
+  }
+
+  function closeShareModal() {
+    shareModal.classList.add('hidden');
+    if (shareModal._blobUrl) { URL.revokeObjectURL(shareModal._blobUrl); shareModal._blobUrl = null; }
+    shareModal._blob = null;
+  }
+
+  btnShare.addEventListener('click', function () {
+    if (frames.length < 2) return;
+    if (lastGifBlob) {
+      shareConsentModal.classList.remove('hidden');
+    } else {
+      pendingShareAfterMake = true;
+      startMakeGif();
+    }
+  });
+
+  document.getElementById('share-consent-yes').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
+    showShareModal(lastGifBlob);
+  });
+  document.getElementById('share-consent-no').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
+    resultModal.classList.remove('hidden');
+  });
+  shareConsentModal.addEventListener('click', function (e) {
+    if (e.target === shareConsentModal) shareConsentModal.classList.add('hidden');
+  });
+
+  document.getElementById('share-modal-close').addEventListener('click', closeShareModal);
+  shareModal.addEventListener('click', function (e) { if (e.target === shareModal) closeShareModal(); });
+
+  document.getElementById('btn-copy-link').addEventListener('click', function () {
+    var input = document.getElementById('share-url');
+    if (!input || !input.value) return;
+    navigator.clipboard.writeText(input.value).then(function () {
+      setShareStatus('Copied!', 'success');
+    }).catch(function () { input.select(); document.execCommand('copy'); setShareStatus('Copied!', 'success'); });
+  });
+
+  document.getElementById('btn-copy-image-url').addEventListener('click', function () {
+    var input = document.getElementById('share-image-url');
+    if (!input || !input.value) return;
+    navigator.clipboard.writeText(input.value).then(function () {
+      setShareStatus('Image URL copied!', 'success');
+    }).catch(function () { input.select(); document.execCommand('copy'); setShareStatus('Image URL copied!', 'success'); });
+  });
+
+  document.getElementById('btn-share-download').addEventListener('click', function () {
+    if (shareModal._blob) {
+      var a = document.createElement('a');
+      a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
+      a.download = lastGifFilename;
+      a.click();
+    }
+  });
+
+  document.getElementById('btn-share-save-photos').addEventListener('click', function () {
+    if (!shareModal._blob) return;
+    var file = new File([shareModal._blob], lastGifFilename, { type: 'image/gif' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Created GIF' }).catch(function () {});
+    } else {
+      var a = document.createElement('a');
+      a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
+      a.download = lastGifFilename;
+      a.click();
+    }
+  });
+
+  // ── Load from IndexedDB (redirected from landing page) ──
+
+  (function () {
+    var req = indexedDB.open('gifcaption', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) return;
+      var tx = db.transaction('files', 'readonly');
+      var get = tx.objectStore('files').get('pending-gif-maker');
+      get.onsuccess = function () {
+        var fileList = get.result;
+        if (!fileList || !fileList.length) return;
+        db.transaction('files', 'readwrite').objectStore('files').delete('pending-gif-maker');
+        addFiles(fileList);
+      };
+    };
+  })();
+
+})();
+</script>
+{% endblock %}

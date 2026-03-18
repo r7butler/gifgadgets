@@ -2,6 +2,7 @@
   "name": "gifcaption",
   "private": true,
   "scripts": {
-    "dev": "npx serve frontend"
+    "build": "docker build -f Dockerfile.build -t gifwidgets-build . && docker run --rm -v \"$PWD:/app\" gifwidgets-build",
+    "dev": "npm run build && npx serve frontend"
   }
 }

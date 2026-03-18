@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% set active_nav = "photo-converter" %}
+
+{% block title %}GIF to PNG Converter — Free Online | GifWidgets{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Convert GIF images to PNG online for free. Extracts the first frame of animated GIFs as a high-quality PNG. Instant, browser-based, no upload required." />
+  <meta name="keywords" content="gif to png, convert gif to png online, extract gif frame, gif to png converter free, animated gif to png" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/gif-to-png/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="GIF to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Extract the first frame of any GIF as a high-quality PNG image. Free, instant, runs entirely in your browser." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/gif-to-png/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="GIF to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert GIF to PNG — extract the first frame as a high-quality PNG. Free, no upload, instant." />
+{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GIF to PNG Converter",
+    "url": "https://gifwidgets.com/photo-converter/gif-to-png/",
+    "description": "Free browser-based tool to convert GIF images (including animated GIFs) to PNG by extracting the first frame. No file upload required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "Extracts first frame of animated GIFs", "No file upload", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Which frame does GIF to PNG convert?",
+        "acceptedAnswer": {"@type": "Answer", "text": "This converter extracts the first frame of the GIF as a PNG image. For static (non-animated) GIFs, this is simply the whole image."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does the PNG preserve GIF transparency?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes. PNG supports alpha transparency, so any transparent areas in your GIF will be preserved in the PNG output."}
+      },
+      {
+        "@type": "Question",
+        "name": "Can I extract multiple frames from an animated GIF?",
+        "acceptedAnswer": {"@type": "Answer", "text": "This tool extracts only the first frame. To extract all frames, use the GifWidgets GIF Editor which allows frame-by-frame access."}
+      },
+      {
+        "@type": "Question",
+        "name": "Why convert GIF to PNG instead of JPG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "PNG preserves GIF transparency (which JPG cannot), and PNG's lossless encoding ensures no additional quality loss over the original GIF frame."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is my GIF file uploaded to a server?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The conversion happens entirely in your browser. Your file never leaves your device."}
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  {% include 'partials/nav.html' %}
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">GIF to PNG Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop a GIF image here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8v8m3-4h4m0-4v8"/></svg>
+      <h2>Drop a GIF image here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .gif files — extracts first frame as PNG</p>
+      <input type="file" id="file-input" accept="image/gif,.gif" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <!-- PNG is lossless — no quality option needed -->
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Extract Frame as PNG</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Converting…</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Extracted PNG frame" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PNG
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>First Frame Extracted</h3>
+          <p>Get a clean still image from any animated GIF — great for thumbnails, previews, or static copies.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Transparency Preserved</h3>
+          <p>PNG supports alpha transparency, so any transparent areas in your GIF frame are carried over.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Lossless Output</h3>
+          <p>PNG encoding is lossless — no additional quality is lost beyond what is already in the GIF.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>100% Browser-Based</h3>
+          <p>No server upload, no account, no waiting. Your GIF stays on your device throughout.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert GIF to PNG</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Select your GIF</h3><p>Drag a .gif file onto the drop zone, or click to browse. Works with both static and animated GIFs.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Click "Extract Frame as PNG"</h3><p>The converter draws the first frame to a canvas and encodes it as lossless PNG.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Download your PNG</h3><p>Preview the result and click the download button to save the .png file.</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>Which frame does this convert?</dt>
+            <dd>This converter extracts the first frame of the GIF as a PNG. For static (non-animated) GIFs, this is simply the full image.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is GIF transparency preserved in the PNG?</dt>
+            <dd>Yes. PNG supports alpha transparency, so transparent areas in your GIF frame will be preserved in the PNG output.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Can I extract all frames from an animated GIF?</dt>
+            <dd>This tool extracts only the first frame. To access individual frames, use the GifWidgets GIF Editor which provides frame-by-frame editing.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Why use PNG instead of JPG for GIF conversion?</dt>
+            <dd>PNG preserves GIF transparency (which JPG cannot) and uses lossless encoding — so no additional quality is lost beyond the GIF's original fidelity.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is my GIF uploaded to a server?</dt>
+            <dd>No. The conversion runs entirely in your browser. Your file never leaves your device.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related tools</h2>
+        <div class="related-tools">
+          <a href="/gif-editor/" class="related-tool-link">GIF Editor</a>
+          <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+          <a href="/photo-converter/png-to-webp/" class="related-tool-link">PNG to WebP</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  {% include 'partials/footer.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+
+  var currentFile = null;
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function showFile(file) {
+    if (!file.type.match(/image\/gif/) && !file.name.match(/\.gif$/i)) {
+      alert('Please select a GIF image.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '30%';
+
+    // Use createImageBitmap to decode first frame of GIF
+    createImageBitmap(currentFile).then(function(bitmap) {
+      fill.style.width = '70%';
+      var canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      canvas.toBlob(function(blob) {
+        fill.style.width = '100%';
+        var outUrl = URL.createObjectURL(blob);
+        resultImg.src = outUrl;
+        resultInfoEl.textContent = formatSize(blob.size) + ' — ' + canvas.width + ' × ' + canvas.height + ' px';
+        progressEl.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.png';
+        downloadBtn.onclick = function() {
+          var a = document.createElement('a');
+          a.href = outUrl;
+          a.download = outName;
+          a.click();
+        };
+      }, 'image/png');
+    }).catch(function() {
+      // Fallback: use Image element if createImageBitmap fails
+      var img = new Image();
+      var url = URL.createObjectURL(currentFile);
+      img.onload = function() {
+        fill.style.width = '70%';
+        var canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function(blob) {
+          fill.style.width = '100%';
+          var outUrl = URL.createObjectURL(blob);
+          resultImg.src = outUrl;
+          resultInfoEl.textContent = formatSize(blob.size) + ' — ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+          progressEl.classList.add('hidden');
+          resultEl.classList.remove('hidden');
+          var outName = currentFile.name.replace(/\.[^.]+$/, '') + '.png';
+          downloadBtn.onclick = function() {
+            var a = document.createElement('a');
+            a.href = outUrl;
+            a.download = outName;
+            a.click();
+          };
+        }, 'image/png');
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        alert('Could not load the GIF. Please try another file.');
+        progressEl.classList.add('hidden');
+      };
+      img.src = url;
+    });
+  });
+})();
+</script>
+{% endblock %}

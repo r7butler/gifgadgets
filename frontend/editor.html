@@ -4,28 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
   <title>GIF Caption Editor — Add Text to GIFs Online | GifCaption</title>
+  
   <meta name="description" content="Add captions to your GIF with frame-precise timing. Drag text anywhere, customize fonts and colors, set timing with a visual timeline, and export instantly. Free online GIF text editor." />
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#0c0c14" />
 
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/theme.js"></script>
+  
   <!-- Preconnect to CDN origins -->
   <link rel="preconnect" href="https://d3js.org" crossorigin />
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
 
-  <link rel="stylesheet" href="styles.css" />
-
-  <!-- Google AdSense (disabled until traffic increases)
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6040277278451227" crossorigin="anonymous"></script>
-  -->
-  <!-- Google tag (gtag.js) -->
+  
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-STTEFW2R1M"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-STTEFW2R1M');
-  </script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-STTEFW2R1M');
+</script>
+
 </head>
 <body class="editor-body">
 
@@ -526,6 +527,7 @@
     <button id="kf-menu-remove">Remove keyframe</button>
   </div>
 
+
   <!-- Libraries -->
   <script src="https://d3js.org/d3.v7.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/omggif@1.0.10/omggif.js" crossorigin="anonymous"></script>
@@ -541,5 +543,6 @@
   <script src="editor.js"></script>
   <script src="app.js"></script>
   <!-- <script src="cookie-consent.js"></script> -->
+
 </body>
 </html>

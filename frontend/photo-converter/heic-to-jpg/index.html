@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HEIC to JPG Converter — Free Online | GifWidgets</title>
+  
   <meta name="description" content="Convert HEIC and HEIF iPhone photos to JPG format online for free. Instant browser-based conversion using heic2any — no upload, no signup, no app required." />
   <meta name="keywords" content="heic to jpg, heic to jpeg converter, convert iphone photos to jpg, heic jpg online free, heif to jpg" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#f59e0b" />
   <link rel="canonical" href="https://gifwidgets.com/photo-converter/heic-to-jpg/" />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
@@ -23,12 +23,14 @@
   <meta name="twitter:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
   <meta name="twitter:description" content="Convert iPhone HEIC photos to JPG. Free, private, runs in your browser using heic2any." />
 
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
-
+  
   <!-- heic2any library for HEIC decoding in the browser -->
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
+  
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -76,22 +78,29 @@
   }
   </script>
 
-  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-STTEFW2R1M"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-STTEFW2R1M');</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-STTEFW2R1M');
+</script>
+
 </head>
 <body>
+
 <div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
 
   <nav class="site-nav" role="navigation" aria-label="Main navigation">
-    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
-    <div class="site-nav-links">
-      <a href="/gif-editor/">GIF Editor</a>
-      <a href="/image-editor/">Image Editor</a>
-      <a href="/trim-video/">Video Trimmer</a>
-      <a href="/photo-converter/" class="active">Photo Converters</a>
-    </div>
-  </nav>
+  <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+  <div class="site-nav-links">
+    <a href="/gif-editor/">GIF Editor</a>
+    <a href="/image-editor/">Image Editor</a>
+    <a href="/trim-video/">Video Trimmer</a>
+    <a href="/photo-converter/" class="active">Photo Converters</a>
+  </div>
+</nav>
+
 
   <header class="converter-header">
     <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
@@ -224,16 +233,23 @@
   </main>
 
   <footer class="site-footer" role="contentinfo">
-    <div class="site-footer-inner">
-      <p>© 2025 GifWidgets — Free browser-based media tools.</p>
-      <nav class="site-footer-links" aria-label="Footer navigation">
-        <a href="/">All Tools</a>
-        <a href="/photo-converter/">Photo Converters</a>
-      </nav>
-    </div>
-  </footer>
+  <div class="site-footer-inner">
+    <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+    <nav class="site-footer-links" aria-label="Footer navigation">
+      <a href="/">All Tools</a>
+      <a href="/gif-editor/">GIF Editor</a>
+      <a href="/image-editor/">Image Editor</a>
+      <a href="/trim-video/">Video Trimmer</a>
+      <a href="/video-to-gif/">Video to GIF</a>
+      <a href="/photo-converter/">Photo Converters</a>
+    </nav>
+  </div>
+</footer>
+
 
 </div>
+
+
 <script>
 (function() {
   var dropZone = document.getElementById('drop-zone');
@@ -366,5 +382,6 @@
   });
 })();
 </script>
+
 </body>
 </html>

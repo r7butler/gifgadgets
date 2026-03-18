@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% set active_nav = "photo-converter" %}
+
+{% block title %}SVG to PNG Converter — Free Online | GifWidgets{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Convert SVG vector files to PNG images online for free. Choose 1x, 2x, or 4x scale for high-resolution output. Instant, browser-based, no upload required." />
+  <meta name="keywords" content="svg to png, convert svg to png online free, rasterize svg, svg png converter, svg to png export" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="canonical" href="https://gifwidgets.com/photo-converter/svg-to-png/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SVG to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:description" content="Rasterize SVG vector files to PNG at 1x, 2x, or 4x scale. Free, instant, runs entirely in your browser." />
+  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:url" content="https://gifwidgets.com/photo-converter/svg-to-png/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SVG to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:description" content="Convert SVG to PNG at 1x, 2x, 4x scale. Free, private, browser-based." />
+{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SVG to PNG Converter",
+    "url": "https://gifwidgets.com/photo-converter/svg-to-png/",
+    "description": "Free browser-based tool to convert SVG vector files to PNG images at selectable scale (1x, 2x, 4x). No file upload required.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "featureList": ["Client-side conversion", "1x / 2x / 4x scale output", "Transparency preserved", "No file upload", "Free forever"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What scale should I use for SVG to PNG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Use 1x for normal screen use, 2x for Retina/HiDPI displays or when you need a larger image, and 4x for print or very high resolution output."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does the PNG preserve SVG transparency?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes. PNG supports alpha transparency, so any transparent or semi-transparent areas in your SVG will be preserved in the PNG output."}
+      },
+      {
+        "@type": "Question",
+        "name": "Why does my SVG look different in the PNG?",
+        "acceptedAnswer": {"@type": "Answer", "text": "The browser renders the SVG to a canvas at the specified scale. SVGs that use external fonts or resources not embedded in the file may render differently from the original design."}
+      },
+      {
+        "@type": "Question",
+        "name": "What if my SVG has no explicit width or height?",
+        "acceptedAnswer": {"@type": "Answer", "text": "The converter reads the SVG's viewBox attribute to determine dimensions. If the SVG has neither a width/height nor a viewBox, a default size of 800×600 px is used."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is my SVG file uploaded to a server?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The SVG is loaded as a blob URL and rendered locally in the browser's canvas. Your file never leaves your device."}
+      }
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<div class="converter-app" style="--conv-color:var(--cat-photo-conv);--conv-color-dim:var(--cat-photo-conv-dim)">
+
+  {% include 'partials/nav.html' %}
+
+  <header class="converter-header">
+    <a href="/" class="site-logo">Gif<span class="logo-accent">Widgets</span></a>
+    <span class="converter-title">SVG to PNG Converter</span>
+    <div></div>
+  </header>
+
+  <main class="converter-main">
+
+    <div class="conv-drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drop an SVG file here or click to browse">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+      <h2>Drop an SVG file here</h2>
+      <p>or click to browse</p>
+      <p class="conv-hint">Accepts .svg files</p>
+      <input type="file" id="file-input" accept="image/svg+xml,.svg" hidden />
+    </div>
+
+    <div class="conv-file-info hidden" id="file-info">
+      <span class="conv-file-name" id="file-name"></span>
+      <span class="conv-file-size" id="file-size"></span>
+      <button class="conv-file-clear" id="file-clear" title="Remove file" aria-label="Remove file">&times;</button>
+    </div>
+
+    <div class="conv-controls">
+      <div class="conv-options">
+        <div class="conv-option-row">
+          <label for="scale-select">Output Scale</label>
+          <select id="scale-select">
+            <option value="1">1× — Original size</option>
+            <option value="2" selected>2× — Retina / HiDPI</option>
+            <option value="4">4× — High resolution / print</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="conv-convert-btn" id="btn-convert" disabled>Convert to PNG</button>
+
+    <div class="conv-progress hidden" id="conv-progress">
+      <div class="conv-progress-label">Rendering SVG…</div>
+      <div class="conv-progress-bar"><div class="conv-progress-fill"></div></div>
+    </div>
+
+    <div class="conv-result hidden" id="conv-result">
+      <img class="conv-result-preview" id="result-img" alt="Converted PNG image" />
+      <p class="conv-result-info" id="result-info"></p>
+      <button class="conv-download-btn" id="btn-download">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PNG
+      </button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
+
+    <section style="--hero-color:var(--cat-photo-conv)">
+      <div class="tool-features" style="margin-bottom:2rem">
+        <div class="tool-feature">
+          <h3>Scale Control</h3>
+          <p>Export at 1x for standard screens, 2x for Retina displays, or 4x for print-ready resolution.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Transparency Preserved</h3>
+          <p>SVG transparency is carried through to the PNG output — no unwanted white backgrounds.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>Icons &amp; Logos</h3>
+          <p>Perfect for rasterizing icon sets, logos, and illustrations for use in apps or documents.</p>
+        </div>
+        <div class="tool-feature">
+          <h3>No Server, No Signup</h3>
+          <p>The SVG is rendered locally in your browser canvas. Nothing is uploaded or stored.</p>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h2>How to convert SVG to PNG</h2>
+        <ol class="tool-steps">
+          <li class="tool-step">
+            <div class="tool-step-num">1</div>
+            <div class="tool-step-body"><h3>Drop your SVG file</h3><p>Drag a .svg file onto the drop zone or click to open the file picker.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">2</div>
+            <div class="tool-step-body"><h3>Choose a scale</h3><p>Select 1x for normal use, 2x for Retina displays, or 4x for high-resolution/print output.</p></div>
+          </li>
+          <li class="tool-step">
+            <div class="tool-step-num">3</div>
+            <div class="tool-step-body"><h3>Convert and download</h3><p>Click "Convert to PNG" and download the rasterized image. The output PNG dimensions are shown in the preview.</p></div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="tool-section">
+        <h2>Frequently asked questions</h2>
+        <dl class="tool-faq">
+          <div class="tool-faq-item">
+            <dt>What scale should I choose?</dt>
+            <dd>Use 1x for normal screen use, 2x for Retina/HiDPI displays or moderate enlargement, and 4x for print or very high resolution output.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is SVG transparency preserved in the PNG?</dt>
+            <dd>Yes. PNG supports alpha transparency, so transparent areas in your SVG remain transparent in the output.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Why does my SVG look different as a PNG?</dt>
+            <dd>The browser renders the SVG using its built-in engine. SVGs referencing external fonts not embedded in the file may render with fallback fonts. Self-contained SVGs render accurately.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>What if my SVG has no width or height?</dt>
+            <dd>The converter reads the SVG's viewBox attribute. If neither width/height nor viewBox are present, a default of 800x600 px is used.</dd>
+          </div>
+          <div class="tool-faq-item">
+            <dt>Is my SVG uploaded to a server?</dt>
+            <dd>No. The SVG is loaded as a local blob URL and rendered directly in the browser canvas. Your file never leaves your device.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="tool-section">
+        <h2>Related converters</h2>
+        <div class="related-tools">
+          <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
+          <a href="/photo-converter/png-to-webp/" class="related-tool-link">PNG to WebP</a>
+          <a href="/photo-converter/gif-to-png/" class="related-tool-link">GIF to PNG</a>
+          <a href="/photo-converter/" class="related-tool-link">All Photo Converters</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  {% include 'partials/footer.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var fileInfo = document.getElementById('file-info');
+  var convertBtn = document.getElementById('btn-convert');
+  var progressEl = document.getElementById('conv-progress');
+  var resultEl = document.getElementById('conv-result');
+  var resultImg = document.getElementById('result-img');
+  var resultInfoEl = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('btn-download');
+  var scaleSelect = document.getElementById('scale-select');
+
+  var currentFile = null;
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function showFile(file) {
+    if (!file.type.match(/image\/svg/) && !file.name.match(/\.svg$/i)) {
+      alert('Please select an SVG file.');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatSize(file.size);
+    fileInfo.classList.remove('hidden');
+    convertBtn.disabled = false;
+    resultEl.classList.add('hidden');
+  }
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) showFile(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+  dropZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', function() { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  document.getElementById('file-clear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.classList.add('hidden');
+    convertBtn.disabled = true;
+    resultEl.classList.add('hidden');
+  });
+
+  function getSvgDimensions(svgText) {
+    // Parse width/height attributes and viewBox from SVG text
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(svgText, 'image/svg+xml');
+    var svgEl = doc.documentElement;
+    var w = parseFloat(svgEl.getAttribute('width')) || 0;
+    var h = parseFloat(svgEl.getAttribute('height')) || 0;
+    if (!w || !h) {
+      var vb = svgEl.getAttribute('viewBox');
+      if (vb) {
+        var parts = vb.trim().split(/[\s,]+/);
+        if (parts.length === 4) {
+          w = parseFloat(parts[2]) || 800;
+          h = parseFloat(parts[3]) || 600;
+        }
+      }
+    }
+    if (!w) w = 800;
+    if (!h) h = 600;
+    return { width: w, height: h };
+  }
+
+  convertBtn.addEventListener('click', function() {
+    if (!currentFile) return;
+    var scale = parseInt(scaleSelect.value, 10) || 1;
+    progressEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    var fill = document.querySelector('.conv-progress-fill');
+    fill.style.width = '20%';
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var svgText = e.target.result;
+      var dims = getSvgDimensions(svgText);
+      fill.style.width = '40%';
+
+      var img = new Image();
+      var svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      var url = URL.createObjectURL(svgBlob);
+
+      img.onload = function() {
+        fill.style.width = '70%';
+        var canvasW = Math.round(dims.width * scale);
+        var canvasH = Math.round(dims.height * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function(blob) {
+          fill.style.width = '100%';
+          var outUrl = URL.createObjectURL(blob);
+          resultImg.src = outUrl;
+          resultInfoEl.textContent = formatSize(blob.size) + ' — ' + canvasW + ' × ' + canvasH + ' px (' + scale + 'x)';
+          progressEl.classList.add('hidden');
+          resultEl.classList.remove('hidden');
+          var outName = currentFile.name.replace(/\.[^.]+$/, '') + '@' + scale + 'x.png';
+          downloadBtn.onclick = function() {
+            var a = document.createElement('a');
+            a.href = outUrl;
+            a.download = outName;
+            a.click();
+          };
+        }, 'image/png');
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        alert('Could not render the SVG. Make sure the file is a valid, self-contained SVG.');
+        progressEl.classList.add('hidden');
+      };
+      img.src = url;
+    };
+    reader.onerror = function() {
+      alert('Could not read the file. Please try again.');
+      progressEl.classList.add('hidden');
+    };
+    reader.readAsText(currentFile);
+  });
+})();
+</script>
+{% endblock %}

@@ -33,6 +33,11 @@ echo "==> API URL: $LAMBDA_URL"
 SITE_BUCKET=$(cd "$TF_DIR" && terraform output -raw site_bucket_name)
 echo "==> Site bucket: $SITE_BUCKET"
 
+# Build HTML from Jinja2 templates
+echo "==> Building HTML from templates..."
+docker build -f "$PROJECT_DIR/Dockerfile.build" -t gifwidgets-build "$PROJECT_DIR"
+docker run --rm -v "$PROJECT_DIR:/app" gifwidgets-build
+
 # Inject API_BASE_URL into app.js (in-place via temp copy)
 echo "==> Injecting API_BASE_URL into app.js..."
 sed -i.bak "s|const API_BASE_URL = \".*\"|const API_BASE_URL = \"${LAMBDA_URL}\"|" "$FRONTEND_DIR/app.js"
