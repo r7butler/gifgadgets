@@ -200,6 +200,18 @@
   </div>
 </div>
 
+<!-- Share consent modal -->
+<div id="share-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Share confirmation">
+  <div class="modal modal-sm">
+    <h2 class="modal-title">Create a share link?</h2>
+    <p class="modal-body-text">This will upload your video clip and create a public link. The clip will remain publicly accessible on the internet indefinitely.</p>
+    <div class="modal-actions">
+      <button id="share-consent-no" class="btn btn-ghost">Cancel</button>
+      <button id="share-consent-yes" class="btn btn-accent">Yes, create link</button>
+    </div>
+  </div>
+</div>
+
 <!-- Share format picker modal -->
 <div id="share-format-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Choose share format">
   <div class="modal ve-export-modal">
@@ -296,6 +308,7 @@
   var exportMp4Copy = document.getElementById('export-mp4-copy');
   var exportPreviewCanvas = document.getElementById('export-preview-canvas');
   var exportPreviewCtx = exportPreviewCanvas.getContext('2d');
+  var btnShare = document.getElementById('btn-share');
 
   var duration = 0;
   var inTime = 0;
@@ -663,8 +676,8 @@
   // ── Share ──
 
   var shareModal = document.getElementById('share-modal');
+  var shareConsentModal = document.getElementById('share-consent-modal');
   var shareFormatModal = document.getElementById('share-format-modal');
-  var btnShare = document.getElementById('btn-share');
   var shareMp4Copy = document.getElementById('share-mp4-copy');
   var lastClipBlob = null;
   var lastClipFilename = 'clip.webm';
@@ -811,7 +824,20 @@
 
   btnShare.addEventListener('click', function () {
     if (!videoFile) return;
+    shareConsentModal.classList.remove('hidden');
+  });
+
+  document.getElementById('share-consent-yes').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
     shareFormatModal.classList.remove('hidden');
+  });
+
+  document.getElementById('share-consent-no').addEventListener('click', function () {
+    shareConsentModal.classList.add('hidden');
+  });
+
+  shareConsentModal.addEventListener('click', function (e) {
+    if (e.target === shareConsentModal) shareConsentModal.classList.add('hidden');
   });
 
   document.getElementById('share-as-webm').addEventListener('click', function () {
