@@ -540,6 +540,10 @@
     if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 50 MB.'); return; }
     videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
     var url = URL.createObjectURL(file);
+    video.onerror = function () {
+      URL.revokeObjectURL(url);
+      alert('Could not load this video. The format or codec may not be supported by your browser. Try converting it to MP4 first.');
+    };
     video.src = url;
     video.onloadedmetadata = function () {
       duration = video.duration;
@@ -705,6 +709,9 @@
 
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');
+  // Prevent browser from navigating when file is dropped outside drop zone
+  document.addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.addEventListener('drop', function (e) { e.preventDefault(); });
   dropZone.addEventListener('click', function () { fileInput.click(); });
   fileInput.addEventListener('change', function () { if (fileInput.files[0]) loadVideo(fileInput.files[0]); });
   dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -914,7 +921,7 @@
         var file = get.result;
         if (!file) return;
         db.transaction('files', 'readwrite').objectStore('files').delete('pending');
-        if (file.type && file.type.startsWith('video/')) loadVideo(file);
+        if (file) loadVideo(file);
       };
     };
   })();
