@@ -76,7 +76,7 @@
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
     </div>
     <h1>Video to GIF Converter</h1>
-    <p class="tool-hero-tagline">Convert short video clips to animated GIFs online, for free. Control time range, FPS, and output size. Max 50 MB.</p>
+    <p class="tool-hero-tagline">Convert short video clips to animated GIFs online, for free. Control time range, FPS, and output size. Max 200 MB.</p>
     <a href="/video-to-gif/edit/" class="tool-hero-cta" id="upload-cta">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Upload a video to get started
@@ -136,10 +136,10 @@
 (function () {
   var cta = document.getElementById('upload-cta');
   var fileInput = document.getElementById('hero-file-input');
-  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+  var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
   function storeAndGo(file) {
     if (!file) return;
-    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 50 MB.'); return; }
+    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 200 MB.'); return; }
     var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {

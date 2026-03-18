@@ -39,7 +39,9 @@
   // ── GIF Loading ──────────────────────────────
 
   /** Load a GIF from a File object (drag-drop or file picker). */
+  var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
   GC.loadGifFromFile = function (file) {
+    if (file.size > MAX_FILE_SIZE) { GC.showError('File is too large. Please use a file under 200 MB.'); return; }
     state.gifFilename = file.name || null;
     state.originalFileSize = file.size || 0;
     GC.showLoading('Parsing GIF frames…');

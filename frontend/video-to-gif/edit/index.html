@@ -535,9 +535,9 @@
 
   // ── Load video ──
 
-  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+  var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
   function loadVideo(file) {
-    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 50 MB.'); return; }
+    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 200 MB.'); return; }
     videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
     var url = URL.createObjectURL(file);
     video.onerror = function () {
@@ -723,7 +723,7 @@
 
   // ── Share ──
 
-  var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+  var API_BASE_URL = '/api';
 
   function apiFetch(url, opts) {
     if (opts && opts.body) {
