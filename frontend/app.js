@@ -74,11 +74,15 @@ function fileToBase64(file) {
  * @param {string} [filename]  Original filename for slug generation
  * @returns {{ slug, share_url, gif_url }}
  */
-async function shareGif(blob, title, filename) {
+async function shareGif(blob, title, filename, contentType) {
   // Lambda function URLs have a 6MB payload limit.
   // Base64+JSON uses ~33% more, so: <4MB → JSON, 4-6MB → binary, >6MB → presigned S3.
+  // Non-GIF content types always use presigned S3 (binary/base64 endpoints validate GIF magic bytes).
+  if (contentType && contentType !== "image/gif") {
+    return _shareViaPresign(blob, title, filename, contentType);
+  }
   if (blob.size > 6 * 1024 * 1024) {
-    return _shareViaPresign(blob, title, filename);
+    return _shareViaPresign(blob, title, filename, contentType);
   }
   if (blob.size > 4 * 1024 * 1024) {
     return _shareViaBinary(blob, title, filename);
@@ -125,11 +129,12 @@ async function _shareViaBinary(blob, title, filename) {
   return response.json();
 }
 
-async function _shareViaPresign(blob, title, filename) {
+async function _shareViaPresign(blob, title, filename, contentType) {
+  var ct = contentType || "image/gif";
   const presignRes = await fetch(API_BASE_URL + "/share/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, filename: filename || null }),
+    body: JSON.stringify({ title, filename: filename || null, content_type: ct }),
   });
   if (!presignRes.ok) {
     const err = await presignRes.json().catch(() => ({}));
@@ -139,7 +144,7 @@ async function _shareViaPresign(blob, title, filename) {
 
   const uploadRes = await fetch(presign.upload_url, {
     method: "PUT",
-    headers: { "Content-Type": "image/gif" },
+    headers: { "Content-Type": ct },
     body: blob,
   });
   if (!uploadRes.ok) throw new Error("Upload failed");
@@ -147,7 +152,7 @@ async function _shareViaPresign(blob, title, filename) {
   const finalRes = await fetch(API_BASE_URL + "/share/finalize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slug: presign.slug, title: presign.title }),
+    body: JSON.stringify({ slug: presign.slug, title: presign.title, content_type: ct }),
   });
   if (!finalRes.ok) {
     const err = await finalRes.json().catch(() => ({}));

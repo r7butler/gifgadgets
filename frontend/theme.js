@@ -204,7 +204,8 @@
     [
       document.getElementById('btn-new'),
       document.getElementById('btn-download'),
-      document.getElementById('btn-export')
+      document.getElementById('btn-export'),
+      document.getElementById('btn-share')
     ].forEach(function (source) {
       var proxy = createActionProxy(source, true);
       if (proxy) mobileActions.appendChild(proxy);

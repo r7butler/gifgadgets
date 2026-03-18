@@ -20,12 +20,19 @@ GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
 s3 = boto3.client("s3")
 secretsmanager = boto3.client("secretsmanager")
 
-
+CONTENT_TYPE_TO_EXT = {
+    "image/gif": ".gif",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "image/webp": ".webp",
+}
 
 
 def _sanitize_slug_base(filename):
     """Turn an original filename into a safe slug base (no extension, url-safe)."""
-    base = re.sub(r"\.gif$", "", filename or "", flags=re.IGNORECASE).strip()
+    base = re.sub(r"\.(gif|png|jpe?g|mp4|webm|webp)$", "", filename or "", flags=re.IGNORECASE).strip()
     base = base.lower()
     base = re.sub(r"[^\w\s-]", "", base)
     base = re.sub(r"[\s_]+", "-", base)
@@ -33,24 +40,39 @@ def _sanitize_slug_base(filename):
     return base[:60] or "gif"
 
 
-def _build_share_page(title, gif_url, slug):
-    """Return an HTML string for a shareable GIF page with OG meta tags."""
+def _build_share_page(title, gif_url, slug, content_type="image/gif"):
+    """Return an HTML string for a shareable page with OG meta tags."""
     safe_title = title.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
     site_root = SITE_CDN_URL or ""
+    is_video = content_type.startswith("video/")
+
+    if is_video:
+        og_meta = (
+            f'<meta property="og:type" content="video.other">\n'
+            f'<meta property="og:video" content="{gif_url}">\n'
+            f'<meta property="og:video:type" content="{content_type}">'
+        )
+        media_tag = f'<video src="{gif_url}" controls autoplay muted loop playsinline style="width:100%;border-radius:8px;display:block"></video>'
+    else:
+        og_meta = (
+            f'<meta property="og:type" content="website">\n'
+            f'<meta property="og:image" content="{gif_url}">\n'
+            f'<meta property="og:image:type" content="{content_type}">\n'
+            f'<meta property="og:image:width" content="600">\n'
+            f'<meta property="og:image:height" content="600">'
+        )
+        media_tag = f'<img src="{gif_url}" alt="{safe_title}">'
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{safe_title} — GifCaption</title>
-<meta name="description" content="{safe_title} — made with GifCaption, the free online GIF caption editor.">
-<meta property="og:type" content="website">
+<title>{safe_title} — GifWidgets</title>
+<meta name="description" content="{safe_title} — made with GifWidgets, free online media tools.">
+{og_meta}
 <meta property="og:title" content="{safe_title}">
-<meta property="og:description" content="Made with GifCaption — the free GIF caption editor">
-<meta property="og:image" content="{gif_url}">
-<meta property="og:image:type" content="image/gif">
-<meta property="og:image:width" content="600">
-<meta property="og:image:height" content="600">
+<meta property="og:description" content="Made with GifWidgets — free online media tools">
 <meta property="og:url" content="{site_root}/g/{slug}.html">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{safe_title}">
@@ -61,7 +83,7 @@ def _build_share_page(title, gif_url, slug):
 body{{background:#0c0c14;color:#e4e4e7;font-family:system-ui,-apple-system,sans-serif;
 display:flex;flex-direction:column;align-items:center;min-height:100dvh;padding:1.5rem}}
 .gif-wrap{{max-width:min(600px,100%);margin:2rem auto}}
-.gif-wrap img{{width:100%;border-radius:8px;display:block}}
+.gif-wrap img,.gif-wrap video{{width:100%;border-radius:8px;display:block}}
 h1{{font-size:1.5rem;margin-top:1.5rem;text-align:center;max-width:600px}}
 .actions{{display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap;justify-content:center}}
 .btn{{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.2rem;border-radius:8px;
@@ -74,13 +96,13 @@ border:none;font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none
 </style>
 </head>
 <body>
-<div class="gif-wrap"><img src="{gif_url}" alt="{safe_title}"></div>
+<div class="gif-wrap">{media_tag}</div>
 <h1>{safe_title}</h1>
 <div class="actions">
-<a class="btn btn-primary" href="{site_root}/editor.html">Make Your Own GIF</a>
+<a class="btn btn-primary" href="{site_root}/editor.html">Make Your Own</a>
 <a class="btn btn-outline" href="{gif_url}" download>Download</a>
 </div>
-<p class="brand">Made with <a href="{site_root}/">GifCaption</a></p>
+<p class="brand">Made with <a href="{site_root}/">GifWidgets</a></p>
 </body>
 </html>"""
 
@@ -261,7 +283,7 @@ def handle_share_upload(event):
 
 
 def handle_share_presign(event):
-    """POST /share/presign — return a presigned PUT URL for direct GIF upload."""
+    """POST /share/presign — return a presigned PUT URL for direct upload."""
     try:
         body = _parse_body(event)
     except Exception:
@@ -269,18 +291,20 @@ def handle_share_presign(event):
 
     filename = body.get("filename") or None
     title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
+    content_type = body.get("content_type") or "image/gif"
 
+    ext = CONTENT_TYPE_TO_EXT.get(content_type, ".gif")
     slug_base = _sanitize_slug_base(filename)
     short_id = uuid.uuid4().hex[:8]
     slug = f"{slug_base}-captioned-{short_id}"
-    s3_key = f"share/{slug}.gif"
+    s3_key = f"share/{slug}{ext}"
 
     presigned_url = s3.generate_presigned_url(
         "put_object",
         Params={
             "Bucket": ASSETS_BUCKET,
             "Key": s3_key,
-            "ContentType": "image/gif",
+            "ContentType": content_type,
         },
         ExpiresIn=300,
     )
@@ -289,11 +313,12 @@ def handle_share_presign(event):
         "upload_url": presigned_url,
         "slug": slug,
         "title": title,
+        "content_type": content_type,
     })
 
 
 def handle_share_finalize(event):
-    """POST /share/finalize — create the share page after GIF was uploaded via presigned URL."""
+    """POST /share/finalize — create the share page after file was uploaded via presigned URL."""
     try:
         body = _parse_body(event)
     except Exception:
@@ -301,13 +326,15 @@ def handle_share_finalize(event):
 
     slug = body.get("slug")
     title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
+    content_type = body.get("content_type") or "image/gif"
     if not slug:
         return _cors_response(400, {"error": "Missing 'slug' field"})
 
-    s3_key = f"share/{slug}.gif"
-    gif_url = f"{SITE_CDN_URL}/{s3_key}"
+    ext = CONTENT_TYPE_TO_EXT.get(content_type, ".gif")
+    s3_key = f"share/{slug}{ext}"
+    media_url = f"{SITE_CDN_URL}/{s3_key}"
 
-    share_html = _build_share_page(title, gif_url, slug)
+    share_html = _build_share_page(title, media_url, slug, content_type)
     s3.put_object(
         Bucket=SITE_BUCKET,
         Key=f"g/{slug}.html",
@@ -320,7 +347,7 @@ def handle_share_finalize(event):
     return _cors_response(200, {
         "slug": slug,
         "share_url": share_url,
-        "gif_url": gif_url,
+        "gif_url": media_url,
     })
 
 
