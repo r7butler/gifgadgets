@@ -34,6 +34,8 @@ locals {
   coop_function_name     = "${var.project_slug}-add-coop-headers"
   site_oac_name          = "${var.project_slug}-site-oac"
   assets_oac_name        = "${var.project_slug}-assets-oac"
+  lambda_oac_name        = "${var.project_slug}-lambda-oac"
+  lambda_url_domain      = trimsuffix(trimprefix(aws_lambda_function_url.api.function_url, "https://"), "/")
 }
 
 # ---------- S3: Static Site Bucket ----------
@@ -218,6 +220,19 @@ resource "aws_iam_role_policy" "lambda" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = aws_secretsmanager_secret.github_pat.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ]
+        Resource = [
+          aws_dynamodb_table.jobs.arn,
+          "${aws_dynamodb_table.jobs.arn}/index/*"
+        ]
       }
     ]
   })
@@ -226,25 +241,29 @@ resource "aws_iam_role_policy" "lambda" {
 # ---------- Lambda Function ----------
 
 resource "aws_lambda_function" "api" {
-  function_name = local.lambda_function_name
-  role          = aws_iam_role.lambda.arn
-  handler       = "handler.handler"
-  runtime       = "python3.11"
-  timeout       = 120
-  memory_size   = 1024
-  layers        = [aws_lambda_layer_version.ffmpeg.arn]
+  function_name                  = local.lambda_function_name
+  role                           = aws_iam_role.lambda.arn
+  handler                        = "handler.handler"
+  runtime                        = "python3.11"
+  timeout                        = 180
+  memory_size                    = 1024
+  layers                         = [aws_lambda_layer_version.ffmpeg.arn]
 
   filename         = "${path.module}/lambda.zip"
   source_code_hash = filebase64sha256("${path.module}/lambda.zip")
 
   environment {
     variables = {
-      ASSETS_BUCKET     = aws_s3_bucket.assets.id
-      SITE_BUCKET       = aws_s3_bucket.site.id
-      ASSETS_CDN_URL    = "https://${local.assets_domain_name}"
-      SITE_CDN_URL      = "https://${local.root_domain_name}"
-      GITHUB_SECRET_ARN = aws_secretsmanager_secret.github_pat.arn
-      GITHUB_REPO       = var.github_repo
+      ASSETS_BUCKET       = aws_s3_bucket.assets.id
+      SITE_BUCKET         = aws_s3_bucket.site.id
+      ASSETS_CDN_URL      = "https://${local.assets_domain_name}"
+      SITE_CDN_URL        = "https://${local.root_domain_name}"
+      GITHUB_SECRET_ARN   = aws_secretsmanager_secret.github_pat.arn
+      GITHUB_REPO         = var.github_repo
+      JOBS_TABLE          = aws_dynamodb_table.jobs.name
+      FEATURES_DISABLED   = ""
+      MODAL_TRACKER_URL   = var.modal_tracker_url
+      MODAL_CONVERTER_URL = var.modal_converter_url
     }
   }
 }
@@ -259,34 +278,54 @@ resource "aws_lambda_layer_version" "ffmpeg" {
   description         = "Static ffmpeg binary for video conversion"
 }
 
-# ---------- Lambda Function URL ----------
+# ---------- DynamoDB: Jobs Table ----------
 
-resource "aws_lambda_function_url" "api" {
-  function_name      = aws_lambda_function.api.function_name
-  authorization_type = "NONE"
+resource "aws_dynamodb_table" "jobs" {
+  name         = "${var.project_slug}-jobs"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "job_id"
 
-  cors {
-    allow_origins = ["*"]
-    allow_methods = ["GET", "POST"]
-    allow_headers = ["Content-Type", "X-Title", "X-Filename"]
-    max_age       = 3600
+  attribute {
+    name = "job_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "ip_hash"
+    type = "S"
+  }
+
+  attribute {
+    name = "created_at"
+    type = "N"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  global_secondary_index {
+    name            = "ip_hash-created_at-index"
+    hash_key        = "ip_hash"
+    range_key       = "created_at"
+    projection_type = "KEYS_ONLY"
   }
 }
 
-resource "aws_lambda_permission" "function_url_public" {
-  statement_id           = "FunctionURLAllowPublicAccess"
-  action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.api.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
+# ---------- Lambda Function URL (IAM-protected, accessed via CloudFront OAC) ----------
+
+resource "aws_lambda_function_url" "api" {
+  function_name      = aws_lambda_function.api.function_name
+  authorization_type = "AWS_IAM"
 }
 
-# Since Oct 2025, function URLs also require lambda:InvokeFunction
-resource "aws_lambda_permission" "function_url_invoke" {
-  statement_id  = "FunctionURLAllowPublicInvoke"
-  action        = "lambda:InvokeFunction"
+resource "aws_lambda_permission" "cloudfront" {
+  statement_id  = "AllowCloudFrontInvoke"
+  action        = "lambda:InvokeFunctionUrl"
   function_name = aws_lambda_function.api.function_name
-  principal     = "*"
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.site.arn
 }
 
 # ---------- CloudFront Function: Directory Index Rewrite ----------
@@ -329,6 +368,95 @@ resource "aws_cloudfront_function" "add_coop_headers" {
   EOF
 }
 
+# ---------- WAF ----------
+
+resource "aws_wafv2_web_acl" "api" {
+  provider = aws.us_east_1
+  name     = "${var.project_slug}-waf"
+  scope    = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "api-rate-limit"
+    priority = 1
+
+    action {
+      block {
+        custom_response {
+          response_code = 429
+        }
+      }
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 1000
+        aggregate_key_type = "IP"
+
+        scope_down_statement {
+          byte_match_statement {
+            search_string         = "/api/"
+            positional_constraint = "STARTS_WITH"
+
+            field_to_match {
+              uri_path {}
+            }
+
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = true
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_slug}-api-rate-limit"
+    }
+  }
+
+  rule {
+    name     = "aws-common-rules"
+    priority = 2
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+
+        rule_action_override {
+          name = "SizeRestrictions_BODY"
+          action_to_use {
+            count {}
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = true
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_slug}-aws-common-rules"
+    }
+  }
+
+  visibility_config {
+    sampled_requests_enabled   = true
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project_slug}-waf"
+  }
+}
+
 # ---------- CloudFront ----------
 
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -342,6 +470,14 @@ resource "aws_cloudfront_origin_access_control" "site" {
 resource "aws_cloudfront_origin_access_control" "assets" {
   name                              = local.assets_oac_name
   origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# OAC for Lambda Function URL
+resource "aws_cloudfront_origin_access_control" "lambda" {
+  name                              = local.lambda_oac_name
+  origin_access_control_origin_type = "lambda"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
@@ -512,6 +648,7 @@ resource "aws_cloudfront_distribution" "site" {
   default_root_object = "index.html"
   comment             = "${var.site_brand_name} static site"
   aliases             = [local.root_domain_name]
+  web_acl_id          = aws_wafv2_web_acl.api.arn
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
@@ -523,6 +660,32 @@ resource "aws_cloudfront_distribution" "site" {
     domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
     origin_id                = "s3-assets"
     origin_access_control_id = aws_cloudfront_origin_access_control.assets.id
+  }
+
+  origin {
+    domain_name              = local.lambda_url_domain
+    origin_id                = "lambda-api"
+    origin_access_control_id = aws_cloudfront_origin_access_control.lambda.id
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # Route /api/* to Lambda Function URL (no caching, forward everything)
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "lambda-api"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   }
 
   # Route /share/* to the assets S3 bucket (immutable shared GIFs)
@@ -584,4 +747,11 @@ resource "aws_cloudfront_distribution" "site" {
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
+}
+
+# ---------- CloudWatch ----------
+
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/${local.lambda_function_name}"
+  retention_in_days = 14
 }

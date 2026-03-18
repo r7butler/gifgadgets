@@ -5,10 +5,15 @@ import subprocess
 import tempfile
 import uuid
 import base64
+import hashlib
+import logging
+import time
 import urllib.request
 import urllib.error
 
 import boto3
+
+# ---------- Configuration ----------
 
 ASSETS_BUCKET = os.environ["ASSETS_BUCKET"]
 SITE_BUCKET = os.environ["SITE_BUCKET"]
@@ -16,9 +21,28 @@ ASSETS_CDN_URL = os.environ.get("ASSETS_CDN_URL", "").rstrip("/")
 SITE_CDN_URL = os.environ.get("SITE_CDN_URL", "").rstrip("/")
 GITHUB_SECRET_ARN = os.environ.get("GITHUB_SECRET_ARN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
+JOBS_TABLE = os.environ.get("JOBS_TABLE", "")
+FEATURES_DISABLED = set(filter(None, os.environ.get("FEATURES_DISABLED", "").split(",")))
+MODAL_TRACKER_URL = os.environ.get("MODAL_TRACKER_URL", "")
+MODAL_CONVERTER_URL = os.environ.get("MODAL_CONVERTER_URL", "")
 
 s3 = boto3.client("s3")
 secretsmanager = boto3.client("secretsmanager")
+dynamodb = boto3.resource("dynamodb")
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Lazy-init DynamoDB table reference
+_jobs_table = None
+
+
+def _get_jobs_table():
+    global _jobs_table
+    if _jobs_table is None and JOBS_TABLE:
+        _jobs_table = dynamodb.Table(JOBS_TABLE)
+    return _jobs_table
+
 
 CONTENT_TYPE_TO_EXT = {
     "image/gif": ".gif",
@@ -107,10 +131,90 @@ border:none;font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none
 </html>"""
 
 
+# ---------- Helpers ----------
+
+
+def _get_client_ip(event):
+    """Extract client IP, handling CloudFront X-Forwarded-For."""
+    xff = event.get("headers", {}).get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return event.get("requestContext", {}).get("http", {}).get("sourceIp", "unknown")
+
+
+def _check_quota(event, limit=20, window=3600):
+    """Check per-IP rate quota via DynamoDB. Returns (allowed, ip_hash)."""
+    table = _get_jobs_table()
+    if not table:
+        return True, ""
+    ip = _get_client_ip(event)
+    ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
+    cutoff = int(time.time()) - window
+    try:
+        resp = table.query(
+            IndexName="ip_hash-created_at-index",
+            KeyConditionExpression="ip_hash = :h AND created_at > :c",
+            ExpressionAttributeValues={":h": ip_hash, ":c": cutoff},
+            Select="COUNT",
+        )
+        if resp["Count"] >= limit:
+            return False, ip_hash
+    except Exception:
+        pass  # If DynamoDB fails, allow the request
+    return True, ip_hash
+
+
+def _record_job(job_id, job_type, ip_hash):
+    """Record a job in DynamoDB for quota tracking."""
+    table = _get_jobs_table()
+    if not table:
+        return
+    now = int(time.time())
+    try:
+        table.put_item(Item={
+            "job_id": job_id,
+            "job_type": job_type,
+            "ip_hash": ip_hash,
+            "created_at": now,
+            "ttl": now + 3600,
+        })
+    except Exception:
+        pass
+
+
+def _parse_body(event):
+    """Parse JSON body, handling base64-encoded payloads."""
+    body = event.get("body", "")
+    if event.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode("utf-8")
+    return json.loads(body)
+
+
+def _cors_response(status_code, body):
+    """Return a JSON response with CORS headers."""
+    return {
+        "statusCode": status_code,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, X-Title, X-Filename",
+        },
+        "body": json.dumps(body),
+    }
+
+
+# ---------- Router ----------
+
+
 def handler(event, context):
     """Main Lambda handler — routes requests based on method and path."""
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     path = event.get("rawPath", "")
+
+    # Strip /api prefix (CloudFront routes /api/* to this Lambda)
+    if path.startswith("/api"):
+        path = path[4:]
 
     if method == "POST" and path == "/upload":
         return handle_upload(event)
@@ -128,10 +232,17 @@ def handler(event, context):
         return handle_presign_upload(event)
     elif method == "POST" and path == "/convert-to-mp4":
         return handle_convert_to_mp4(event)
+    elif method == "POST" and path == "/track/submit":
+        return handle_track_submit(event)
+    elif method == "POST" and path == "/track/warmup":
+        return handle_track_warmup(event)
     elif method == "OPTIONS":
         return _cors_response(200, {})
     else:
         return _cors_response(404, {"error": "Not found"})
+
+
+# ---------- Existing Handlers ----------
 
 
 def handle_upload(event):
@@ -153,14 +264,15 @@ def handle_upload(event):
     except Exception:
         return _cors_response(400, {"error": "Invalid base64 data"})
 
-    # Validate that the data looks like a GIF (magic bytes: GIF87a or GIF89a)
+    if len(gif_bytes) > 15 * 1024 * 1024:
+        return _cors_response(400, {"error": "GIF too large (max 15 MB)"})
+
     if not gif_bytes[:3] == b"GIF":
         return _cors_response(400, {"error": "Uploaded file does not appear to be a GIF"})
 
     gif_id = str(uuid.uuid4())
     s3_key = f"gifs/{gif_id}.gif"
 
-    # Upload to S3
     s3.put_object(
         Bucket=ASSETS_BUCKET,
         Key=s3_key,
@@ -202,11 +314,9 @@ def handle_share(event):
     if gif_bytes[:3] != b"GIF":
         return _cors_response(400, {"error": "Uploaded file does not appear to be a GIF"})
 
-    # Limit file size to 15 MB
     if len(gif_bytes) > 15 * 1024 * 1024:
         return _cors_response(400, {"error": "GIF too large (max 15 MB)"})
 
-    # Upload captioned GIF to assets bucket
     s3_key = f"share/{slug}.gif"
     s3.put_object(
         Bucket=ASSETS_BUCKET,
@@ -217,7 +327,6 @@ def handle_share(event):
     )
     gif_url = f"{SITE_CDN_URL}/{s3_key}"
 
-    # Generate share page HTML and upload to site bucket
     share_html = _build_share_page(title, gif_url, slug)
     s3.put_object(
         Bucket=SITE_BUCKET,
@@ -351,8 +460,33 @@ def handle_share_finalize(event):
     })
 
 
+def _get_recent_jobs(ip_hash, limit=10):
+    """Fetch recent job IDs for an IP hash from DynamoDB."""
+    table = _get_jobs_table()
+    if not table or not ip_hash:
+        return []
+    try:
+        cutoff = int(time.time()) - 3600
+        resp = table.query(
+            IndexName="ip_hash-created_at-index",
+            KeyConditionExpression="ip_hash = :h AND created_at > :c",
+            ExpressionAttributeValues={":h": ip_hash, ":c": cutoff},
+            ScanIndexForward=False,
+            Limit=limit,
+        )
+        # GSI is KEYS_ONLY, so we only get job_id and ip_hash/created_at
+        return [item["job_id"] for item in resp.get("Items", [])]
+    except Exception:
+        return []
+
+
 def handle_report_issue(event):
     """Handle POST /report-issue — post a GitHub issue using the stored PAT."""
+    # Rate limit: max 3 issues per IP per hour
+    allowed, ip_hash = _check_quota(event, limit=3, window=3600)
+    if not allowed:
+        return _cors_response(429, {"error": "Too many reports. Please try again later."})
+
     try:
         body = event.get("body", "")
         if event.get("isBase64Encoded"):
@@ -366,6 +500,19 @@ def handle_report_issue(event):
 
     if not title:
         return _cors_response(400, {"error": "Missing 'title' field"})
+
+    # Enrich issue body with server-side context
+    client_ip = _get_client_ip(event)
+    recent_jobs = _get_recent_jobs(ip_hash)
+    context_lines = [
+        "",
+        "---",
+        f"**Client IP:** `{client_ip}`",
+        f"**IP Hash:** `{ip_hash}`",
+    ]
+    if recent_jobs:
+        context_lines.append(f"**Recent Job IDs:** {', '.join(f'`{j}`' for j in recent_jobs)}")
+    body_text += "\n".join(context_lines)
 
     try:
         secret = secretsmanager.get_secret_value(SecretId=GITHUB_SECRET_ARN)
@@ -395,16 +542,17 @@ def handle_report_issue(event):
         return _cors_response(500, {"error": "Failed to create issue"})
 
 
-def _parse_body(event):
-    """Parse JSON body, handling base64-encoded payloads."""
-    body = event.get("body", "")
-    if event.get("isBase64Encoded"):
-        body = base64.b64decode(body).decode("utf-8")
-    return json.loads(body)
-
-
 def handle_presign_upload(event):
     """POST /convert/presign-upload — return a presigned PUT URL for video upload."""
+    # Kill switch
+    if "trim" in FEATURES_DISABLED:
+        return _cors_response(503, {"error": "Video processing is temporarily disabled"})
+
+    # Quota check (gates access to the entire trim pipeline)
+    allowed, ip_hash = _check_quota(event, limit=20, window=3600)
+    if not allowed:
+        return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
+
     try:
         body = _parse_body(event)
     except Exception:
@@ -412,7 +560,6 @@ def handle_presign_upload(event):
 
     content_type = body.get("content_type") or "video/webm"
     job_id = uuid.uuid4().hex[:12]
-    # Keep .webm key for backward compat — ffmpeg detects format from contents
     s3_key = f"convert/{job_id}/input.webm"
 
     presigned_url = s3.generate_presigned_url(
@@ -424,6 +571,15 @@ def handle_presign_upload(event):
         },
         ExpiresIn=300,
     )
+
+    _record_job(job_id, "trim", ip_hash)
+
+    logger.info(json.dumps({
+        "event": "presign_upload",
+        "job_id": job_id,
+        "ip_hash": ip_hash,
+        "content_type": content_type,
+    }))
 
     return _cors_response(200, {
         "upload_url": presigned_url,
@@ -476,7 +632,6 @@ def handle_convert_to_mp4(event):
             ExtraArgs={"ContentType": "video/mp4"},
         )
 
-    # Sanitize filename for Content-Disposition
     safe_filename = re.sub(r'[^\w\s.\-]', '', filename).strip() or "converted.mp4"
     if not safe_filename.endswith(".mp4"):
         safe_filename += ".mp4"
@@ -491,7 +646,6 @@ def handle_convert_to_mp4(event):
         ExpiresIn=3600,
     )
 
-    # Clean up input file
     try:
         s3.delete_object(Bucket=ASSETS_BUCKET, Key=input_key)
     except Exception:
@@ -500,12 +654,75 @@ def handle_convert_to_mp4(event):
     return _cors_response(200, {"download_url": download_url})
 
 
-def _cors_response(status_code, body):
-    """Return a JSON response. CORS headers are handled by the Function URL config."""
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-        },
-        "body": json.dumps(body),
-    }
+# ---------- Modal Broker Endpoints ----------
+
+
+def handle_track_submit(event):
+    """Broker for Modal SAM2 tracker — proxies request through Lambda with quota check."""
+    if "track" in FEATURES_DISABLED:
+        return _cors_response(503, {"error": "Tracking is temporarily disabled"})
+
+    allowed, ip_hash = _check_quota(event, limit=20, window=3600)
+    if not allowed:
+        return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
+
+    try:
+        body = _parse_body(event)
+    except Exception:
+        return _cors_response(400, {"error": "Invalid JSON body"})
+
+    if not MODAL_TRACKER_URL:
+        return _cors_response(503, {"error": "Tracker not configured"})
+
+    job_id = uuid.uuid4().hex[:12]
+    _record_job(job_id, "track", ip_hash)
+
+    logger.info(json.dumps({
+        "event": "track_submit",
+        "job_id": job_id,
+        "ip_hash": ip_hash,
+        "frame_count": len(body.get("frames", [])),
+    }))
+
+    try:
+        url = MODAL_TRACKER_URL + "/track"
+        payload = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=110) as resp:
+            result = json.loads(resp.read())
+        return _cors_response(200, result)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")[:500]
+        logger.error(json.dumps({
+            "event": "track_error", "job_id": job_id,
+            "status": e.code, "detail": detail,
+        }))
+        return _cors_response(502, {"error": "Tracker processing failed"})
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "track_error", "job_id": job_id, "error": str(e),
+        }))
+        return _cors_response(502, {"error": "Tracker unavailable"})
+
+
+def handle_track_warmup(event):
+    """Best-effort warmup for Modal tracker — no quota check."""
+    if not MODAL_TRACKER_URL:
+        return _cors_response(200, {"ok": True})
+    try:
+        url = MODAL_TRACKER_URL + "/track"
+        payload = json.dumps({"warmup": True}).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+    return _cors_response(200, {"ok": True})

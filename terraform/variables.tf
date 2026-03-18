@@ -79,3 +79,15 @@ variable "github_pat" {
   type        = string
   sensitive   = true
 }
+
+variable "modal_tracker_url" {
+  description = "URL of the Modal tracker endpoint (SAM2 tracking)"
+  type        = string
+  default     = "https://robert-butler-dev--gifcaption-tracker-fastapi-app.modal.run"
+}
+
+variable "modal_converter_url" {
+  description = "URL of the Modal converter endpoint (video trimming/conversion)"
+  type        = string
+  default     = "https://robert-butler-dev--gifcaption-converter-converter-web.modal.run"
+}

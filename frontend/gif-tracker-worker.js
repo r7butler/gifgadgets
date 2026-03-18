@@ -14,7 +14,7 @@
  *       { type:'error', message }
  */
 
-var MODAL_ENDPOINT = 'https://robert-butler-dev--gifcaption-tracker-fastapi-app.modal.run/track';
+var MODAL_ENDPOINT = '/api/track/submit';
 
 function post(msg) { self.postMessage(msg); }
 
@@ -75,7 +75,7 @@ async function doTracking(msg) {
 
 self.onmessage = function (e) {
   if (e.data.type === 'warmup') {
-    fetch(MODAL_ENDPOINT, {
+    fetch('/api/track/warmup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ warmup: true }),

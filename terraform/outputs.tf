@@ -13,9 +13,9 @@ output "cloudfront_url" {
   value       = "https://${aws_cloudfront_distribution.site.domain_name}"
 }
 
-output "lambda_function_url" {
-  description = "Lambda Function URL (API base URL)"
-  value       = aws_lambda_function_url.api.function_url
+output "api_url" {
+  description = "API URL (routed through CloudFront at /api)"
+  value       = "https://${var.root_domain_name}/api"
 }
 
 output "assets_cdn_url" {
