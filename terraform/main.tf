@@ -404,7 +404,10 @@ resource "aws_s3_bucket_policy" "assets" {
         Resource  = "${aws_s3_bucket.assets.arn}/*"
         Condition = {
           StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn
+            "AWS:SourceArn" = [
+              aws_cloudfront_distribution.assets.arn,
+              aws_cloudfront_distribution.site.arn,
+            ]
           }
         }
       }
@@ -514,6 +517,32 @@ resource "aws_cloudfront_distribution" "site" {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_id                = "s3-site"
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  origin {
+    domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
+    origin_id                = "s3-assets"
+    origin_access_control_id = aws_cloudfront_origin_access_control.assets.id
+  }
+
+  # Route /share/* to the assets S3 bucket (immutable shared GIFs)
+  ordered_cache_behavior {
+    path_pattern           = "/share/*"
+    target_origin_id       = "s3-assets"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 86400
+    default_ttl = 31536000
+    max_ttl     = 31536000
   }
 
   default_cache_behavior {

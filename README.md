@@ -11,17 +11,17 @@ Free browser-based media tools: GIF editor with AI-powered caption tracking, ima
                   │  CloudFront  │
                   └──────┬───────┘
                          │
-              ┌──────────┴──────────┐
-              │                     │
-     ┌────────▼────────┐   ┌───────▼────────┐
-     │ S3 Static Site  │   │  Lambda (API)  │
-     │ (frontend)      │   │  Function URL  │
-     └─────────────────┘   └───────┬────────┘
-                                   │
-                            ┌──────▼─────┐
-                            │  S3 GIF    │
-                            │  Assets    │
-                            └────────────┘
+              ┌──────────┼──────────┐
+              │          │          │
+     ┌────────▼───────┐ │  ┌───────▼────────┐
+     │ S3 Static Site │ │  │  Lambda (API)  │
+     │ (frontend)     │ │  │  Function URL  │
+     └────────────────┘ │  └───────┬────────┘
+                        │          │
+                 ┌──────▼─────┐    │
+                 │  S3 GIF    │◄───┘
+                 │  Assets    │
+                 └────────────┘
 
      ┌─────────────────────────────────────────────┐
      │          Modal (Serverless GPU)              │

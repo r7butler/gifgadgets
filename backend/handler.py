@@ -185,7 +185,7 @@ def handle_share(event):
         return _cors_response(400, {"error": "GIF too large (max 15 MB)"})
 
     # Upload captioned GIF to assets bucket
-    s3_key = f"shared/{slug}.gif"
+    s3_key = f"share/{slug}.gif"
     s3.put_object(
         Bucket=ASSETS_BUCKET,
         Key=s3_key,
@@ -193,7 +193,7 @@ def handle_share(event):
         ContentType="image/gif",
         CacheControl="public, max-age=31536000, immutable",
     )
-    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+    gif_url = f"{SITE_CDN_URL}/{s3_key}"
 
     # Generate share page HTML and upload to site bucket
     share_html = _build_share_page(title, gif_url, slug)
@@ -232,7 +232,7 @@ def handle_share_upload(event):
     slug_base = _sanitize_slug_base(filename)
     short_id = uuid.uuid4().hex[:8]
     slug = f"{slug_base}-captioned-{short_id}"
-    s3_key = f"shared/{slug}.gif"
+    s3_key = f"share/{slug}.gif"
 
     s3.put_object(
         Bucket=ASSETS_BUCKET,
@@ -241,7 +241,7 @@ def handle_share_upload(event):
         ContentType="image/gif",
         CacheControl="public, max-age=31536000, immutable",
     )
-    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+    gif_url = f"{SITE_CDN_URL}/{s3_key}"
 
     share_html = _build_share_page(title, gif_url, slug)
     s3.put_object(
@@ -273,7 +273,7 @@ def handle_share_presign(event):
     slug_base = _sanitize_slug_base(filename)
     short_id = uuid.uuid4().hex[:8]
     slug = f"{slug_base}-captioned-{short_id}"
-    s3_key = f"shared/{slug}.gif"
+    s3_key = f"share/{slug}.gif"
 
     presigned_url = s3.generate_presigned_url(
         "put_object",
@@ -304,8 +304,8 @@ def handle_share_finalize(event):
     if not slug:
         return _cors_response(400, {"error": "Missing 'slug' field"})
 
-    s3_key = f"shared/{slug}.gif"
-    gif_url = f"{ASSETS_CDN_URL}/{s3_key}"
+    s3_key = f"share/{slug}.gif"
+    gif_url = f"{SITE_CDN_URL}/{s3_key}"
 
     share_html = _build_share_page(title, gif_url, slug)
     s3.put_object(
