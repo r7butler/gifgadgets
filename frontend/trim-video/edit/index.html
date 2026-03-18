@@ -409,7 +409,9 @@
     trimFill.classList.remove('dragging');
   }
 
+  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
   function loadVideo(file) {
+    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 50 MB.'); return; }
     videoFile = file;
     var url = URL.createObjectURL(file);
     video.src = url;
