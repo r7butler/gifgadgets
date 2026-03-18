@@ -97,7 +97,7 @@ class Converter:
             job_id: str
             start: float = 0.0
             end: float | None = None
-            format: str = "mp4"  # "mp4" or "webm"
+            format: str = "mp4"  # "mp4", "webm", or "gif"
 
         @web_app.post("/convert")
         async def convert(req: ConvertRequest):
@@ -199,13 +199,14 @@ class Converter:
             """Trim a video uploaded to S3 and return a presigned download URL."""
             if not re.match(r"^[a-f0-9]{12}$", req.job_id):
                 return JSONResponse({"error": "Invalid job_id"}, status_code=400)
-            if req.format not in ("mp4", "webm"):
-                return JSONResponse({"error": "Format must be mp4 or webm"}, status_code=400)
+            if req.format not in ("mp4", "webm", "gif"):
+                return JSONResponse({"error": "Format must be mp4, webm, or gif"}, status_code=400)
 
             input_key = f"convert/{req.job_id}/input.webm"
             out_ext = req.format
             output_key = f"convert/{req.job_id}/trimmed.{out_ext}"
-            content_type = "video/mp4" if out_ext == "mp4" else "video/webm"
+            content_type_map = {"mp4": "video/mp4", "webm": "video/webm", "gif": "image/gif"}
+            content_type = content_type_map[out_ext]
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 input_path = os.path.join(tmpdir, "input.webm")
@@ -226,17 +227,38 @@ class Converter:
                 if req.end is not None:
                     cmd += ["-to", str(req.end - req.start)]
 
-                if out_ext == "mp4":
+                if out_ext == "gif":
+                    # Two-pass GIF: generate palette then encode
+                    palette_path = os.path.join(tmpdir, "palette.png")
+                    palette_cmd = cmd + [
+                        "-vf", "fps=15,scale='min(480,iw)':-1:flags=lanczos,palettegen",
+                        palette_path,
+                    ]
+                    subprocess.run(palette_cmd, capture_output=True, timeout=120)
+
+                    gif_cmd = ["/opt/bin/ffmpeg", "-y"]
+                    if req.start > 0:
+                        gif_cmd += ["-ss", str(req.start)]
+                    gif_cmd += ["-i", input_path, "-i", palette_path]
+                    if req.end is not None:
+                        gif_cmd += ["-to", str(req.end - req.start)]
+                    gif_cmd += [
+                        "-lavfi", "fps=15,scale='min(480,iw)':-1:flags=lanczos[x];[x][1:v]paletteuse",
+                        "-loop", "0",
+                        output_path,
+                    ]
+                    result = subprocess.run(gif_cmd, capture_output=True, timeout=240)
+                elif out_ext == "mp4":
                     cmd += [
                         "-c:v", "h264_nvenc", "-preset", "p4",
                         "-movflags", "+faststart", "-c:a", "aac",
                     ]
+                    cmd.append(output_path)
+                    result = subprocess.run(cmd, capture_output=True, timeout=240)
                 else:
                     cmd += ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "30", "-c:a", "libopus"]
-
-                cmd.append(output_path)
-
-                result = subprocess.run(cmd, capture_output=True, timeout=240)
+                    cmd.append(output_path)
+                    result = subprocess.run(cmd, capture_output=True, timeout=240)
 
                 # Fallback to CPU for MP4 if NVENC fails
                 if result.returncode != 0 and out_ext == "mp4":
