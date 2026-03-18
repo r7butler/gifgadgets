@@ -25,6 +25,18 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
+*.ipa
+*.dSYM
+*.dSYM.zip
+DerivedData/
+**/xcuserdata/
+**/.swiftpm/
+**/.build/
+*.mlmodelc/
 
 # Logs
 *.log
@@ -38,3 +50,7 @@ frontend/*.html
 frontend/**/*.html
 
 .claude
+
+# Generated iOS model assets
+mobile/ios/GifWidgetsMobile/Resources/EdgeTAM/*.mlpackage/
+mobile/ios/GifWidgetsMobile/Resources/EdgeTAM/*.npy
