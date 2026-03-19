@@ -69,33 +69,111 @@ struct OnImageCaption: Identifiable, Hashable, Codable {
     }
 
     func interpolatedPosition(at frameIndex: Int) -> CGPoint {
-        guard !motion.isEmpty else {
-            return CGPoint(x: x, y: y)
-        }
-        let sorted = motion.sorted(by: { $0.frameIndex < $1.frameIndex })
-        if sorted.count == 1 {
-            return CGPoint(x: sorted[0].x, y: sorted[0].y)
-        }
-        if frameIndex <= sorted[0].frameIndex {
-            return CGPoint(x: sorted[0].x, y: sorted[0].y)
-        }
-        if let last = sorted.last, frameIndex >= last.frameIndex {
-            return CGPoint(x: last.x, y: last.y)
-        }
+        interpolatedPoint(from: motion, frameIndex: frameIndex, fallback: CGPoint(x: x, y: y))
+    }
 
-        for pairIndex in 0..<(sorted.count - 1) {
-            let left = sorted[pairIndex]
-            let right = sorted[pairIndex + 1]
-            if frameIndex >= left.frameIndex && frameIndex < right.frameIndex {
-                let span = CGFloat(max(right.frameIndex - left.frameIndex, 1))
-                let progress = CGFloat(frameIndex - left.frameIndex) / span
-                return CGPoint(
-                    x: left.x + ((right.x - left.x) * progress),
-                    y: left.y + ((right.y - left.y) * progress)
-                )
-            }
+    mutating func remap(after cropBox: CropBox) {
+        let remapped = cropBox.remap(point: CGPoint(x: x, y: y))
+        x = remapped.x
+        y = remapped.y
+        motion = motion.map { keyframe in
+            let point = cropBox.remap(point: CGPoint(x: keyframe.x, y: keyframe.y))
+            return MotionKeyframe(frameIndex: keyframe.frameIndex, x: point.x, y: point.y)
         }
-        return CGPoint(x: x, y: y)
+    }
+}
+
+struct ImageOverlay: Identifiable, Hashable {
+    let id: UUID
+    var name: String
+    var imageData: Data
+    var x: CGFloat
+    var y: CGFloat
+    var scale: CGFloat
+    var rotation: CGFloat
+    var opacity: CGFloat
+    var startFrame: Int
+    var endFrame: Int
+    var motion: [MotionKeyframe]
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        imageData: Data,
+        x: CGFloat,
+        y: CGFloat,
+        scale: CGFloat,
+        rotation: CGFloat = 0,
+        opacity: CGFloat = 1,
+        startFrame: Int,
+        endFrame: Int,
+        motion: [MotionKeyframe] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.imageData = imageData
+        self.x = x
+        self.y = y
+        self.scale = scale
+        self.rotation = rotation
+        self.opacity = opacity
+        self.startFrame = startFrame
+        self.endFrame = endFrame
+        self.motion = motion.sorted(by: { $0.frameIndex < $1.frameIndex })
+    }
+
+    static func make(
+        data: Data,
+        name: String,
+        mediaSize: CGSize,
+        frameCount: Int
+    ) -> ImageOverlay? {
+        guard let image = UIImage(data: data), let cgImage = image.cgImage else {
+            return nil
+        }
+        let maxDim = max(mediaSize.width, mediaSize.height)
+        let imageMax = max(CGFloat(cgImage.width), CGFloat(cgImage.height))
+        let scale = imageMax > maxDim * 0.5 ? (maxDim * 0.5) / imageMax : 1
+        return ImageOverlay(
+            name: name,
+            imageData: data,
+            x: 0.18,
+            y: 0.18,
+            scale: scale,
+            startFrame: 0,
+            endFrame: max(frameCount - 1, 0)
+        )
+    }
+
+    var image: UIImage? {
+        UIImage(data: imageData)
+    }
+
+    var cgImage: CGImage? {
+        image?.cgImage
+    }
+
+    var pixelSize: CGSize {
+        guard let cgImage else { return .zero }
+        return CGSize(width: cgImage.width, height: cgImage.height)
+    }
+
+    func isVisible(at frameIndex: Int) -> Bool {
+        frameIndex >= startFrame && frameIndex <= endFrame
+    }
+
+    func interpolatedPosition(at frameIndex: Int) -> CGPoint {
+        interpolatedPoint(from: motion, frameIndex: frameIndex, fallback: CGPoint(x: x, y: y))
+    }
+
+    mutating func remap(after cropBox: CropBox) {
+        let remapped = cropBox.remap(point: CGPoint(x: x, y: y))
+        x = remapped.x
+        y = remapped.y
+        motion = motion.map { keyframe in
+            let point = cropBox.remap(point: CGPoint(x: keyframe.x, y: keyframe.y))
+            return MotionKeyframe(frameIndex: keyframe.frameIndex, x: point.x, y: point.y)
+        }
     }
 }
 
@@ -144,6 +222,54 @@ struct LoadedMedia {
     var kind: MediaKind
 }
 
+struct CropBox: Hashable, Codable {
+    var x: CGFloat
+    var y: CGFloat
+    var width: CGFloat
+    var height: CGFloat
+
+    static let full = CropBox(x: 0, y: 0, width: 1, height: 1)
+
+    mutating func clamp(minimumSize: CGFloat = 0.08) {
+        width = width.clamped(to: minimumSize...1)
+        height = height.clamped(to: minimumSize...1)
+        x = x.clamped(to: 0...(1 - width))
+        y = y.clamped(to: 0...(1 - height))
+    }
+
+    func rect(in mediaRect: CGRect) -> CGRect {
+        CGRect(
+            x: mediaRect.minX + mediaRect.width * x,
+            y: mediaRect.minY + mediaRect.height * y,
+            width: mediaRect.width * width,
+            height: mediaRect.height * height
+        )
+    }
+
+    func pixelRect(in mediaSize: CGSize) -> CGRect {
+        let startX = Int(round(x * mediaSize.width))
+        let startY = Int(round(y * mediaSize.height))
+        let endX = Int(round((x + width) * mediaSize.width))
+        let endY = Int(round((y + height) * mediaSize.height))
+        let clampedX = max(0, min(Int(mediaSize.width) - 1, startX))
+        let clampedY = max(0, min(Int(mediaSize.height) - 1, startY))
+        let clampedEndX = max(clampedX + 1, min(Int(mediaSize.width), endX))
+        let clampedEndY = max(clampedY + 1, min(Int(mediaSize.height), endY))
+        return CGRect(
+            x: clampedX,
+            y: clampedY,
+            width: clampedEndX - clampedX,
+            height: clampedEndY - clampedY
+        )
+    }
+
+    func remap(point: CGPoint) -> CGPoint {
+        let remappedX = ((point.x - x) / max(width, 0.001)).clamped(to: 0...1)
+        let remappedY = ((point.y - y) / max(height, 0.001)).clamped(to: 0...1)
+        return CGPoint(x: remappedX, y: remappedY)
+    }
+}
+
 struct AlertItem: Identifiable {
     let id = UUID()
     let title: String
@@ -153,6 +279,13 @@ struct AlertItem: Identifiable {
 struct ShareItem: Identifiable {
     let id = UUID()
     let url: URL
+}
+
+struct WebsiteShareResult: Identifiable {
+    let id = UUID()
+    let slug: String
+    let shareURL: URL
+    let mediaURL: URL
 }
 
 enum EditorError: LocalizedError {
@@ -185,6 +318,40 @@ extension Array where Element == EditorFrame {
         }
         return sum / Double(count)
     }
+}
+
+private func interpolatedPoint(
+    from motion: [MotionKeyframe],
+    frameIndex: Int,
+    fallback: CGPoint
+) -> CGPoint {
+    guard !motion.isEmpty else {
+        return fallback
+    }
+    let sorted = motion.sorted(by: { $0.frameIndex < $1.frameIndex })
+    if sorted.count == 1 {
+        return CGPoint(x: sorted[0].x, y: sorted[0].y)
+    }
+    if frameIndex <= sorted[0].frameIndex {
+        return CGPoint(x: sorted[0].x, y: sorted[0].y)
+    }
+    if let last = sorted.last, frameIndex >= last.frameIndex {
+        return CGPoint(x: last.x, y: last.y)
+    }
+
+    for pairIndex in 0..<(sorted.count - 1) {
+        let left = sorted[pairIndex]
+        let right = sorted[pairIndex + 1]
+        if frameIndex >= left.frameIndex && frameIndex < right.frameIndex {
+            let span = CGFloat(max(right.frameIndex - left.frameIndex, 1))
+            let progress = CGFloat(frameIndex - left.frameIndex) / span
+            return CGPoint(
+                x: left.x + ((right.x - left.x) * progress),
+                y: left.y + ((right.y - left.y) * progress)
+            )
+        }
+    }
+    return fallback
 }
 
 extension CGSize {

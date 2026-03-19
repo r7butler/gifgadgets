@@ -14,6 +14,11 @@ struct CaptionTextLayout {
     let scale: CGFloat
 }
 
+struct OverlayImageLayout {
+    let rect: CGRect
+    let scale: CGFloat
+}
+
 enum CaptionRenderer {
     static func canvasSize(for mediaSize: CGSize, topBar: MemeBar, bottomBar: MemeBar) -> CGSize {
         CGSize(
@@ -109,11 +114,47 @@ enum CaptionRenderer {
         return CaptionTextLayout(rect: rect, scale: scale)
     }
 
+    static func overlayLayout(
+        for overlay: ImageOverlay,
+        mediaSize: CGSize,
+        in mediaRect: CGRect,
+        frameIndex: Int
+    ) -> OverlayImageLayout {
+        guard mediaSize.width > 0, mediaRect.width > 0, mediaRect.height > 0 else {
+            return OverlayImageLayout(rect: .zero, scale: 1)
+        }
+
+        let renderScale = mediaRect.width / mediaSize.width
+        let pixelSize = overlay.pixelSize
+        guard pixelSize.width > 0, pixelSize.height > 0 else {
+            return OverlayImageLayout(rect: .zero, scale: renderScale)
+        }
+
+        let position = overlay.interpolatedPosition(at: frameIndex).clampedUnit()
+        let center = CGPoint(
+            x: mediaRect.minX + (mediaRect.width * position.x),
+            y: mediaRect.minY + (mediaRect.height * position.y)
+        )
+        let size = CGSize(
+            width: pixelSize.width * max(overlay.scale, 0.05) * renderScale,
+            height: pixelSize.height * max(overlay.scale, 0.05) * renderScale
+        )
+        let rect = CGRect(
+            x: center.x - (size.width / 2),
+            y: center.y - (size.height / 2),
+            width: size.width,
+            height: size.height
+        )
+
+        return OverlayImageLayout(rect: rect, scale: renderScale)
+    }
+
     static func compositeImage(
         frame: EditorFrame,
         frameIndex: Int,
         mediaSize: CGSize,
         captions: [OnImageCaption],
+        overlays: [ImageOverlay],
         topBar: MemeBar,
         bottomBar: MemeBar
     ) -> CGImage? {
@@ -130,6 +171,9 @@ enum CaptionRenderer {
                 drawBar(topBar, in: CGRect(x: 0, y: 0, width: canvasSize.width, height: topHeight))
             }
             UIImage(cgImage: frame.image).draw(in: mediaRect)
+            for overlay in overlays where overlay.isVisible(at: frameIndex) {
+                drawOverlay(overlay, frameIndex: frameIndex, mediaSize: mediaSize, in: mediaRect)
+            }
             for caption in captions where caption.isVisible(at: frameIndex) {
                 drawCaption(caption, frameIndex: frameIndex, mediaSize: mediaSize, in: mediaRect)
             }
@@ -193,6 +237,35 @@ enum CaptionRenderer {
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             context: nil
         )
+    }
+
+    private static func drawOverlay(
+        _ overlay: ImageOverlay,
+        frameIndex: Int,
+        mediaSize: CGSize,
+        in mediaRect: CGRect
+    ) {
+        guard let cgImage = overlay.cgImage, let context = UIGraphicsGetCurrentContext() else {
+            return
+        }
+
+        let layout = overlayLayout(for: overlay, mediaSize: mediaSize, in: mediaRect, frameIndex: frameIndex)
+        guard layout.rect != .zero else { return }
+
+        context.saveGState()
+        context.translateBy(x: layout.rect.midX, y: layout.rect.midY)
+        context.rotate(by: overlay.rotation * (.pi / 180))
+        context.setAlpha(max(0, min(1, overlay.opacity)))
+        context.draw(
+            cgImage,
+            in: CGRect(
+                x: -(layout.rect.width / 2),
+                y: -(layout.rect.height / 2),
+                width: layout.rect.width,
+                height: layout.rect.height
+            )
+        )
+        context.restoreGState()
     }
 
     private static func attributedCaption(

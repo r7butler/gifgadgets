@@ -6,6 +6,7 @@ enum GIFExporter {
     static func export(
         media: LoadedMedia,
         captions: [OnImageCaption],
+        overlays: [ImageOverlay],
         topBar: MemeBar,
         bottomBar: MemeBar
     ) throws -> URL {
@@ -39,6 +40,7 @@ enum GIFExporter {
                 frameIndex: index,
                 mediaSize: media.mediaSize,
                 captions: captions,
+                overlays: overlays,
                 topBar: topBar,
                 bottomBar: bottomBar
             ) else {
