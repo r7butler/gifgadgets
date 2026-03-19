@@ -18,6 +18,10 @@
     .gm-sidebar { width:300px;min-width:300px;background:var(--bg-secondary);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column; }
     .gm-section { padding:12px;border-bottom:1px solid var(--border); }
     .gm-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px; }
+    .gm-section-title.collapsible { cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none; }
+    .gm-section-title.collapsible::before { content:'▾';font-size:10px;transition:transform .15s; }
+    .gm-section-title.collapsible.collapsed::before { transform:rotate(-90deg); }
+    .gm-section-body.collapsed { display:none; }
     .gm-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
     .gm-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
     .gm-drop-zone:hover,.gm-drop-zone.dragover { border-color:var(--cat-gif);background:var(--cat-gif-dim); }
@@ -137,10 +141,10 @@
     <div class="gm-upload-zone" style="width:100%">
       <div class="gm-drop-zone" id="drop-zone">
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-muted);margin-bottom:1rem"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-        <h2>Drop images or GIFs here</h2>
+        <h2>Drop images, GIFs, or videos here</h2>
         <p style="color:var(--text-secondary)">or click to browse</p>
-        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Animated GIFs are split into frames. Supports JPG, PNG, WebP, GIF, BMP, HEIC.</p>
-        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif" multiple hidden />
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Animated GIFs and videos are split into frames. Supports JPG, PNG, WebP, GIF, BMP, HEIC, MP4, WebM, MOV.</p>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif,.mp4,.webm,.mov" multiple hidden />
       </div>
     </div>
   </div>
@@ -163,19 +167,21 @@
     </div>
     <div class="gm-sidebar">
       <div class="gm-section">
-        <div class="gm-section-title">Frames</div>
-        <div id="size-warning" class="gm-size-warning hidden">
-          Images have different sizes.
-          <div style="margin-top:6px">
-            <label class="gm-checkbox-row">
-              <input type="checkbox" id="chk-resize" checked />
-              Resize all to match the smallest image
-            </label>
+        <div class="gm-section-title collapsible" id="frames-toggle">Frames <span id="frames-count-badge" style="font-weight:400;color:var(--text-muted);font-size:10px"></span></div>
+        <div class="gm-section-body" id="frames-body">
+          <div id="size-warning" class="gm-size-warning hidden">
+            Images have different sizes.
+            <div style="margin-top:6px">
+              <label class="gm-checkbox-row">
+                <input type="checkbox" id="chk-resize" checked />
+                Resize all to match the smallest image
+              </label>
+            </div>
           </div>
+          <div class="gm-frame-list" id="frame-list"></div>
+          <button class="gm-add-more-btn" id="btn-add-more">+ Add more files</button>
+          <input type="file" id="add-file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif,.mp4,.webm,.mov" multiple hidden />
         </div>
-        <div class="gm-frame-list" id="frame-list"></div>
-        <button class="gm-add-more-btn" id="btn-add-more">+ Add more files</button>
-        <input type="file" id="add-file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif" multiple hidden />
       </div>
       <div class="gm-section">
         <div class="gm-section-title">Settings</div>
@@ -328,6 +334,7 @@
   var btnShare = document.getElementById('btn-share');
 
   // ── State ──
+  var MAX_FRAMES = 500;
   var frames = []; // { img: HTMLImageElement, name: string, width: number, height: number, delay: number }
   var previewFrames = []; // built from frames + crossfade; each { type:'source'|'crossfade', sourceIndex, img?, alphaA?, imgA?, imgB? }
   var currentPreviewFrame = 0;
@@ -388,6 +395,11 @@
     return (file.name || '').toLowerCase().endsWith('.gif');
   }
 
+  function isVideo(file) {
+    if (file.type && file.type.startsWith('video/')) return true;
+    return /\.(mp4|webm|mov|avi|mkv)$/i.test((file.name || ''));
+  }
+
   function loadImageFile(file) {
     var fileToLoad = isHeic(file)
       ? heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 }).then(function (result) {
@@ -409,7 +421,7 @@
     });
   }
 
-  function loadGifFile(file) {
+  function loadGifFile(file, maxFrames) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
       reader.onload = function () {
@@ -447,8 +459,9 @@
 
           var extractedFrames = [];
           var pendingImages = 0;
+          var framesToExtract = maxFrames ? Math.min(numFrames, maxFrames) : numFrames;
 
-          for (var i = 0; i < numFrames; i++) {
+          for (var i = 0; i < framesToExtract; i++) {
             var frameInfo = gif.frameInfo(i);
             var delay = frameInfo.delay * 10; // centiseconds → ms
             if (delay < 20) delay = 100;
@@ -511,40 +524,152 @@
     });
   }
 
+  function loadVideoFile(file, maxFrames) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var video = document.createElement('video');
+      video.muted = true;
+      video.preload = 'auto';
+      video.playsInline = true;
+
+      video.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('Could not load video'));
+      };
+
+      video.onloadedmetadata = function () {
+        var duration = video.duration;
+        if (!duration || !isFinite(duration)) {
+          URL.revokeObjectURL(url);
+          reject(new Error('Could not determine video duration'));
+          return;
+        }
+
+        // Extract at ~10fps, capped by maxFrames
+        var targetFps = 10;
+        var totalFrames = Math.min(maxFrames || MAX_FRAMES, Math.floor(duration * targetFps));
+        if (totalFrames < 1) totalFrames = 1;
+        var interval = duration / totalFrames;
+        var delay = Math.round(interval * 1000);
+
+        var times = [];
+        for (var t = 0; t < duration && times.length < totalFrames; t += interval) {
+          times.push(t);
+        }
+
+        var captureCanvas = document.createElement('canvas');
+        var captureCtx = captureCanvas.getContext('2d');
+        var extractedFrames = [];
+        var frameIndex = 0;
+        var pendingImages = 0;
+        var seeksDone = false;
+
+        function maybeResolve() {
+          if (seeksDone && pendingImages === 0) {
+            URL.revokeObjectURL(url);
+            resolve(extractedFrames);
+          }
+        }
+
+        function extractNext() {
+          if (frameIndex >= times.length) {
+            seeksDone = true;
+            maybeResolve();
+            return;
+          }
+          video.currentTime = times[frameIndex];
+        }
+
+        video.onseeked = function () {
+          if (frameIndex === 0) {
+            captureCanvas.width = video.videoWidth;
+            captureCanvas.height = video.videoHeight;
+          }
+          captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+
+          // Snapshot to a separate canvas so toBlob can run while we continue
+          var outCanvas = document.createElement('canvas');
+          outCanvas.width = captureCanvas.width;
+          outCanvas.height = captureCanvas.height;
+          outCanvas.getContext('2d').drawImage(captureCanvas, 0, 0);
+
+          var img = new Image();
+          var frameObj = { img: img, name: file.name + ' #' + (frameIndex + 1), width: captureCanvas.width, height: captureCanvas.height, delay: delay };
+          extractedFrames.push(frameObj);
+          pendingImages++;
+
+          (function (fImg, fCanvas) {
+            fImg.onload = function () { pendingImages--; maybeResolve(); };
+            fImg.onerror = function () { pendingImages--; maybeResolve(); };
+            fCanvas.toBlob(function (blob) {
+              fImg.src = URL.createObjectURL(blob);
+            }, 'image/jpeg', 0.92);
+          })(img, outCanvas);
+
+          frameIndex++;
+          extractNext();
+        };
+
+        extractNext();
+      };
+
+      video.src = url;
+    });
+  }
+
   function addFiles(fileList) {
-    var imageFiles = [];
+    var acceptedFiles = [];
     for (var i = 0; i < fileList.length; i++) {
       var f = fileList[i];
       var isImage = (f.type && f.type.startsWith('image/')) || isHeic(f);
-      if (isImage) imageFiles.push(f);
+      if (isImage || isVideo(f)) acceptedFiles.push(f);
     }
-    if (!imageFiles.length) return;
+    if (!acceptedFiles.length) return;
+
+    if (frames.length >= MAX_FRAMES) {
+      alert('Frame limit reached (' + MAX_FRAMES + '). Remove some frames before adding more.');
+      return;
+    }
 
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
-    loadingText.textContent = 'Loading file 1 / ' + imageFiles.length + '…';
+    loadingText.textContent = 'Loading file 1 / ' + acceptedFiles.length + '…';
 
     var loaded = [];
     var idx = 0;
 
     function loadNext() {
-      if (idx >= imageFiles.length) {
+      if (idx >= acceptedFiles.length) {
         loadingOverlay.classList.add('hidden');
+        var truncated = false;
+        var remaining = MAX_FRAMES - frames.length;
+        if (loaded.length > remaining) {
+          loaded = loaded.slice(0, remaining);
+          truncated = true;
+        }
         frames = frames.concat(loaded);
         onFramesChanged();
         if (!document.getElementById('upload-screen').classList.contains('hidden')) {
           document.getElementById('upload-screen').classList.add('hidden');
           document.getElementById('editor-screen').classList.remove('hidden');
         }
+        if (truncated) {
+          alert('Frame limit reached. Only the first ' + MAX_FRAMES + ' frames were kept.');
+        }
         return;
       }
-      var pct = (idx / imageFiles.length) * 100;
+      var pct = (idx / acceptedFiles.length) * 100;
       progressFill.style.width = pct + '%';
-      var currentFile = imageFiles[idx];
-      var label = isGif(currentFile) ? ' (extracting GIF frames)…' : (isHeic(currentFile) ? ' (converting HEIC)…' : '…');
-      loadingText.textContent = 'Loading file ' + (idx + 1) + ' / ' + imageFiles.length + label;
+      var currentFile = acceptedFiles[idx];
+      var remaining = MAX_FRAMES - frames.length - loaded.length;
+      var label = isVideo(currentFile) ? ' (extracting video frames)…'
+        : isGif(currentFile) ? ' (extracting GIF frames)…'
+        : (isHeic(currentFile) ? ' (converting HEIC)…' : '…');
+      loadingText.textContent = 'Loading file ' + (idx + 1) + ' / ' + acceptedFiles.length + label;
 
-      var loader = isGif(currentFile) ? loadGifFile(currentFile) : loadImageFile(currentFile);
+      var loader = isVideo(currentFile) ? loadVideoFile(currentFile, remaining)
+        : isGif(currentFile) ? loadGifFile(currentFile, remaining)
+        : loadImageFile(currentFile);
       loader.then(function (resultFrames) {
         loaded = loaded.concat(resultFrames);
         idx++;
@@ -560,6 +685,14 @@
 
   // ── Frame list UI ──
 
+  var framesToggle = document.getElementById('frames-toggle');
+  var framesBody = document.getElementById('frames-body');
+  var framesCountBadge = document.getElementById('frames-count-badge');
+  framesToggle.addEventListener('click', function () {
+    framesToggle.classList.toggle('collapsed');
+    framesBody.classList.toggle('collapsed');
+  });
+
   function onFramesChanged() {
     cachedDims = null;
     lastActiveSourceIndex = -1;
@@ -568,6 +701,7 @@
     rebuildPreviewFrames();
     makeBtn.disabled = frames.length < 2;
     makeStatus.textContent = frames.length + ' frame' + (frames.length !== 1 ? 's' : '');
+    framesCountBadge.textContent = frames.length ? '(' + frames.length + ')' : '';
   }
 
   function checkSizeWarning() {
@@ -887,8 +1021,23 @@
 
   // ── Make GIF ──
 
+  var MAX_OUTPUT_FRAMES = 2000;
+
+  function countOutputFrames() {
+    if (!chkCrossfade.checked) return frames.length;
+    var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+    return frames.length + Math.max(0, frames.length - 1) * crossfadeCount;
+  }
+
   function startMakeGif() {
     if (frames.length < 2) return;
+
+    var outputCount = countOutputFrames();
+    if (outputCount > MAX_OUTPUT_FRAMES) {
+      var proceed = confirm('This will produce ' + outputCount + ' frames, which may be slow and create a very large file. Continue?');
+      if (!proceed) return;
+    }
+
     stopPlayback();
 
     makeBtn.disabled = true;
