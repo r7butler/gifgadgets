@@ -27,3 +27,8 @@ output "site_cloudfront_domain" {
   description = "CloudFront domain for the site custom domain"
   value       = aws_cloudfront_distribution.site.domain_name
 }
+
+output "lambda_function_name" {
+  description = "Lambda function name for backend deploys"
+  value       = aws_lambda_function.api.function_name
+}

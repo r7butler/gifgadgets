@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/playwright:v1.52.0-noble
+
+WORKDIR /app
+
+# Copy package files and install
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy test files and frontend
+COPY tests/e2e/ tests/e2e/
+COPY frontend/ frontend/
+
+# Install serve for the dev server
+RUN npx serve --version || npm install -g serve
+
+# Run Playwright tests
+ENV CI=true
+ENV BASE_URL=http://localhost:3000
+ENTRYPOINT ["sh", "-c", "npx serve frontend -l 3000 & sleep 2 && npx playwright test --config=tests/e2e/playwright.config.js --project=chromium"]

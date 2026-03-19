@@ -3,6 +3,16 @@
   "private": true,
   "scripts": {
     "build": "docker build -f Dockerfile.build -t gifwidgets-build . && docker run --rm -v \"$PWD:/app\" gifwidgets-build",
-    "dev": "npm run build && npx serve frontend"
+    "dev": "npm run build && npx serve frontend",
+    "test": "npx playwright test --config=tests/e2e/playwright.config.js",
+    "test:headed": "npx playwright test --config=tests/e2e/playwright.config.js --headed",
+    "test:backend": "docker build -f Dockerfile.test-backend -t gifwidgets-test-backend . && docker run --rm gifwidgets-test-backend",
+    "test:e2e": "docker build -f Dockerfile.test-e2e -t gifwidgets-test-e2e . && docker run --rm gifwidgets-test-e2e",
+    "test:load": "docker build -f Dockerfile.test-load -t gifwidgets-test-load . && docker run --rm gifwidgets-test-load share-api.js",
+    "test:load:homepage": "docker build -f Dockerfile.test-load -t gifwidgets-test-load . && docker run --rm gifwidgets-test-load homepage.js",
+    "test:smoke": "./scripts/smoke-test.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }

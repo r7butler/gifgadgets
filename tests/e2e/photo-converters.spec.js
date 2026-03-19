@@ -1,0 +1,59 @@
+// @ts-check
+const { test, expect } = require("@playwright/test");
+const path = require("path");
+
+const FIXTURES = path.join(__dirname, "fixtures");
+
+/**
+ * Parameterized tests for all photo converters.
+ * Each converter has the same UI pattern:
+ *   upload via #file-input → #btn-convert enables → click convert → #conv-result appears
+ */
+const converters = [
+  { name: "JPG to PNG", path: "/photo-converter/jpg-to-png/", input: "test.jpg" },
+  { name: "PNG to JPG", path: "/photo-converter/png-to-jpg/", input: "test.png" },
+  { name: "JPG to WebP", path: "/photo-converter/jpg-to-webp/", input: "test.jpg" },
+  { name: "PNG to WebP", path: "/photo-converter/png-to-webp/", input: "test.png" },
+  { name: "WebP to JPG", path: "/photo-converter/webp-to-jpg/", input: "test.webp" },
+  { name: "GIF to PNG", path: "/photo-converter/gif-to-png/", input: "test.gif" },
+  { name: "SVG to PNG", path: "/photo-converter/svg-to-png/", input: "test.svg" },
+];
+
+for (const converter of converters) {
+  test.describe(`Photo Converter: ${converter.name}`, () => {
+    test("page loads with file input", async ({ page }) => {
+      await page.goto(converter.path);
+      await expect(page.locator("#file-input")).toBeAttached();
+      await expect(page.locator(".conv-drop-zone")).toBeVisible();
+    });
+
+    test("upload enables convert button", async ({ page }) => {
+      await page.goto(converter.path);
+      const fileInput = page.locator("#file-input");
+      await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
+
+      // File info should appear and convert button should enable
+      await expect(page.locator("#file-info")).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator("#btn-convert")).toBeEnabled({ timeout: 5_000 });
+    });
+
+    test("conversion produces result with download button", async ({ page }) => {
+      await page.goto(converter.path);
+      const fileInput = page.locator("#file-input");
+      await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
+
+      // Wait for convert button to enable, then click it
+      const convertBtn = page.locator("#btn-convert");
+      await expect(convertBtn).toBeEnabled({ timeout: 10_000 });
+      await convertBtn.click();
+
+      // Wait for result section
+      const result = page.locator("#conv-result");
+      await expect(result).toBeVisible({ timeout: 20_000 });
+
+      // Download button should be present
+      const downloadBtn = page.locator("#btn-download");
+      await expect(downloadBtn).toBeVisible();
+    });
+  });
+}

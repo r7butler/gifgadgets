@@ -1,0 +1,8 @@
+FROM grafana/k6:latest
+
+WORKDIR /scripts
+
+COPY tests/load/ .
+
+ENTRYPOINT ["k6", "run"]
+CMD ["share-api.js"]
