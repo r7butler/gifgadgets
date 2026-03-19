@@ -26,6 +26,23 @@
     .gm-section-title.collapsible::before { content:'▾';font-size:10px;transition:transform .15s; }
     .gm-section-title.collapsible.collapsed::before { transform:rotate(-90deg); }
     .gm-section-body.collapsed { display:none; }
+
+    /* Frame groups */
+    .gm-group { border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden; }
+    .gm-group-header {
+      display:flex;align-items:center;gap:6px;padding:6px 8px;
+      background:var(--bg-tertiary);cursor:pointer;user-select:none;
+      transition:box-shadow .15s;
+    }
+    .gm-group-header.dragging { opacity:.4; }
+    .gm-group-header.drag-over { box-shadow:0 0 0 2px rgba(99,102,241,.3); }
+    .gm-group-toggle { font-size:10px;flex-shrink:0;transition:transform .15s;color:var(--text-muted); }
+    .gm-group-header.collapsed .gm-group-toggle { transform:rotate(-90deg); }
+    .gm-group-name { font-size:12px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0; }
+    .gm-group-count { font-size:11px;color:var(--text-muted);flex-shrink:0; }
+    .gm-group-body { padding:4px 4px 4px 16px;display:flex;flex-direction:column;gap:4px; }
+    .gm-group-body .gm-frame-item { padding:4px 6px; }
+    .gm-group-body .gm-frame-thumb { width:36px;height:36px; }
     .gm-upload-zone { flex:1;display:flex;align-items:center;justify-content:center;padding:2rem; }
     .gm-drop-zone { width:100%;max-width:500px;background:var(--bg-secondary);border:2px dashed var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s; }
     .gm-drop-zone:hover,.gm-drop-zone.dragover { border-color:var(--cat-gif);background:var(--cat-gif-dim); }
@@ -358,6 +375,9 @@
   var workerBlobUrl = null;
   var cachedDims = null;
   var lastActiveSourceIndex = -1;
+  var nextGroupId = 0;
+  var collapsedGroups = {};
+  function newGroupId() { return 'g' + (++nextGroupId); }
 
   // Preload gif.js worker
   fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
@@ -424,7 +444,7 @@
         var url = URL.createObjectURL(f);
         var img = new Image();
         img.onload = function () {
-          resolve([{ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight, delay: getDefaultDelay() }]);
+          resolve([{ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight, delay: getDefaultDelay(), groupId: newGroupId(), groupName: file.name }]);
         };
         img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
         img.src = url;
@@ -451,7 +471,7 @@
             sCtx.putImageData(sData, 0, 0);
             var sImg = new Image();
             sImg.onload = function () {
-              resolve([{ img: sImg, name: file.name, width: w, height: h, delay: getDefaultDelay() }]);
+              resolve([{ img: sImg, name: file.name, width: w, height: h, delay: getDefaultDelay(), groupId: newGroupId(), groupName: file.name }]);
             };
             sImg.onerror = reject;
             singleCanvas.toBlob(function(blob) {
@@ -468,6 +488,7 @@
           tempCanvas.width = w; tempCanvas.height = h;
           var tempCtx = tempCanvas.getContext('2d');
 
+          var gid = newGroupId();
           var extractedFrames = [];
           var pendingImages = 0;
           var framesToExtract = maxFrames ? Math.min(numFrames, maxFrames) : numFrames;
@@ -498,7 +519,7 @@
             outCanvas.getContext('2d').drawImage(compCanvas, 0, 0);
 
             var img = new Image();
-            var frameObj = { img: img, name: file.name + ' #' + (i + 1), width: w, height: h, delay: delay };
+            var frameObj = { img: img, name: file.name + ' #' + (i + 1), width: w, height: h, delay: delay, groupId: gid, groupName: file.name };
             extractedFrames.push(frameObj);
             pendingImages++;
 
@@ -549,6 +570,7 @@
       };
 
       video.onloadedmetadata = function () {
+        var gid = newGroupId();
         var duration = video.duration;
         if (!duration || !isFinite(duration)) {
           URL.revokeObjectURL(url);
@@ -605,7 +627,7 @@
           outCanvas.getContext('2d').drawImage(captureCanvas, 0, 0);
 
           var img = new Image();
-          var frameObj = { img: img, name: file.name + ' #' + (frameIndex + 1), width: captureCanvas.width, height: captureCanvas.height, delay: delay };
+          var frameObj = { img: img, name: file.name + ' #' + (frameIndex + 1), width: captureCanvas.width, height: captureCanvas.height, delay: delay, groupId: gid, groupName: file.name };
           extractedFrames.push(frameObj);
           pendingImages++;
 
@@ -725,34 +747,64 @@
     sizeWarning.classList.toggle('hidden', !mixed);
   }
 
-  function renderFrameList() {
-    frameListEl.innerHTML = '';
-    frames.forEach(function (f, i) {
-      var item = document.createElement('div');
-      item.className = 'gm-frame-item';
-      item.draggable = true;
-      item.dataset.index = i;
+  function getFrameGroups() {
+    var groups = [];
+    var current = null;
+    for (var i = 0; i < frames.length; i++) {
+      if (!current || current.groupId !== frames[i].groupId) {
+        current = { groupId: frames[i].groupId, groupName: frames[i].groupName, startIndex: i, count: 1 };
+        groups.push(current);
+      } else {
+        current.count++;
+      }
+    }
+    return groups;
+  }
 
-      var thumb = document.createElement('img');
-      thumb.className = 'gm-frame-thumb';
-      thumb.src = f.img.src;
-      thumb.alt = f.name;
+  function handleDrop(data, toIndex) {
+    var fromStart, count;
+    if (data.indexOf('group:') === 0) {
+      var parts = data.split(':');
+      fromStart = parseInt(parts[1], 10);
+      count = parseInt(parts[2], 10);
+    } else {
+      fromStart = parseInt(data, 10);
+      count = 1;
+    }
+    if (toIndex >= fromStart && toIndex < fromStart + count) return;
+    var moved = frames.splice(fromStart, count);
+    if (toIndex > fromStart) toIndex -= count;
+    for (var m = 0; m < moved.length; m++) frames.splice(toIndex + m, 0, moved[m]);
+    currentPreviewFrame = 0;
+    onFramesChanged();
+  }
 
-      var info = document.createElement('div');
-      info.className = 'gm-frame-info';
-      var nameEl = document.createElement('div');
-      nameEl.className = 'gm-frame-name';
-      nameEl.textContent = (i + 1) + '. ' + f.name;
-      var dimsEl = document.createElement('div');
-      dimsEl.className = 'gm-frame-dims';
-      dimsEl.textContent = f.width + ' × ' + f.height;
-      info.appendChild(nameEl);
-      info.appendChild(dimsEl);
+  function createFrameItem(f, i, compact) {
+    var item = document.createElement('div');
+    item.className = 'gm-frame-item';
+    item.draggable = true;
+    item.dataset.index = i;
 
-      var delayLabel = document.createElement('span');
-      delayLabel.className = 'gm-frame-delay-label';
-      delayLabel.textContent = 'ms';
+    var thumb = document.createElement('img');
+    thumb.className = 'gm-frame-thumb';
+    thumb.src = f.img.src;
+    thumb.alt = f.name;
 
+    var info = document.createElement('div');
+    info.className = 'gm-frame-info';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'gm-frame-name';
+    nameEl.textContent = (i + 1) + '. ' + f.name;
+    var dimsEl = document.createElement('div');
+    dimsEl.className = 'gm-frame-dims';
+    dimsEl.textContent = f.width + ' × ' + f.height;
+    info.appendChild(nameEl);
+    info.appendChild(dimsEl);
+
+    item.appendChild(thumb);
+    item.appendChild(info);
+
+    if (!compact) {
       var delayInput = document.createElement('input');
       delayInput.type = 'number';
       delayInput.className = 'gm-frame-delay';
@@ -769,30 +821,33 @@
           this.value = v;
         });
       })(i);
+      var delayLabel = document.createElement('span');
+      delayLabel.className = 'gm-frame-delay-label';
+      delayLabel.textContent = 'ms';
+      item.appendChild(delayInput);
+      item.appendChild(delayLabel);
+    }
 
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'gm-frame-remove';
-      removeBtn.innerHTML = '&times;';
-      removeBtn.title = 'Remove frame';
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'gm-frame-remove';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = 'Remove frame';
+    (function (frameIndex) {
       removeBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        frames.splice(i, 1);
+        frames.splice(frameIndex, 1);
         currentPreviewFrame = 0;
         onFramesChanged();
       });
+    })(i);
+    item.appendChild(removeBtn);
 
-      item.appendChild(thumb);
-      item.appendChild(info);
-      item.appendChild(delayInput);
-      item.appendChild(delayLabel);
-      item.appendChild(removeBtn);
-
-      // Click to select
+    // Click to select
+    (function (frameIndex) {
       item.addEventListener('click', function () {
         stopPlayback();
-        // Find this source frame's position in previewFrames
         for (var p = 0; p < previewFrames.length; p++) {
-          if (previewFrames[p].type === 'source' && previewFrames[p].sourceIndex === i) {
+          if (previewFrames[p].type === 'source' && previewFrames[p].sourceIndex === frameIndex) {
             currentPreviewFrame = p;
             break;
           }
@@ -800,11 +855,13 @@
         updatePreview();
         updateFrameCounter();
       });
+    })(i);
 
-      // Drag and drop reorder
+    // Drag and drop reorder
+    (function (frameIndex) {
       item.addEventListener('dragstart', function (e) {
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', i);
+        e.dataTransfer.setData('text/plain', String(frameIndex));
         item.classList.add('dragging');
       });
       item.addEventListener('dragend', function () { item.classList.remove('dragging'); });
@@ -817,16 +874,129 @@
       item.addEventListener('drop', function (e) {
         e.preventDefault();
         item.classList.remove('drag-over');
-        var fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-        var toIndex = i;
-        if (fromIndex === toIndex) return;
-        var moved = frames.splice(fromIndex, 1)[0];
-        frames.splice(toIndex, 0, moved);
-        currentPreviewFrame = 0;
-        onFramesChanged();
+        handleDrop(e.dataTransfer.getData('text/plain'), frameIndex);
       });
+    })(i);
 
-      frameListEl.appendChild(item);
+    return item;
+  }
+
+  function renderFrameList() {
+    frameListEl.innerHTML = '';
+    var groups = getFrameGroups();
+
+    groups.forEach(function (group) {
+      // Single-frame group — render as a plain frame item
+      if (group.count === 1) {
+        frameListEl.appendChild(createFrameItem(frames[group.startIndex], group.startIndex, false));
+        return;
+      }
+
+      // Multi-frame group — collapsible
+      var groupEl = document.createElement('div');
+      groupEl.className = 'gm-group';
+
+      var header = document.createElement('div');
+      header.className = 'gm-group-header';
+      header.draggable = true;
+      var isCollapsed = !!collapsedGroups[group.groupId];
+      if (isCollapsed) header.classList.add('collapsed');
+
+      var toggle = document.createElement('span');
+      toggle.className = 'gm-group-toggle';
+      toggle.textContent = '\u25BE'; // ▾
+
+      var name = document.createElement('span');
+      name.className = 'gm-group-name';
+      name.textContent = group.groupName;
+
+      var count = document.createElement('span');
+      count.className = 'gm-group-count';
+      count.textContent = '(' + group.count + ')';
+
+      var delayInput = document.createElement('input');
+      delayInput.type = 'number';
+      delayInput.className = 'gm-frame-delay';
+      delayInput.value = frames[group.startIndex].delay;
+      delayInput.min = 20;
+      delayInput.max = 10000;
+      delayInput.title = 'Set delay for all frames in group';
+      (function (start, cnt) {
+        delayInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        delayInput.addEventListener('change', function () {
+          var v = parseInt(this.value, 10);
+          if (isNaN(v) || v < 20) v = 20;
+          for (var j = start; j < start + cnt; j++) frames[j].delay = v;
+          this.value = v;
+        });
+      })(group.startIndex, group.count);
+
+      var delayLabel = document.createElement('span');
+      delayLabel.className = 'gm-frame-delay-label';
+      delayLabel.textContent = 'ms';
+
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'gm-frame-remove';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.title = 'Remove all frames in group';
+      (function (start, cnt) {
+        removeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          frames.splice(start, cnt);
+          currentPreviewFrame = 0;
+          onFramesChanged();
+        });
+      })(group.startIndex, group.count);
+
+      header.appendChild(toggle);
+      header.appendChild(name);
+      header.appendChild(count);
+      header.appendChild(delayInput);
+      header.appendChild(delayLabel);
+      header.appendChild(removeBtn);
+
+      // Toggle collapse on click
+      (function (gId) {
+        header.addEventListener('click', function () {
+          collapsedGroups[gId] = !collapsedGroups[gId];
+          renderFrameList();
+        });
+      })(group.groupId);
+
+      // Group drag and drop
+      (function (start, cnt) {
+        header.addEventListener('dragstart', function (e) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', 'group:' + start + ':' + cnt);
+          header.classList.add('dragging');
+        });
+        header.addEventListener('dragend', function () { header.classList.remove('dragging'); });
+        header.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          header.classList.add('drag-over');
+        });
+        header.addEventListener('dragleave', function () { header.classList.remove('drag-over'); });
+        header.addEventListener('drop', function (e) {
+          e.preventDefault();
+          header.classList.remove('drag-over');
+          handleDrop(e.dataTransfer.getData('text/plain'), start);
+        });
+      })(group.startIndex, group.count);
+
+      groupEl.appendChild(header);
+
+      // Render individual frames when expanded
+      if (!isCollapsed) {
+        var body = document.createElement('div');
+        body.className = 'gm-group-body';
+        for (var i = group.startIndex; i < group.startIndex + group.count; i++) {
+          body.appendChild(createFrameItem(frames[i], i, true));
+        }
+        groupEl.appendChild(body);
+      }
+
+      frameListEl.appendChild(groupEl);
     });
   }
 
