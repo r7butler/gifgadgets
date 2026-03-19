@@ -42,6 +42,11 @@
       font-size:16px;line-height:1;
     }
     .gm-frame-remove:hover { background:var(--bg-tertiary);color:var(--danger); }
+    .gm-frame-delay {
+      width:52px;padding:2px 4px;background:var(--bg-tertiary);border:1px solid var(--border);
+      border-radius:3px;color:var(--text-primary);font-size:11px;text-align:center;flex-shrink:0;
+    }
+    .gm-frame-delay-label { font-size:10px;color:var(--text-muted);flex-shrink:0; }
 
     /* Size option */
     .gm-size-warning {
@@ -132,10 +137,10 @@
     <div class="gm-upload-zone" style="width:100%">
       <div class="gm-drop-zone" id="drop-zone">
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-muted);margin-bottom:1rem"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-        <h2>Drop images here</h2>
+        <h2>Drop images or GIFs here</h2>
         <p style="color:var(--text-secondary)">or click to browse</p>
-        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Supports JPG, PNG, WebP, BMP, HEIC</p>
-        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.bmp,.heic,.heif" multiple hidden />
+        <p style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem">Animated GIFs are split into frames. Supports JPG, PNG, WebP, GIF, BMP, HEIC.</p>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif" multiple hidden />
       </div>
     </div>
   </div>
@@ -169,14 +174,17 @@
           </div>
         </div>
         <div class="gm-frame-list" id="frame-list"></div>
-        <button class="gm-add-more-btn" id="btn-add-more">+ Add more images</button>
-        <input type="file" id="add-file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.bmp,.heic,.heif" multiple hidden />
+        <button class="gm-add-more-btn" id="btn-add-more">+ Add more files</button>
+        <input type="file" id="add-file-input" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,.jpg,.jpeg,.png,.webp,.gif,.bmp,.heic,.heif" multiple hidden />
       </div>
       <div class="gm-section">
         <div class="gm-section-title">Settings</div>
         <div class="form-group" style="margin-bottom:10px">
-          <label>Delay: <span id="val-delay">500</span>ms</label>
-          <input type="range" id="sl-delay" min="20" max="5000" step="10" value="500" style="accent-color:var(--cat-gif)" />
+          <label>Delay: <span id="val-delay">500</span>ms <span id="val-fps-hint" style="font-weight:400;color:var(--text-muted)"></span></label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="range" id="sl-delay" min="20" max="5000" step="10" value="500" style="accent-color:var(--cat-gif);flex:1" />
+            <button id="btn-set-all-delay" class="btn btn-ghost" style="font-size:10px;padding:3px 6px;white-space:nowrap">Set all</button>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:10px">
           <label>Loop count: </label>
@@ -281,6 +289,7 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/omggif@1.0.10/omggif.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -319,7 +328,7 @@
   var btnShare = document.getElementById('btn-share');
 
   // ── State ──
-  var frames = []; // { img: HTMLImageElement, name: string, width: number, height: number }
+  var frames = []; // { img: HTMLImageElement, name: string, width: number, height: number, delay: number }
   var previewFrames = []; // built from frames + crossfade; each { type:'source'|'crossfade', sourceIndex, img?, alphaA?, imgA?, imgB? }
   var currentPreviewFrame = 0;
   var isPlaying = false;
@@ -368,6 +377,15 @@
     return name.endsWith('.heic') || name.endsWith('.heif');
   }
 
+  function getDefaultDelay() {
+    return parseInt(slDelay.value, 10) || 500;
+  }
+
+  function isGif(file) {
+    if (file.type === 'image/gif') return true;
+    return (file.name || '').toLowerCase().endsWith('.gif');
+  }
+
   function loadImageFile(file) {
     var fileToLoad = isHeic(file)
       ? heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 }).then(function (result) {
@@ -382,7 +400,7 @@
         reader.onload = function () {
           var img = new Image();
           img.onload = function () {
-            resolve({ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight });
+            resolve([{ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight, delay: getDefaultDelay() }]);
           };
           img.onerror = reject;
           img.src = reader.result;
@@ -390,6 +408,104 @@
         reader.onerror = reject;
         reader.readAsDataURL(f);
       });
+    });
+  }
+
+  function loadGifFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var gif = new GifReader(new Uint8Array(reader.result));
+          var w = gif.width;
+          var h = gif.height;
+          var numFrames = gif.numFrames();
+          if (numFrames < 2) {
+            // Single-frame GIF — treat as a normal image
+            var singleCanvas = document.createElement('canvas');
+            singleCanvas.width = w; singleCanvas.height = h;
+            var sCtx = singleCanvas.getContext('2d');
+            var sData = sCtx.createImageData(w, h);
+            gif.decodeAndBlitFrameRGBA(0, sData.data);
+            sCtx.putImageData(sData, 0, 0);
+            var sImg = new Image();
+            sImg.onload = function () {
+              resolve([{ img: sImg, name: file.name, width: w, height: h, delay: getDefaultDelay() }]);
+            };
+            sImg.onerror = reject;
+            sImg.src = singleCanvas.toDataURL('image/png');
+            return;
+          }
+
+          // Multi-frame GIF — extract all frames
+          var compCanvas = document.createElement('canvas');
+          compCanvas.width = w; compCanvas.height = h;
+          var compCtx = compCanvas.getContext('2d');
+          var tempCanvas = document.createElement('canvas');
+          tempCanvas.width = w; tempCanvas.height = h;
+          var tempCtx = tempCanvas.getContext('2d');
+
+          var extractedFrames = [];
+          var pendingImages = 0;
+
+          for (var i = 0; i < numFrames; i++) {
+            var frameInfo = gif.frameInfo(i);
+            var delay = frameInfo.delay * 10; // centiseconds → ms
+            if (delay < 20) delay = 100;
+
+            // Save compositing state before drawing (for disposal=3)
+            var savedData = null;
+            if (frameInfo.disposal === 3) {
+              savedData = compCtx.getImageData(0, 0, w, h);
+            }
+
+            // Decode frame into temp canvas
+            var frameData = tempCtx.createImageData(w, h);
+            gif.decodeAndBlitFrameRGBA(i, frameData.data);
+            tempCtx.putImageData(frameData, 0, 0);
+
+            // Composite: draw only the frame's sub-rectangle
+            compCtx.drawImage(tempCanvas, frameInfo.x, frameInfo.y, frameInfo.width, frameInfo.height,
+                                          frameInfo.x, frameInfo.y, frameInfo.width, frameInfo.height);
+
+            // Snapshot composited result
+            var outCanvas = document.createElement('canvas');
+            outCanvas.width = w; outCanvas.height = h;
+            outCanvas.getContext('2d').drawImage(compCanvas, 0, 0);
+
+            var img = new Image();
+            var frameObj = { img: img, name: file.name + ' #' + (i + 1), width: w, height: h, delay: delay };
+            extractedFrames.push(frameObj);
+            pendingImages++;
+
+            (function (fImg) {
+              fImg.onload = function () {
+                pendingImages--;
+                if (pendingImages === 0) resolve(extractedFrames);
+              };
+              fImg.onerror = function () {
+                pendingImages--;
+                if (pendingImages === 0) resolve(extractedFrames);
+              };
+            })(img);
+            img.src = outCanvas.toDataURL('image/png');
+
+            // Apply disposal
+            if (frameInfo.disposal === 2) {
+              compCtx.clearRect(frameInfo.x, frameInfo.y, frameInfo.width, frameInfo.height);
+            } else if (frameInfo.disposal === 3 && savedData) {
+              compCtx.putImageData(savedData, 0, 0);
+            }
+
+            // Clear temp canvas for next frame
+            tempCtx.clearRect(0, 0, w, h);
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
     });
   }
 
@@ -404,7 +520,7 @@
 
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
-    loadingText.textContent = 'Loading image 1 / ' + imageFiles.length + '…';
+    loadingText.textContent = 'Loading file 1 / ' + imageFiles.length + '…';
 
     var loaded = [];
     var idx = 0;
@@ -422,9 +538,13 @@
       }
       var pct = (idx / imageFiles.length) * 100;
       progressFill.style.width = pct + '%';
-      loadingText.textContent = 'Loading image ' + (idx + 1) + ' / ' + imageFiles.length + (isHeic(imageFiles[idx]) ? ' (converting HEIC)…' : '…');
-      loadImageFile(imageFiles[idx]).then(function (result) {
-        loaded.push(result);
+      var currentFile = imageFiles[idx];
+      var label = isGif(currentFile) ? ' (extracting GIF frames)…' : (isHeic(currentFile) ? ' (converting HEIC)…' : '…');
+      loadingText.textContent = 'Loading file ' + (idx + 1) + ' / ' + imageFiles.length + label;
+
+      var loader = isGif(currentFile) ? loadGifFile(currentFile) : loadImageFile(currentFile);
+      loader.then(function (resultFrames) {
+        loaded = loaded.concat(resultFrames);
         idx++;
         loadNext();
       }).catch(function () {
@@ -480,6 +600,27 @@
       info.appendChild(nameEl);
       info.appendChild(dimsEl);
 
+      var delayLabel = document.createElement('span');
+      delayLabel.className = 'gm-frame-delay-label';
+      delayLabel.textContent = 'ms';
+
+      var delayInput = document.createElement('input');
+      delayInput.type = 'number';
+      delayInput.className = 'gm-frame-delay';
+      delayInput.value = f.delay;
+      delayInput.min = 20;
+      delayInput.max = 10000;
+      delayInput.title = 'Frame delay (ms)';
+      (function (frameIndex) {
+        delayInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        delayInput.addEventListener('change', function () {
+          var v = parseInt(this.value, 10);
+          if (isNaN(v) || v < 20) v = 20;
+          frames[frameIndex].delay = v;
+          this.value = v;
+        });
+      })(i);
+
       var removeBtn = document.createElement('button');
       removeBtn.className = 'gm-frame-remove';
       removeBtn.innerHTML = '&times;';
@@ -493,6 +634,8 @@
 
       item.appendChild(thumb);
       item.appendChild(info);
+      item.appendChild(delayInput);
+      item.appendChild(delayLabel);
       item.appendChild(removeBtn);
 
       // Click to select
@@ -641,9 +784,10 @@
   // ── Playback ──
 
   function getPreviewDelay() {
-    var delay = parseInt(slDelay.value, 10);
     var pf = previewFrames[currentPreviewFrame];
-    if (pf && pf.type === 'crossfade') {
+    if (!pf) return 500;
+    var delay = frames[pf.sourceIndex] ? frames[pf.sourceIndex].delay : getDefaultDelay();
+    if (pf.type === 'crossfade') {
       var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
       return Math.round(delay / (crossfadeCount + 1));
     }
@@ -693,7 +837,21 @@
 
   // ── Settings ──
 
-  slDelay.addEventListener('input', function () { valDelay.textContent = slDelay.value; });
+  function updateDelayHint() {
+    var d = parseInt(slDelay.value, 10);
+    valDelay.textContent = d;
+    var fps = (1000 / d).toFixed(1);
+    document.getElementById('val-fps-hint').textContent = '(' + fps + ' FPS)';
+  }
+  slDelay.addEventListener('input', updateDelayHint);
+  updateDelayHint();
+
+  document.getElementById('btn-set-all-delay').addEventListener('click', function () {
+    var d = getDefaultDelay();
+    frames.forEach(function (f) { f.delay = d; });
+    renderFrameList();
+  });
+
   chkResize.addEventListener('change', function () { updatePreview(); });
   chkCrossfade.addEventListener('change', function () {
     crossfadeOptions.classList.toggle('hidden', !chkCrossfade.checked);
@@ -717,7 +875,6 @@
 
   function buildFrameData() {
     var dims = getOutputDimensions();
-    var delay = parseInt(slDelay.value, 10);
     var useCrossfade = chkCrossfade.checked;
     var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
 
@@ -729,6 +886,7 @@
     var frameDataList = []; // { imageData, delay }
 
     for (var i = 0; i < frames.length; i++) {
+      var frameDelay = frames[i].delay;
       // Draw the main frame
       tempCtx.clearRect(0, 0, dims.width, dims.height);
       if (chkResize.checked) {
@@ -739,12 +897,12 @@
         tempCtx.drawImage(frames[i].img, x, y);
       }
       drawWatermark(tempCtx, dims.width, dims.height);
-      frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: delay });
+      frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: frameDelay });
 
       // Add crossfade frames to next image
       if (useCrossfade && i < frames.length - 1) {
         var nextFrame = frames[i + 1];
-        var crossDelay = Math.round(delay / (crossfadeCount + 1));
+        var crossDelay = Math.round(frameDelay / (crossfadeCount + 1));
         for (var c = 1; c <= crossfadeCount; c++) {
           var alpha = c / (crossfadeCount + 1);
           tempCtx.clearRect(0, 0, dims.width, dims.height);
@@ -929,7 +1087,7 @@
 
   // ── Share ──
 
-  var API_BASE_URL = 'https://nl62cwaytuqakre5u72tcav7ny0mdlaz.lambda-url.us-east-1.on.aws';
+  var API_BASE_URL = '/api';
 
   function apiFetch(url, opts) {
     if (opts && opts.body) {
