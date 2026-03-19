@@ -1042,16 +1042,23 @@
     }
     var useCrossfade = chkCrossfade.checked;
     var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
+    var groups = getFrameGroups();
 
-    for (var i = 0; i < frames.length; i++) {
-      previewFrames.push({ type: 'source', sourceIndex: i });
-      if (useCrossfade && i < frames.length - 1) {
+    for (var g = 0; g < groups.length; g++) {
+      var group = groups[g];
+      for (var i = group.startIndex; i < group.startIndex + group.count; i++) {
+        previewFrames.push({ type: 'source', sourceIndex: i });
+      }
+      // Crossfade between groups, not between every frame
+      if (useCrossfade && g < groups.length - 1) {
+        var lastIdx = group.startIndex + group.count - 1;
+        var nextIdx = groups[g + 1].startIndex;
         for (var c = 1; c <= crossfadeCount; c++) {
           previewFrames.push({
             type: 'crossfade',
-            sourceIndex: i,
-            indexA: i,
-            indexB: i + 1,
+            sourceIndex: lastIdx,
+            indexA: lastIdx,
+            indexB: nextIdx,
             alpha: c / (crossfadeCount + 1)
           });
         }
@@ -1207,7 +1214,8 @@
   function countOutputFrames() {
     if (!chkCrossfade.checked) return frames.length;
     var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
-    return frames.length + Math.max(0, frames.length - 1) * crossfadeCount;
+    var groups = getFrameGroups();
+    return frames.length + Math.max(0, groups.length - 1) * crossfadeCount;
   }
 
   function startMakeGif() {
@@ -1254,33 +1262,40 @@
       loadingText.textContent = 'Encoding GIF…';
       progressFill.style.width = '20%';
 
-      // Stream frames directly to encoder — no intermediate array
-      for (var i = 0; i < frames.length; i++) {
-        var frameDelay = frames[i].delay;
-        tempCtx.clearRect(0, 0, dims.width, dims.height);
-        if (chkResize.checked) {
-          tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
-        } else {
-          var x = Math.round((dims.width - frames[i].width) / 2);
-          var y = Math.round((dims.height - frames[i].height) / 2);
-          tempCtx.drawImage(frames[i].img, x, y);
+      // Stream frames directly to encoder — crossfade between groups, not every frame
+      var encGroups = getFrameGroups();
+      for (var g = 0; g < encGroups.length; g++) {
+        var grp = encGroups[g];
+        for (var i = grp.startIndex; i < grp.startIndex + grp.count; i++) {
+          var frameDelay = frames[i].delay;
+          tempCtx.clearRect(0, 0, dims.width, dims.height);
+          if (chkResize.checked) {
+            tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+          } else {
+            var x = Math.round((dims.width - frames[i].width) / 2);
+            var y = Math.round((dims.height - frames[i].height) / 2);
+            tempCtx.drawImage(frames[i].img, x, y);
+          }
+          drawWatermark(tempCtx, dims.width, dims.height);
+          gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: frameDelay, copy: true });
+          totalFrames++;
         }
-        drawWatermark(tempCtx, dims.width, dims.height);
-        gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: frameDelay, copy: true });
-        totalFrames++;
 
-        if (useCrossfade && i < frames.length - 1) {
-          var nextFrame = frames[i + 1];
-          var crossDelay = Math.round(frameDelay / (crossfadeCount + 1));
+        if (useCrossfade && g < encGroups.length - 1) {
+          var lastIdx = grp.startIndex + grp.count - 1;
+          var nextIdx = encGroups[g + 1].startIndex;
+          var lastFrame = frames[lastIdx];
+          var nextFrame = frames[nextIdx];
+          var crossDelay = Math.round(lastFrame.delay / (crossfadeCount + 1));
           for (var c = 1; c <= crossfadeCount; c++) {
             var alpha = c / (crossfadeCount + 1);
             tempCtx.clearRect(0, 0, dims.width, dims.height);
             if (chkResize.checked) {
-              tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+              tempCtx.drawImage(lastFrame.img, 0, 0, dims.width, dims.height);
             } else {
-              var cx = Math.round((dims.width - frames[i].width) / 2);
-              var cy = Math.round((dims.height - frames[i].height) / 2);
-              tempCtx.drawImage(frames[i].img, cx, cy);
+              var cx = Math.round((dims.width - lastFrame.width) / 2);
+              var cy = Math.round((dims.height - lastFrame.height) / 2);
+              tempCtx.drawImage(lastFrame.img, cx, cy);
             }
             tempCtx.globalAlpha = alpha;
             if (chkResize.checked) {
