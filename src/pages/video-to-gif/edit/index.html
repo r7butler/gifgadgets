@@ -83,6 +83,15 @@
       border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;width:72px;
     }
     .vtg-clip-dur { font-size:12px;color:var(--text-muted); }
+    .vtg-preview-stage { position:relative; }
+    .vtg-crop-canvas { position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;display:none; }
+    .vtg-crop-inputs { display:flex;gap:6px;margin-top:8px; }
+    .vtg-crop-inputs .form-group { flex:1; }
+    .vtg-crop-inputs label { font-size:10px;color:var(--text-muted);display:block;margin-bottom:2px; }
+    .vtg-crop-inputs input {
+      width:100%;padding:3px 5px;background:var(--bg-primary);border:1px solid var(--border);
+      border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;
+    }
     @media (max-width: 768px) {
       .vtg-body { flex-direction:column; }
       .vtg-preview { min-height:240px;min-width:0; }
@@ -142,6 +151,7 @@
     <div class="vtg-preview" id="preview-area">
       <div class="vtg-preview-stage">
         <video id="preview-video" muted playsinline preload="auto"></video>
+        <canvas id="crop-canvas" class="vtg-crop-canvas"></canvas>
       </div>
       <div class="playback-controls">
         <button id="btn-prev-frame" class="ctrl-btn" title="Previous frame" aria-label="Previous frame">&laquo;</button>
@@ -176,12 +186,29 @@
       <div class="vtg-section">
         <div class="vtg-section-title">Settings</div>
         <div class="form-group" style="margin-bottom:10px">
-          <label>FPS: <span id="val-fps">10</span></label>
-          <input type="range" id="sl-fps" min="1" max="20" step="1" value="10" style="accent-color:var(--cat-gif)" />
+          <label>FPS: <span id="val-fps">10</span> <span id="max-length-hint" style="font-weight:400;color:var(--text-muted)">(Max length: 30s)</span></label>
+          <input type="range" id="sl-fps" min="1" max="30" step="1" value="10" style="accent-color:var(--cat-gif)" />
         </div>
         <div class="form-group">
           <label>Max width: <span id="val-width">480</span>px</label>
           <input type="range" id="sl-width" min="120" max="960" step="40" value="480" style="accent-color:var(--cat-gif)" />
+        </div>
+      </div>
+      <div class="vtg-section">
+        <div class="vtg-section-title">Crop</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:8px">
+          <input type="checkbox" id="chk-crop" style="accent-color:var(--cat-gif)" />
+          Enable Crop
+        </label>
+        <div id="crop-settings" class="hidden">
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Drag on the preview to select a crop region.</p>
+          <div class="vtg-crop-inputs">
+            <div class="form-group"><label>X</label><input type="number" id="crop-x" min="0" value="0" /></div>
+            <div class="form-group"><label>Y</label><input type="number" id="crop-y" min="0" value="0" /></div>
+            <div class="form-group"><label>W</label><input type="number" id="crop-w" min="1" value="0" /></div>
+            <div class="form-group"><label>H</label><input type="number" id="crop-h" min="1" value="0" /></div>
+          </div>
+          <button id="btn-crop-reset" class="btn btn-ghost" style="font-size:11px;padding:4px 8px;margin-top:6px">Reset</button>
         </div>
       </div>
       <div class="vtg-section">
@@ -309,6 +336,13 @@
   var trimDrag = null;
   var suppressTrimTrackClick = false;
   var MIN_CLIP = 0.1;
+  var MAX_FRAMES = 300;
+  var maxLengthHint = document.getElementById('max-length-hint');
+
+  function getMaxClipDuration() {
+    var fps = Math.max(1, parseInt(slFps.value, 10) || 10);
+    return Math.floor(MAX_FRAMES / fps);
+  }
 
   // Preload gif.js worker
   fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
@@ -372,10 +406,10 @@
   }
 
   function clampRange() {
+    var maxClip = getMaxClipDuration();
     inTime = Math.max(0, Math.min(inTime, Math.max(0, duration - MIN_CLIP)));
     outTime = Math.max(inTime + MIN_CLIP, Math.min(outTime, duration));
-    // Enforce 20s max for GIF
-    if (outTime - inTime > 20) outTime = inTime + 20;
+    if (outTime - inTime > maxClip) outTime = inTime + maxClip;
     inpIn.value = formatTime(inTime);
     inpOut.value = formatTime(outTime);
     updateTrimBar();
@@ -494,7 +528,12 @@
     updatePlayPauseIcon();
   }
 
-  slFps.addEventListener('input', function () { valFps.textContent = slFps.value; updateFrameCounter(); });
+  slFps.addEventListener('input', function () {
+    valFps.textContent = slFps.value;
+    maxLengthHint.textContent = '(Max length: ' + getMaxClipDuration() + 's)';
+    clampRange();
+    updateFrameCounter();
+  });
   slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
 
   btnPlayPause.addEventListener('click', function () {
@@ -537,9 +576,10 @@
     video.onloadedmetadata = function () {
       duration = video.duration;
       inTime = 0;
-      outTime = Math.min(duration, 20);
+      outTime = Math.min(duration, getMaxClipDuration());
       clampRange();
-      convertStatus.textContent = 'Duration: ' + duration.toFixed(1) + 's' + (duration > 20 ? ' (max 20s per GIF)' : '');
+      var maxClip = getMaxClipDuration();
+      convertStatus.textContent = 'Duration: ' + duration.toFixed(1) + 's' + (duration > maxClip ? ' (max ' + maxClip + 's at ' + slFps.value + ' FPS)' : '');
       updateFrameCounter();
       updatePlayPauseIcon();
       document.getElementById('upload-screen').classList.add('hidden');
@@ -585,13 +625,21 @@
       video.currentTime = times[frameIndex];
     }
 
+    var crop = (chkCrop.checked && cropRect) ? cropRect : null;
+    var srcW = crop ? crop.w : video.videoWidth;
+    var srcH = crop ? crop.h : video.videoHeight;
+
     video.onseeked = function () {
       if (frameIndex === 0) {
-        var scale = Math.min(1, maxWidth / video.videoWidth);
-        canvas.width = Math.round(video.videoWidth * scale);
-        canvas.height = Math.round(video.videoHeight * scale);
+        var scale = Math.min(1, maxWidth / srcW);
+        canvas.width = Math.round(srcW * scale);
+        canvas.height = Math.round(srcH * scale);
       }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (crop) {
+        ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
       drawWatermark(ctx, canvas.width, canvas.height);
       frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
       frameIndex++;
@@ -689,6 +737,10 @@
         frameScrubber.max = 0;
         frameCounter.textContent = '0 / 0';
         duration = 0;
+        cropRect = null;
+        chkCrop.checked = false;
+        cropSettings.classList.add('hidden');
+        cropCanvas.style.display = 'none';
         updatePlayPauseIcon();
       }
     });
@@ -708,6 +760,145 @@
   dropZone.addEventListener('drop', function (e) {
     e.preventDefault(); dropZone.classList.remove('dragover');
     if (e.dataTransfer.files[0]) loadVideo(e.dataTransfer.files[0]);
+  });
+
+  // ── Crop ──
+
+  var cropCanvas = document.getElementById('crop-canvas');
+  var cropCtx = cropCanvas.getContext('2d');
+  var chkCrop = document.getElementById('chk-crop');
+  var cropSettings = document.getElementById('crop-settings');
+  var cropXInput = document.getElementById('crop-x');
+  var cropYInput = document.getElementById('crop-y');
+  var cropWInput = document.getElementById('crop-w');
+  var cropHInput = document.getElementById('crop-h');
+  var cropRect = null; // { x, y, w, h } in video pixel coords
+  var cropDragState = null;
+
+  function videoDisplayRect() {
+    var stage = document.querySelector('.vtg-preview-stage');
+    var stageRect = stage.getBoundingClientRect();
+    var vw = video.videoWidth || 1;
+    var vh = video.videoHeight || 1;
+    var scale = Math.min(stageRect.width / vw, stageRect.height / vh);
+    var dw = vw * scale;
+    var dh = vh * scale;
+    return {
+      left: (stageRect.width - dw) / 2,
+      top: (stageRect.height - dh) / 2,
+      width: dw, height: dh,
+      scale: scale,
+      stageLeft: stageRect.left, stageTop: stageRect.top
+    };
+  }
+
+  function displayToVideo(clientX, clientY) {
+    var r = videoDisplayRect();
+    var vx = (clientX - r.stageLeft - r.left) / r.scale;
+    var vy = (clientY - r.stageTop - r.top) / r.scale;
+    return {
+      x: Math.max(0, Math.min(Math.round(vx), video.videoWidth)),
+      y: Math.max(0, Math.min(Math.round(vy), video.videoHeight))
+    };
+  }
+
+  function syncCropInputs() {
+    if (!cropRect) return;
+    cropXInput.value = cropRect.x;
+    cropYInput.value = cropRect.y;
+    cropWInput.value = cropRect.w;
+    cropHInput.value = cropRect.h;
+  }
+
+  function drawCropOverlay() {
+    var r = videoDisplayRect();
+    cropCanvas.width = cropCanvas.offsetWidth;
+    cropCanvas.height = cropCanvas.offsetHeight;
+    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    if (!cropRect || !chkCrop.checked) return;
+    // Dark overlay
+    cropCtx.fillStyle = 'rgba(0,0,0,0.5)';
+    cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+    // Clear crop region
+    var cx = r.left + cropRect.x * r.scale;
+    var cy = r.top + cropRect.y * r.scale;
+    var cw = cropRect.w * r.scale;
+    var ch = cropRect.h * r.scale;
+    cropCtx.clearRect(cx, cy, cw, ch);
+    // Border
+    cropCtx.strokeStyle = '#10b981';
+    cropCtx.lineWidth = 2;
+    cropCtx.setLineDash([4, 4]);
+    cropCtx.strokeRect(cx, cy, cw, ch);
+    cropCtx.setLineDash([]);
+  }
+
+  chkCrop.addEventListener('change', function () {
+    if (chkCrop.checked) {
+      cropCanvas.style.display = 'block';
+      cropSettings.classList.remove('hidden');
+      if (!cropRect && video.videoWidth) {
+        cropRect = { x: 0, y: 0, w: video.videoWidth, h: video.videoHeight };
+        syncCropInputs();
+      }
+      drawCropOverlay();
+    } else {
+      cropCanvas.style.display = 'none';
+      cropSettings.classList.add('hidden');
+      cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    }
+  });
+
+  document.getElementById('btn-crop-reset').addEventListener('click', function () {
+    if (!video.videoWidth) return;
+    cropRect = { x: 0, y: 0, w: video.videoWidth, h: video.videoHeight };
+    syncCropInputs();
+    drawCropOverlay();
+  });
+
+  ['crop-x', 'crop-y', 'crop-w', 'crop-h'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () {
+      if (!cropRect) return;
+      var key = id.split('-')[1];
+      var v = parseInt(this.value, 10);
+      if (isNaN(v) || v < 0) return;
+      cropRect[key] = v;
+      // Clamp to video bounds
+      cropRect.x = Math.max(0, Math.min(cropRect.x, video.videoWidth - 1));
+      cropRect.y = Math.max(0, Math.min(cropRect.y, video.videoHeight - 1));
+      cropRect.w = Math.max(1, Math.min(cropRect.w, video.videoWidth - cropRect.x));
+      cropRect.h = Math.max(1, Math.min(cropRect.h, video.videoHeight - cropRect.y));
+      drawCropOverlay();
+    });
+  });
+
+  // Drag to draw crop region
+  cropCanvas.addEventListener('pointerdown', function (e) {
+    if (!chkCrop.checked || !video.videoWidth) return;
+    e.preventDefault();
+    cropCanvas.setPointerCapture(e.pointerId);
+    var pt = displayToVideo(e.clientX, e.clientY);
+    cropDragState = { startX: pt.x, startY: pt.y };
+  });
+
+  cropCanvas.addEventListener('pointermove', function (e) {
+    if (!cropDragState) return;
+    var pt = displayToVideo(e.clientX, e.clientY);
+    var x1 = Math.min(cropDragState.startX, pt.x);
+    var y1 = Math.min(cropDragState.startY, pt.y);
+    var x2 = Math.max(cropDragState.startX, pt.x);
+    var y2 = Math.max(cropDragState.startY, pt.y);
+    cropRect = { x: x1, y: y1, w: Math.max(1, x2 - x1), h: Math.max(1, y2 - y1) };
+    syncCropInputs();
+    drawCropOverlay();
+  });
+
+  cropCanvas.addEventListener('pointerup', function () { cropDragState = null; });
+  cropCanvas.addEventListener('pointercancel', function () { cropDragState = null; });
+
+  // Redraw overlay when window resizes
+  window.addEventListener('resize', function () {
+    if (chkCrop.checked && cropRect) drawCropOverlay();
   });
 
   // ── Share ──
