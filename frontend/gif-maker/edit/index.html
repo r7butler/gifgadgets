@@ -349,6 +349,8 @@
   var lastGifFilename = 'animation.gif';
   var pendingShareAfterMake = false;
   var workerBlobUrl = null;
+  var cachedDims = null;
+  var lastActiveSourceIndex = -1;
 
   // Preload gif.js worker
   fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
@@ -407,17 +409,13 @@
 
     return fileToLoad.then(function (f) {
       return new Promise(function (resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function () {
-          var img = new Image();
-          img.onload = function () {
-            resolve([{ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight, delay: getDefaultDelay() }]);
-          };
-          img.onerror = reject;
-          img.src = reader.result;
+        var url = URL.createObjectURL(f);
+        var img = new Image();
+        img.onload = function () {
+          resolve([{ img: img, name: file.name, width: img.naturalWidth, height: img.naturalHeight, delay: getDefaultDelay() }]);
         };
-        reader.onerror = reject;
-        reader.readAsDataURL(f);
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+        img.src = url;
       });
     });
   }
@@ -444,7 +442,9 @@
               resolve([{ img: sImg, name: file.name, width: w, height: h, delay: getDefaultDelay() }]);
             };
             sImg.onerror = reject;
-            sImg.src = singleCanvas.toDataURL('image/png');
+            singleCanvas.toBlob(function(blob) {
+              sImg.src = URL.createObjectURL(blob);
+            }, 'image/png');
             return;
           }
 
@@ -489,7 +489,7 @@
             extractedFrames.push(frameObj);
             pendingImages++;
 
-            (function (fImg) {
+            (function (fImg, fCanvas) {
               fImg.onload = function () {
                 pendingImages--;
                 if (pendingImages === 0) resolve(extractedFrames);
@@ -498,8 +498,10 @@
                 pendingImages--;
                 if (pendingImages === 0) resolve(extractedFrames);
               };
-            })(img);
-            img.src = outCanvas.toDataURL('image/png');
+              fCanvas.toBlob(function(blob) {
+                fImg.src = URL.createObjectURL(blob);
+              }, 'image/png');
+            })(img, outCanvas);
 
             // Apply disposal
             if (frameInfo.disposal === 2) {
@@ -570,6 +572,8 @@
   // ── Frame list UI ──
 
   function onFramesChanged() {
+    cachedDims = null;
+    lastActiveSourceIndex = -1;
     renderFrameList();
     checkSizeWarning();
     rebuildPreviewFrames();
@@ -757,9 +761,13 @@
 
   function drawPreviewFrame(pf) {
     var dims = getOutputDimensions();
-    canvas.width = dims.width;
-    canvas.height = dims.height;
-    ctx.clearRect(0, 0, dims.width, dims.height);
+    if (!cachedDims || cachedDims.width !== dims.width || cachedDims.height !== dims.height) {
+      canvas.width = dims.width;
+      canvas.height = dims.height;
+      cachedDims = dims;
+    } else {
+      ctx.clearRect(0, 0, dims.width, dims.height);
+    }
 
     if (pf.type === 'source') {
       drawSourceImage(ctx, frames[pf.sourceIndex], dims);
@@ -776,12 +784,18 @@
     if (!previewFrames.length) return;
     if (currentPreviewFrame >= previewFrames.length) currentPreviewFrame = 0;
     drawPreviewFrame(previewFrames[currentPreviewFrame]);
-    // Highlight active source frame in list
+    // Highlight active source frame in list — only update changed items
     var activeSourceIndex = previewFrames[currentPreviewFrame].sourceIndex;
-    var items = frameListEl.querySelectorAll('.gm-frame-item');
-    items.forEach(function (el, i) {
-      el.style.borderColor = i === activeSourceIndex ? 'var(--cat-gif)' : '';
-    });
+    if (activeSourceIndex !== lastActiveSourceIndex) {
+      var items = frameListEl.children;
+      if (lastActiveSourceIndex >= 0 && lastActiveSourceIndex < items.length) {
+        items[lastActiveSourceIndex].style.borderColor = '';
+      }
+      if (activeSourceIndex >= 0 && activeSourceIndex < items.length) {
+        items[activeSourceIndex].style.borderColor = 'var(--cat-gif)';
+      }
+      lastActiveSourceIndex = activeSourceIndex;
+    }
   }
 
   function updateFrameCounter() {
@@ -863,7 +877,7 @@
     renderFrameList();
   });
 
-  chkResize.addEventListener('change', function () { updatePreview(); });
+  chkResize.addEventListener('change', function () { cachedDims = null; updatePreview(); });
   chkCrossfade.addEventListener('change', function () {
     crossfadeOptions.classList.toggle('hidden', !chkCrossfade.checked);
     rebuildPreviewFrames();
@@ -884,69 +898,6 @@
 
   // ── Make GIF ──
 
-  function buildFrameData() {
-    var dims = getOutputDimensions();
-    var useCrossfade = chkCrossfade.checked;
-    var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
-
-    var tempCanvas = document.createElement('canvas');
-    tempCanvas.width = dims.width;
-    tempCanvas.height = dims.height;
-    var tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-
-    var frameDataList = []; // { imageData, delay }
-
-    for (var i = 0; i < frames.length; i++) {
-      var frameDelay = frames[i].delay;
-      // Draw the main frame
-      tempCtx.clearRect(0, 0, dims.width, dims.height);
-      if (chkResize.checked) {
-        tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
-      } else {
-        var x = Math.round((dims.width - frames[i].width) / 2);
-        var y = Math.round((dims.height - frames[i].height) / 2);
-        tempCtx.drawImage(frames[i].img, x, y);
-      }
-      drawWatermark(tempCtx, dims.width, dims.height);
-      frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: frameDelay });
-
-      // Add crossfade frames to next image
-      if (useCrossfade && i < frames.length - 1) {
-        var nextFrame = frames[i + 1];
-        var crossDelay = Math.round(frameDelay / (crossfadeCount + 1));
-        for (var c = 1; c <= crossfadeCount; c++) {
-          var alpha = c / (crossfadeCount + 1);
-          tempCtx.clearRect(0, 0, dims.width, dims.height);
-
-          // Draw current frame
-          if (chkResize.checked) {
-            tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
-          } else {
-            var cx = Math.round((dims.width - frames[i].width) / 2);
-            var cy = Math.round((dims.height - frames[i].height) / 2);
-            tempCtx.drawImage(frames[i].img, cx, cy);
-          }
-
-          // Blend next frame on top
-          tempCtx.globalAlpha = alpha;
-          if (chkResize.checked) {
-            tempCtx.drawImage(nextFrame.img, 0, 0, dims.width, dims.height);
-          } else {
-            var nx = Math.round((dims.width - nextFrame.width) / 2);
-            var ny = Math.round((dims.height - nextFrame.height) / 2);
-            tempCtx.drawImage(nextFrame.img, nx, ny);
-          }
-          tempCtx.globalAlpha = 1;
-          drawWatermark(tempCtx, dims.width, dims.height);
-
-          frameDataList.push({ imageData: tempCtx.getImageData(0, 0, dims.width, dims.height), delay: crossDelay });
-        }
-      }
-    }
-
-    return { frames: frameDataList, width: dims.width, height: dims.height };
-  }
-
   function startMakeGif() {
     if (frames.length < 2) return;
     stopPlayback();
@@ -959,28 +910,78 @@
 
     // Use setTimeout to allow the UI to update
     setTimeout(function () {
-      var data = buildFrameData();
-      loadingText.textContent = 'Encoding GIF…';
-      progressFill.style.width = '40%';
-
+      var dims = getOutputDimensions();
+      var useCrossfade = chkCrossfade.checked;
+      var crossfadeCount = parseInt(slCrossfadeCount.value, 10);
       var loopCount = parseInt(selLoop.value, 10);
+      var totalFrames = 0;
+
+      var tempCanvas = document.createElement('canvas');
+      tempCanvas.width = dims.width;
+      tempCanvas.height = dims.height;
+      var tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
       var gifOptions = {
         workers: 2,
         quality: 10,
-        width: data.width,
-        height: data.height,
+        width: dims.width,
+        height: dims.height,
         repeat: loopCount
       };
       if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
 
       var gif = new GIF(gifOptions);
-      data.frames.forEach(function (f) {
-        gif.addFrame(f.imageData, { delay: f.delay, copy: true });
-      });
+
+      loadingText.textContent = 'Encoding GIF…';
+      progressFill.style.width = '20%';
+
+      // Stream frames directly to encoder — no intermediate array
+      for (var i = 0; i < frames.length; i++) {
+        var frameDelay = frames[i].delay;
+        tempCtx.clearRect(0, 0, dims.width, dims.height);
+        if (chkResize.checked) {
+          tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+        } else {
+          var x = Math.round((dims.width - frames[i].width) / 2);
+          var y = Math.round((dims.height - frames[i].height) / 2);
+          tempCtx.drawImage(frames[i].img, x, y);
+        }
+        drawWatermark(tempCtx, dims.width, dims.height);
+        gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: frameDelay, copy: true });
+        totalFrames++;
+
+        if (useCrossfade && i < frames.length - 1) {
+          var nextFrame = frames[i + 1];
+          var crossDelay = Math.round(frameDelay / (crossfadeCount + 1));
+          for (var c = 1; c <= crossfadeCount; c++) {
+            var alpha = c / (crossfadeCount + 1);
+            tempCtx.clearRect(0, 0, dims.width, dims.height);
+            if (chkResize.checked) {
+              tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
+            } else {
+              var cx = Math.round((dims.width - frames[i].width) / 2);
+              var cy = Math.round((dims.height - frames[i].height) / 2);
+              tempCtx.drawImage(frames[i].img, cx, cy);
+            }
+            tempCtx.globalAlpha = alpha;
+            if (chkResize.checked) {
+              tempCtx.drawImage(nextFrame.img, 0, 0, dims.width, dims.height);
+            } else {
+              var nx = Math.round((dims.width - nextFrame.width) / 2);
+              var ny = Math.round((dims.height - nextFrame.height) / 2);
+              tempCtx.drawImage(nextFrame.img, nx, ny);
+            }
+            tempCtx.globalAlpha = 1;
+            drawWatermark(tempCtx, dims.width, dims.height);
+            gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: crossDelay, copy: true });
+            totalFrames++;
+          }
+        }
+      }
 
       gif.on('progress', function (p) {
-        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 60 + 40) + '%';
-        progressFill.style.width = (p * 60 + 40) + '%';
+        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 80 + 20) + '%';
+        progressFill.style.width = (p * 80 + 20) + '%';
       });
 
       gif.on('finished', function (blob) {
@@ -995,7 +996,7 @@
         lastGifFilename = 'animation.gif';
 
         resultGif.src = url;
-        resultInfo.textContent = data.frames.length + ' frames · ' + data.width + '×' + data.height + ' · ' + formatSize(blob.size);
+        resultInfo.textContent = totalFrames + ' frames · ' + dims.width + '×' + dims.height + ' · ' + formatSize(blob.size);
 
         dlBtnHeader.disabled = false;
         btnShare.disabled = false;
