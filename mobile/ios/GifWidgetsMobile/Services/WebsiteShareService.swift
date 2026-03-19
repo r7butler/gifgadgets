@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-final class WebsiteShareService {
+actor WebsiteShareService {
     private struct PresignRequest: Encodable {
         let title: String
         let filename: String?

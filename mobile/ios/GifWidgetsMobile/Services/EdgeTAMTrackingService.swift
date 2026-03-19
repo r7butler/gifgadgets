@@ -2,13 +2,13 @@ import Foundation
 import CoreML
 import UIKit
 
-struct TrackingProgress {
+struct TrackingProgress: Sendable {
     let completedFrames: Int
     let totalFrames: Int
     let message: String
 }
 
-final class EdgeTAMTrackingService {
+actor EdgeTAMTrackingService {
     struct LoadedModels {
         let imageEncoder: MLModel
         let promptEncoder: MLModel
@@ -23,7 +23,7 @@ final class EdgeTAMTrackingService {
         sampledFrameIndices: [Int],
         clickFrameIndex: Int,
         normalizedPoint: CGPoint,
-        progress: @escaping (TrackingProgress) -> Void
+        progress: @Sendable @escaping (TrackingProgress) -> Void
     ) async throws -> [MotionKeyframe] {
         let models = try loadModelsIfNeeded()
         let sampled = sampledFrameIndices.sorted()

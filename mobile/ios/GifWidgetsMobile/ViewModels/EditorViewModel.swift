@@ -511,9 +511,6 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
-    deinit {
-        playbackTimer?.invalidate()
-    }
 }
 
 private extension Int {
