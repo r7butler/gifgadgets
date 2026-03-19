@@ -198,7 +198,6 @@
 
     var mobileActions = document.createElement('div');
     mobileActions.className = 'editor-header-mobile-actions';
-    var themeToggle = actions.querySelector('.theme-toggle');
 
     var toggleBtn = document.createElement('button');
     toggleBtn.className = 'editor-header-toggle';
@@ -259,7 +258,6 @@
       if (window.innerWidth > 768) setOpen(false);
     });
 
-    if (themeToggle) mobileActions.appendChild(themeToggle);
     header.appendChild(mobileActions);
     header.appendChild(toggleBtn);
     ensureEditorHeaderObserver();
@@ -489,12 +487,17 @@
       return;
     }
 
-    // Editor pages — prepend to .header-actions and add mobile menu
+    // Editor pages — place theme toggle directly on header (always visible),
+    // report-issue and mobile menu inside .header-actions
     var header = document.querySelector('.editor-header, .video-editor-header, .vtg-header');
     if (header) {
       var headerActions = ensureHeaderActions(header);
-      headerActions.insertBefore(btn, headerActions.firstChild);
-      headerActions.insertBefore(makeReportIssueBtn('report-issue-nav-btn'), btn);
+      headerActions.insertBefore(makeReportIssueBtn('report-issue-nav-btn'), headerActions.firstChild);
+      // Place theme toggle on the header itself, before header-actions, so it's
+      // always visible even when header-actions collapses on mobile
+      btn.style.marginLeft = 'auto';
+      btn.style.marginRight = '8px';
+      header.insertBefore(btn, headerActions);
       setupEditorHeader(header, headerActions);
     }
   });

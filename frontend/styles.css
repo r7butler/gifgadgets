@@ -1200,6 +1200,9 @@ input[type="range"]::-moz-range-thumb {
   .vtg-header .btn { padding: 6px 10px; font-size: 13px; }
   .editor-header-mobile-actions { display: flex; }
   .editor-header-toggle { display: flex; }
+  .editor-header > .theme-toggle,
+  .video-editor-header > .theme-toggle,
+  .vtg-header > .theme-toggle { margin-right: 0; }
   .header-actions {
     display: none; order: 3; width: 100%;
     flex-direction: column; gap: 6px;
