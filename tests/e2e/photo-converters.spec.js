@@ -17,6 +17,9 @@ const converters = [
   { name: "WebP to JPG", path: "/photo-converter/webp-to-jpg/", input: "test.webp" },
   { name: "GIF to PNG", path: "/photo-converter/gif-to-png/", input: "test.gif" },
   { name: "SVG to PNG", path: "/photo-converter/svg-to-png/", input: "test.svg" },
+  // HEIC conversion uses heic2any from CDN and requires a real HEIC file,
+  // so we only test page load (no upload/conversion test).
+  { name: "HEIC to JPG", path: "/photo-converter/heic-to-jpg/", input: null },
 ];
 
 for (const converter of converters) {
@@ -27,33 +30,35 @@ for (const converter of converters) {
       await expect(page.locator(".conv-drop-zone")).toBeVisible();
     });
 
-    test("upload enables convert button", async ({ page }) => {
-      await page.goto(converter.path);
-      const fileInput = page.locator("#file-input");
-      await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
+    if (converter.input) {
+      test("upload enables convert button", async ({ page }) => {
+        await page.goto(converter.path);
+        const fileInput = page.locator("#file-input");
+        await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
 
-      // File info should appear and convert button should enable
-      await expect(page.locator("#file-info")).toBeVisible({ timeout: 10_000 });
-      await expect(page.locator("#btn-convert")).toBeEnabled({ timeout: 5_000 });
-    });
+        // File info should appear and convert button should enable
+        await expect(page.locator("#file-info")).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator("#btn-convert")).toBeEnabled({ timeout: 5_000 });
+      });
 
-    test("conversion produces result with download button", async ({ page }) => {
-      await page.goto(converter.path);
-      const fileInput = page.locator("#file-input");
-      await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
+      test("conversion produces result with download button", async ({ page }) => {
+        await page.goto(converter.path);
+        const fileInput = page.locator("#file-input");
+        await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
 
-      // Wait for convert button to enable, then click it
-      const convertBtn = page.locator("#btn-convert");
-      await expect(convertBtn).toBeEnabled({ timeout: 10_000 });
-      await convertBtn.click();
+        // Wait for convert button to enable, then click it
+        const convertBtn = page.locator("#btn-convert");
+        await expect(convertBtn).toBeEnabled({ timeout: 10_000 });
+        await convertBtn.click();
 
-      // Wait for result section
-      const result = page.locator("#conv-result");
-      await expect(result).toBeVisible({ timeout: 20_000 });
+        // Wait for result section
+        const result = page.locator("#conv-result");
+        await expect(result).toBeVisible({ timeout: 20_000 });
 
-      // Download button should be present
-      const downloadBtn = page.locator("#btn-download");
-      await expect(downloadBtn).toBeVisible();
-    });
+        // Download button should be present
+        const downloadBtn = page.locator("#btn-download");
+        await expect(downloadBtn).toBeVisible();
+      });
+    }
   });
 }

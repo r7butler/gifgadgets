@@ -13,6 +13,7 @@
     "test:smoke": "./scripts/smoke-test.sh"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "serve": "^14.2.6"
   }
 }
