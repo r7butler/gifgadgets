@@ -814,7 +814,7 @@
     onFramesChanged();
   }
 
-  function createFrameItem(f, i, compact) {
+  function createFrameItem(f, i, compact, groupIndex, totalGroups) {
     var item = document.createElement('div');
     item.className = 'gm-frame-item';
     item.draggable = true;
@@ -861,6 +861,35 @@
       delayLabel.textContent = 'ms';
       item.appendChild(delayInput);
       item.appendChild(delayLabel);
+    }
+
+    if (!compact && totalGroups > 1) {
+      var moveUpBtn = document.createElement('button');
+      moveUpBtn.className = 'gm-group-move';
+      moveUpBtn.innerHTML = '&#9650;';
+      moveUpBtn.title = 'Move up';
+      if (groupIndex === 0) moveUpBtn.disabled = true;
+      (function (idx) {
+        moveUpBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moveGroup(idx, 1, -1);
+        });
+      })(i);
+
+      var moveDownBtn = document.createElement('button');
+      moveDownBtn.className = 'gm-group-move';
+      moveDownBtn.innerHTML = '&#9660;';
+      moveDownBtn.title = 'Move down';
+      if (groupIndex === totalGroups - 1) moveDownBtn.disabled = true;
+      (function (idx) {
+        moveDownBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moveGroup(idx, 1, 1);
+        });
+      })(i);
+
+      item.appendChild(moveUpBtn);
+      item.appendChild(moveDownBtn);
     }
 
     var removeBtn = document.createElement('button');
@@ -923,7 +952,7 @@
     groups.forEach(function (group, groupIndex) {
       // Single-frame group — render as a plain frame item
       if (group.count === 1) {
-        frameListEl.appendChild(createFrameItem(frames[group.startIndex], group.startIndex, false));
+        frameListEl.appendChild(createFrameItem(frames[group.startIndex], group.startIndex, false, groupIndex, groups.length));
         return;
       }
 
