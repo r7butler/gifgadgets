@@ -84,38 +84,6 @@ jobs:
           name: playwright-report
           path: test-results/
 
-  # ── Deploy Dev ─────────────────────────────────────────
-  deploy-dev:
-    name: Deploy to dev
-    runs-on: ubuntu-latest
-    needs: [build, backend-tests, e2e-tests]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    environment: dev
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: us-east-1
-
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: frontend/
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Deploy backend
-        run: ENV=dev ./scripts/deploy-backend.sh
-
-      - name: Deploy frontend
-        run: ENV=dev ./scripts/deploy-frontend.sh
-
   # ── Deploy Prod ────────────────────────────────────────
   deploy-prod:
     name: Deploy to prod
