@@ -566,10 +566,16 @@
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('file-input');
   dropZone.addEventListener('click', function () { fileInput.click(); });
-  fileInput.addEventListener('change', function () { if (fileInput.files[0]) loadGif(fileInput.files[0]); });
+  function isGifFile(f) { return f.type === 'image/gif' || (f.name && f.name.toLowerCase().endsWith('.gif')); }
+  function validateAndLoad(f) {
+    if (!f) return;
+    if (!isGifFile(f)) { alert('Please upload a GIF file. Other image formats are not supported by the resizer.'); return; }
+    loadGif(f);
+  }
+  fileInput.addEventListener('change', function () { validateAndLoad(fileInput.files[0]); });
   dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('dragover'); });
-  dropZone.addEventListener('drop', function (e) { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadGif(e.dataTransfer.files[0]); });
+  dropZone.addEventListener('drop', function (e) { e.preventDefault(); dropZone.classList.remove('dragover'); validateAndLoad(e.dataTransfer.files[0]); });
 
   // ── Share ──
 
@@ -751,7 +757,11 @@
         var file = get.result;
         if (!file) return;
         db.transaction('files', 'readwrite').objectStore('files').delete('pending');
-        if (file.type === 'image/gif' || (file.name && file.name.toLowerCase().endsWith('.gif'))) loadGif(file);
+        if (file.type === 'image/gif' || (file.name && file.name.toLowerCase().endsWith('.gif'))) {
+          loadGif(file);
+        } else {
+          alert('Please upload a GIF file. Other image formats are not supported by the resizer.');
+        }
       };
     };
   })();
