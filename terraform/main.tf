@@ -764,3 +764,138 @@ resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${local.lambda_function_name}"
   retention_in_days = 14
 }
+
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = "${var.project_slug}-overview"
+  dashboard_body = jsonencode({
+    widgets = [
+      # --- Row 1: Lambda health ---
+      {
+        type   = "text"
+        x      = 0, y = 0, width = 24, height = 1
+        properties = { markdown = "## Lambda API" }
+      },
+      {
+        type   = "metric"
+        x      = 0, y = 1, width = 8, height = 6
+        properties = {
+          title  = "Invocations"
+          region = "us-east-1"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/Lambda", "Invocations", "FunctionName", local.lambda_function_name],
+            [".", "Errors", ".", "."],
+            [".", "Throttles", ".", "."],
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 8, y = 1, width = 8, height = 6
+        properties = {
+          title  = "Duration (ms)"
+          region = "us-east-1"
+          period = 300
+          metrics = [
+            ["AWS/Lambda", "Duration", "FunctionName", local.lambda_function_name, { stat = "Average" }],
+            ["...", { stat = "p95" }],
+            ["...", { stat = "Maximum" }],
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 16, y = 1, width = 8, height = 6
+        properties = {
+          title  = "Concurrent Executions"
+          region = "us-east-1"
+          stat   = "Maximum"
+          period = 300
+          metrics = [
+            ["AWS/Lambda", "ConcurrentExecutions", "FunctionName", local.lambda_function_name],
+          ]
+        }
+      },
+      # --- Row 2: WAF ---
+      {
+        type   = "text"
+        x      = 0, y = 7, width = 24, height = 1
+        properties = { markdown = "## WAF" }
+      },
+      {
+        type   = "metric"
+        x      = 0, y = 8, width = 12, height = 6
+        properties = {
+          title  = "Allowed vs Blocked"
+          region = "us-east-1"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/WAFV2", "AllowedRequests", "WebACL", "${var.project_slug}-waf", "Rule", "ALL", "Region", "us-east-1"],
+            [".", "BlockedRequests", ".", ".", ".", ".", ".", "."],
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12, y = 8, width = 12, height = 6
+        properties = {
+          title  = "Rate-Limited Requests"
+          region = "us-east-1"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/WAFV2", "BlockedRequests", "WebACL", "${var.project_slug}-waf", "Rule", "api-rate-limit", "Region", "us-east-1"],
+          ]
+        }
+      },
+      # --- Row 3: CloudFront ---
+      {
+        type   = "text"
+        x      = 0, y = 14, width = 24, height = 1
+        properties = { markdown = "## CloudFront (Site)" }
+      },
+      {
+        type   = "metric"
+        x      = 0, y = 15, width = 8, height = 6
+        properties = {
+          title  = "Requests"
+          region = "us-east-1"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.site.id, "Region", "Global"],
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 8, y = 15, width = 8, height = 6
+        properties = {
+          title  = "Error Rate (%)"
+          region = "us-east-1"
+          stat   = "Average"
+          period = 300
+          metrics = [
+            ["AWS/CloudFront", "4xxErrorRate", "DistributionId", aws_cloudfront_distribution.site.id, "Region", "Global"],
+            [".", "5xxErrorRate", ".", ".", ".", "."],
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 16, y = 15, width = 8, height = 6
+        properties = {
+          title  = "Data Transferred"
+          region = "us-east-1"
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/CloudFront", "BytesDownloaded", "DistributionId", aws_cloudfront_distribution.site.id, "Region", "Global"],
+          ]
+        }
+      },
+    ]
+  })
+}
