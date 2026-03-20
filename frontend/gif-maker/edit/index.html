@@ -67,6 +67,13 @@
       font-size:16px;line-height:1;
     }
     .gm-frame-remove:hover { background:var(--bg-tertiary);color:var(--danger); }
+    .gm-group-move {
+      width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+      background:none;border:none;color:var(--text-muted);cursor:pointer;border-radius:4px;flex-shrink:0;
+      font-size:14px;line-height:1;padding:0;
+    }
+    .gm-group-move:hover { background:var(--bg-tertiary);color:var(--text-primary); }
+    .gm-group-move:disabled { opacity:.25;cursor:default;pointer-events:none; }
     .gm-frame-delay {
       width:52px;padding:2px 4px;background:var(--bg-tertiary);border:1px solid var(--border);
       border-radius:3px;color:var(--text-primary);font-size:11px;text-align:center;flex-shrink:0;
@@ -789,6 +796,24 @@
     onFramesChanged();
   }
 
+  function moveGroup(startIndex, count, direction) {
+    var groups = getFrameGroups();
+    var gi = -1;
+    for (var g = 0; g < groups.length; g++) {
+      if (groups[g].startIndex === startIndex) { gi = g; break; }
+    }
+    if (gi < 0) return;
+    if (direction === -1 && gi === 0) return;
+    if (direction === 1 && gi === groups.length - 1) return;
+    var neighbor = groups[direction === -1 ? gi - 1 : gi + 1];
+    var targetIndex = direction === -1 ? neighbor.startIndex : neighbor.startIndex + neighbor.count;
+    var moved = frames.splice(startIndex, count);
+    if (targetIndex > startIndex) targetIndex -= count;
+    for (var m = 0; m < moved.length; m++) frames.splice(targetIndex + m, 0, moved[m]);
+    currentPreviewFrame = 0;
+    onFramesChanged();
+  }
+
   function createFrameItem(f, i, compact) {
     var item = document.createElement('div');
     item.className = 'gm-frame-item';
@@ -895,7 +920,7 @@
     frameListEl.innerHTML = '';
     var groups = getFrameGroups();
 
-    groups.forEach(function (group) {
+    groups.forEach(function (group, groupIndex) {
       // Single-frame group — render as a plain frame item
       if (group.count === 1) {
         frameListEl.appendChild(createFrameItem(frames[group.startIndex], group.startIndex, false));
@@ -945,6 +970,30 @@
       delayLabel.className = 'gm-frame-delay-label';
       delayLabel.textContent = 'ms';
 
+      var moveUpBtn = document.createElement('button');
+      moveUpBtn.className = 'gm-group-move';
+      moveUpBtn.innerHTML = '&#9650;';
+      moveUpBtn.title = 'Move group up';
+      if (groupIndex === 0) moveUpBtn.disabled = true;
+      (function (start, cnt) {
+        moveUpBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moveGroup(start, cnt, -1);
+        });
+      })(group.startIndex, group.count);
+
+      var moveDownBtn = document.createElement('button');
+      moveDownBtn.className = 'gm-group-move';
+      moveDownBtn.innerHTML = '&#9660;';
+      moveDownBtn.title = 'Move group down';
+      if (groupIndex === groups.length - 1) moveDownBtn.disabled = true;
+      (function (start, cnt) {
+        moveDownBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moveGroup(start, cnt, 1);
+        });
+      })(group.startIndex, group.count);
+
       var removeBtn = document.createElement('button');
       removeBtn.className = 'gm-frame-remove';
       removeBtn.innerHTML = '&times;';
@@ -963,6 +1012,8 @@
       header.appendChild(count);
       header.appendChild(delayInput);
       header.appendChild(delayLabel);
+      header.appendChild(moveUpBtn);
+      header.appendChild(moveDownBtn);
       header.appendChild(removeBtn);
 
       // Toggle collapse on click
