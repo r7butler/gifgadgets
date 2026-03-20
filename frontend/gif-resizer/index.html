@@ -137,6 +137,10 @@
   var fileInput = document.getElementById('hero-file-input');
   function storeAndGo(file) {
     if (!file) return;
+    if (file.type !== 'image/gif' && !(file.name && file.name.toLowerCase().endsWith('.gif'))) {
+      alert('Please upload a GIF file. Other image formats are not supported by the resizer.');
+      return;
+    }
     var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {

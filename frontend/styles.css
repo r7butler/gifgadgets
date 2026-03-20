@@ -1161,12 +1161,17 @@ input[type="range"]::-moz-range-thumb {
   .landing-upload { padding: 2rem 1.5rem; }
   .landing-footer { display: none; }
 
-  /* Editor layout: vertical stack */
-  .editor-main { flex-direction: column; }
+  /* Editor layout: single-scroll vertical stack */
+  .editor-app { overflow-y: auto; overflow-x: hidden; }
+  .editor-workspace { overflow: visible; flex: 0 0 auto; }
+  .editor-main { flex-direction: column; overflow: visible; flex: 0 0 auto; }
+  .editor-preview { flex: 0 0 auto; }
+  .canvas-container { flex: none; height: 50vh; min-height: 180px; padding: 8px; }
+  .playback-controls { flex-wrap: wrap; gap: 6px; padding: 6px 10px; position: sticky; top: 0; z-index: 20; }
   .editor-sidebar {
     width: 100%; min-width: 0;
     border-left: none; border-top: 1px solid var(--border);
-    max-height: 45vh;
+    max-height: none; overflow-y: visible;
   }
   .sidebar-toggle { display: flex; }
   .timeline-toggle { display: flex; }
@@ -1176,7 +1181,6 @@ input[type="range"]::-moz-range-thumb {
   .editor-sidebar.mobile-collapsed .other-options-section { display: none; }
   .editor-timeline.mobile-collapsed .timeline-header,
   .editor-timeline.mobile-collapsed #timeline { display: none; }
-  .playback-controls { flex-wrap: wrap; gap: 6px; padding: 6px 10px; }
   .speed-control { display: none; }
   .zoom-controls { display: none; }
   .frame-counter { font-size: 11px; min-width: 50px; }
@@ -1184,7 +1188,6 @@ input[type="range"]::-moz-range-thumb {
   .ctrl-btn-play { width: 48px; height: 48px; }
   .editor-timeline { padding: 0 0 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .caption-brush .handle { width: 12px !important; }
-  .canvas-container { padding: 8px; min-height: 180px; }
   .btn { padding: 10px 16px; font-size: 14px; }
   .btn-xs { padding: 6px 12px; font-size: 13px; }
   .btn-small { padding: 8px 14px; }
@@ -1271,7 +1274,7 @@ input[type="range"]::-moz-range-thumb {
   .vtg-header .btn svg { display: none; }
   .editor-shortcut-btn svg { display: block !important; }
   .landing-header h1 { font-size: 1.7rem; }
-  .editor-sidebar { max-height: 50vh; }
+  .editor-sidebar { max-height: none; }
   .quick-actions { flex-direction: column; }
 }
 
