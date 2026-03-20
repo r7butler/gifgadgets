@@ -32,13 +32,11 @@ module.exports = defineConfig({
     },
   ],
 
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "npx serve frontend -l 3000",
-        port: 3000,
-        cwd: process.env.PROJECT_ROOT || "../../",
-        reuseExistingServer: true,
-        timeout: 10_000,
-      },
+  webServer: {
+    command: "npx serve frontend -l 3000",
+    port: 3000,
+    cwd: process.env.PROJECT_ROOT || "../../",
+    reuseExistingServer: true,
+    timeout: 10_000,
+  },
 });
