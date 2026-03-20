@@ -5,6 +5,8 @@ on:
     branches: [master, main]
   pull_request:
     branches: [master, main]
+  schedule:
+    - cron: "0 11 * * *"   # 6 AM ET (UTC-5) every day
 
 permissions:
   id-token: write   # OIDC for AWS
