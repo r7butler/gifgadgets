@@ -187,7 +187,7 @@
         <div class="vtg-section-title">Settings</div>
         <div class="form-group" style="margin-bottom:10px">
           <label>FPS: <span id="val-fps">10</span> <span id="max-length-hint" style="font-weight:400;color:var(--text-muted)">(Max length: 30s)</span></label>
-          <input type="range" id="sl-fps" min="1" max="30" step="1" value="10" style="accent-color:var(--cat-gif)" />
+          <input type="range" id="sl-fps" min="1" max="60" step="1" value="10" style="accent-color:var(--cat-gif)" />
         </div>
         <div class="form-group">
           <label>Max width: <span id="val-width">480</span>px</label>
@@ -344,22 +344,28 @@
 
   function detectVideoFps(cb) {
     if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) { cb(null); return; }
-    var samples = [];
+    var startQuality = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality().totalVideoFrames : 0;
+    var firstMediaTime = null;
+    var presented = 0;
     var target = 12;
-    var lastTime = null;
 
     function onFrame(now, meta) {
-      if (lastTime !== null) {
-        var d = meta.mediaTime - lastTime;
-        if (d > 0.001) samples.push(d);
-      }
-      lastTime = meta.mediaTime;
-      if (samples.length >= target) {
+      if (firstMediaTime === null) firstMediaTime = meta.mediaTime;
+      presented++;
+      if (presented >= target) {
         video.pause();
+        var elapsed = meta.mediaTime - firstMediaTime;
+        var raw;
+        // Prefer getVideoPlaybackQuality — counts ALL decoded frames including dropped ones,
+        // so a 60fps video on a 30Hz display still reports 60.
+        if (video.getVideoPlaybackQuality && elapsed > 0) {
+          var decoded = video.getVideoPlaybackQuality().totalVideoFrames - startQuality;
+          if (decoded > presented) raw = decoded / elapsed;
+        }
+        // Fallback to rVFC-presented frames
+        if (!raw && elapsed > 0) raw = (presented - 1) / elapsed;
         video.currentTime = 0;
-        samples.sort(function (a, b) { return a - b; });
-        var median = samples[Math.floor(samples.length / 2)];
-        var raw = 1 / median;
+        if (!raw) { cb(null); return; }
         // Snap to nearest common frame rate
         var common = [12, 15, 20, 24, 25, 30, 50, 60];
         var best = common[0];
@@ -623,7 +629,7 @@
       detectVideoFps(function (fps) {
         if (fps) {
           detectedFps = fps;
-          var capped = Math.min(fps, 30); // slider max is 30
+          var capped = Math.min(fps, 60); // slider max is 60
           slFps.value = capped;
           valFps.textContent = capped;
           maxLengthHint.textContent = '(Max length: ' + getMaxClipDuration() + 's)';
