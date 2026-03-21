@@ -349,6 +349,43 @@
   var MIN_CLIP = 0.1;
   var MAX_FRAMES = 300;
   var maxLengthHint = document.getElementById('max-length-hint');
+  var detectedFps = null;
+
+  // ── Detect native video FPS via requestVideoFrameCallback ──
+
+  function detectVideoFps(cb) {
+    if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) { cb(null); return; }
+    var samples = [];
+    var target = 12;
+    var lastTime = null;
+
+    function onFrame(now, meta) {
+      if (lastTime !== null) {
+        var d = meta.mediaTime - lastTime;
+        if (d > 0.001) samples.push(d);
+      }
+      lastTime = meta.mediaTime;
+      if (samples.length >= target) {
+        video.pause();
+        video.currentTime = 0;
+        samples.sort(function (a, b) { return a - b; });
+        var median = samples[Math.floor(samples.length / 2)];
+        var raw = 1 / median;
+        // Snap to nearest common frame rate
+        var common = [12, 15, 20, 24, 25, 30, 50, 60];
+        var best = common[0];
+        for (var i = 1; i < common.length; i++) {
+          if (Math.abs(raw - common[i]) < Math.abs(raw - best)) best = common[i];
+        }
+        cb(best);
+      } else {
+        video.requestVideoFrameCallback(onFrame);
+      }
+    }
+
+    video.requestVideoFrameCallback(onFrame);
+    video.play().catch(function () { cb(null); });
+  }
 
   function getMaxClipDuration() {
     var fps = Math.max(1, parseInt(slFps.value, 10) || 10);
@@ -586,20 +623,31 @@
     video.src = url;
     video.onloadedmetadata = function () {
       duration = video.duration;
-      inTime = 0;
-      outTime = Math.min(duration, getMaxClipDuration());
-      clampRange();
-      var maxClip = getMaxClipDuration();
-      convertStatus.textContent = 'Duration: ' + duration.toFixed(1) + 's' + (duration > maxClip ? ' (max ' + maxClip + 's at ' + slFps.value + ' FPS)' : '');
-      updateFrameCounter();
-      updatePlayPauseIcon();
       document.getElementById('upload-screen').classList.add('hidden');
       document.getElementById('editor-screen').classList.remove('hidden');
       convertBtn.disabled = false;
       dlBtnHeader.disabled = false;
       btnShare.disabled = false;
-      // Force first frame to render on mobile Safari
-      video.play().then(function () { video.pause(); video.currentTime = 0; }).catch(function () {});
+      updatePlayPauseIcon();
+
+      // Detect native FPS, then initialise time range
+      detectVideoFps(function (fps) {
+        if (fps) {
+          detectedFps = fps;
+          var capped = Math.min(fps, 30); // slider max is 30
+          slFps.value = capped;
+          valFps.textContent = capped;
+          maxLengthHint.textContent = '(Max length: ' + getMaxClipDuration() + 's)';
+        }
+        inTime = 0;
+        outTime = Math.min(duration, getMaxClipDuration());
+        clampRange();
+        var maxClip = getMaxClipDuration();
+        convertStatus.textContent = 'Duration: ' + duration.toFixed(1) + 's'
+          + (duration > maxClip ? ' (max ' + maxClip + 's at ' + slFps.value + ' FPS)' : '')
+          + (detectedFps ? ' · Detected ' + detectedFps + ' FPS' : '');
+        updateFrameCounter();
+      });
     };
   }
 
