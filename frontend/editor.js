@@ -33,6 +33,19 @@
            /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
   }
 
+  function _redirectToImageEditor(file) {
+    var req = indexedDB.open('gifwidgets_imgcap', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(file, 'pending');
+      tx.oncomplete = function () { window.location.href = '/image-editor/edit/?source=imgcap'; };
+      tx.onerror = function () { GC.showError('Could not save file. Please try again.'); };
+    };
+    req.onerror = function () { GC.showError('Could not open file storage.'); };
+  }
+
   // ── Initialise ───────────────────────────────
   function init() {
     GC.canvas = $('#preview-canvas');
@@ -1110,6 +1123,8 @@
           GC.loadVideoAsGif(file);
         } else if (file.type.startsWith('image/') && GC.loadImageFile) {
           GC.loadImageFile(file);
+        } else if (file.type.startsWith('image/')) {
+          _redirectToImageEditor(file);
         } else {
           GC.showError(GC.dropErrorMessage || 'Please drop a GIF, video, or HEIC file.');
         }
@@ -1130,6 +1145,8 @@
           GC.loadVideoAsGif(file);
         } else if (file.type.startsWith('image/') && GC.loadImageFile) {
           GC.loadImageFile(file);
+        } else if (file.type.startsWith('image/')) {
+          _redirectToImageEditor(file);
         }
       });
     }

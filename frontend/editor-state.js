@@ -108,7 +108,8 @@
   ];
 
   /** Corner-handle hit radius — larger on touch devices for easier grabbing. */
-  GC.HANDLE_SIZE = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 14 : 8;
+  GC.IS_TOUCH = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  GC.HANDLE_SIZE = GC.IS_TOUCH ? 20 : 8;
 
   // ── Factories ────────────────────────────────
 

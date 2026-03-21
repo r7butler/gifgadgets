@@ -363,7 +363,7 @@
     });
 
     // Rotation handle: stem + circle below bottom-centre
-    var stemLen = 20;
+    var stemLen = GC.IS_TOUCH ? 28 : 20;
     var rotHandleX = bbox.x + bbox.w / 2;
     var rotHandleY = bbox.y + bbox.h + 5 + stemLen;
     context.beginPath();
@@ -389,7 +389,7 @@
 
   /** Get the rotation handle centre in canvas coords (before rotation transform). */
   GC.getRotationHandlePos = function (bbox) {
-    var stemLen = 20;
+    var stemLen = GC.IS_TOUCH ? 28 : 20;
     return {
       x: bbox.x + bbox.w / 2,
       y: bbox.y + bbox.h + 5 + stemLen,
@@ -545,7 +545,7 @@
     });
 
     // Rotation handle
-    var stemLen = 20;
+    var stemLen = GC.IS_TOUCH ? 28 : 20;
     var rotHandleX = bbox.x + bbox.w / 2;
     var rotHandleY = bbox.y + bbox.h + 3 + stemLen;
     context.beginPath();
@@ -583,7 +583,7 @@
   GC.getOverlayRotationHandlePos = function (bbox) {
     return {
       x: bbox.x + bbox.w / 2,
-      y: bbox.y + bbox.h + 3 + 20,
+      y: bbox.y + bbox.h + 3 + (GC.IS_TOUCH ? 28 : 20),
     };
   };
 
