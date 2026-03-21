@@ -46,6 +46,15 @@
     req.onerror = function () { GC.showError('Could not open file storage.'); };
   }
 
+  /** Pick a default font size that looks ~40px on screen regardless of canvas resolution. */
+  function _defaultFontSize() {
+    if (GC.canvas && GC.canvas.width && GC.canvas.offsetWidth) {
+      var scale = GC.canvas.width / GC.canvas.offsetWidth;
+      return Math.round(40 * Math.max(1, scale));
+    }
+    return 40;
+  }
+
   // ── Initialise ───────────────────────────────
   function init() {
     GC.canvas = $('#preview-canvas');
@@ -103,7 +112,7 @@
       text: opts.text || 'YOUR TEXT HERE',
       x: opts.x != null ? opts.x : (pos ? pos.x : 0.5),
       y: opts.y != null ? opts.y : (pos ? pos.y : 0.15),
-      fontSize: opts.fontSize || 40,
+      fontSize: opts.fontSize || _defaultFontSize(),
       fontFamily: opts.fontFamily || 'Impact',
       fontWeight: opts.fontWeight != null ? opts.fontWeight : 700,
       color: opts.color || '#ffffff',
@@ -186,6 +195,8 @@
           x: 0.1,
           y: 0.1,
           scale: scale,
+          scaleX: scale,
+          scaleY: scale,
           rotation: 0,
           opacity: 1,
           startFrame: 0,
@@ -259,8 +270,12 @@
     if (!ov) { editor.classList.add('hidden'); return; }
     editor.classList.remove('hidden');
     $('#overlay-name').textContent = ov.name;
-    $('#ov-scale').value = ov.scale;
-    $('#ov-scale-val').textContent = ov.scale.toFixed(2);
+    var sx = ov.scaleX != null ? ov.scaleX : ov.scale;
+    var sy = ov.scaleY != null ? ov.scaleY : ov.scale;
+    if ($('#ov-scale-x')) { $('#ov-scale-x').value = sx; }
+    if ($('#ov-scale-x-val')) { $('#ov-scale-x-val').textContent = sx.toFixed(2); }
+    if ($('#ov-scale-y')) { $('#ov-scale-y').value = sy; }
+    if ($('#ov-scale-y-val')) { $('#ov-scale-y-val').textContent = sy.toFixed(2); }
     $('#ov-opacity').value = Math.round((ov.opacity != null ? ov.opacity : 1) * 100);
     $('#ov-opacity-val').textContent = Math.round((ov.opacity != null ? ov.opacity : 1) * 100);
     var motionCount = ov.motion ? ov.motion.length : 0;
@@ -437,7 +452,7 @@
             return;
           }
 
-          // Corner resize handles
+          // Corner resize handles (uniform)
           var ovCorners = GC.getOverlaySelectionCorners(ovBbox);
           var ovOppositeIdx = [3, 2, 1, 0];
           for (var oc = 0; oc < ovCorners.length; oc++) {
@@ -449,7 +464,8 @@
               var ancX = opp.x + hs / 2, ancY = opp.y + hs / 2;
               state.resizeState = {
                 overlayId: selOv.id,
-                startScale: selOv.scale,
+                startScaleX: selOv.scaleX != null ? selOv.scaleX : selOv.scale,
+                startScaleY: selOv.scaleY != null ? selOv.scaleY : selOv.scale,
                 startDist: Math.sqrt(Math.pow(lm.x - ancX, 2) + Math.pow(lm.y - ancY, 2)),
                 anchorX: ancX,
                 anchorY: ancY,
@@ -459,6 +475,48 @@
               GC.canvas.style.cursor = 'nwse-resize';
               return;
             }
+          }
+
+          // Edge handles (non-uniform stretch)
+          var ovEdges = GC.getOverlayEdgeHandles(ovBbox);
+          for (var oei = 0; oei < ovEdges.length; oei++) {
+            var oeh = ovEdges[oei];
+            var oedx = lm.x - oeh.x, oedy = lm.y - oeh.y;
+            if (oedx * oedx + oedy * oedy <= hitRadius * hitRadius) {
+              state.edgeResizeState = {
+                overlayId: selOv.id,
+                axis: oeh.axis,
+                startScaleX: selOv.scaleX != null ? selOv.scaleX : selOv.scale,
+                startScaleY: selOv.scaleY != null ? selOv.scaleY : selOv.scale,
+                startPos: oeh.axis === 'h' ? lm.x : lm.y,
+                edgeIndex: oei,
+                imgWidth: selOv.img.naturalWidth,
+                imgHeight: selOv.img.naturalHeight,
+                rotation: selOv.rotation || 0,
+                bboxForUnrotate: ovBbox,
+              };
+              GC.canvas.style.cursor = oeh.axis === 'h' ? 'ew-resize' : 'ns-resize';
+              return;
+            }
+          }
+
+          // Body hit-test for selected overlay (z-order: keep selected item on top)
+          if (lm.x >= ovBbox.x - 6 && lm.x <= ovBbox.x + ovBbox.w + 6 &&
+              lm.y >= ovBbox.y - 6 && lm.y <= ovBbox.y + ovBbox.h + 6) {
+            var ovIpSel = (selOv.motion && selOv.motion.length > 0)
+              ? GC.getInterpolatedPosition(selOv.motion, state.currentFrame) : null;
+            var ovPxSel = ovIpSel ? ovIpSel.x : selOv.x;
+            var ovPySel = ovIpSel ? ovIpSel.y : selOv.y;
+            state.dragState = {
+              overlayId: selOv.id,
+              offsetX: m.x - ovPxSel * state.width,
+              offsetY: m.y - ovPySel * state.height,
+              motionEnabled: selOv.motion && selOv.motion.length > 0,
+              motionFrame: state.currentFrame,
+            };
+            GC.canvas.style.cursor = 'grabbing';
+            GC.renderCurrentFrame();
+            return;
           }
         }
       }
@@ -540,6 +598,24 @@
               GC.canvas.style.cursor = eh.axis === 'h' ? 'ew-resize' : 'ns-resize';
               return;
             }
+          }
+          // Body hit-test for selected caption (z-order: keep selected item on top)
+          if (lm.x >= bbox.x - 6 && lm.x <= bbox.x + bbox.w + 6 &&
+              lm.y >= bbox.y - 6 && lm.y <= bbox.y + bbox.h + 6) {
+            var dipSel = (selCap.motion && selCap.motion.length > 0)
+              ? GC.getInterpolatedPosition(selCap.motion, state.currentFrame) : null;
+            var dpxSel = dipSel ? dipSel.x : selCap.x;
+            var dpySel = dipSel ? dipSel.y : selCap.y;
+            state.dragState = {
+              captionId: selCap.id,
+              offsetX: m.x - dpxSel * state.width,
+              offsetY: m.y - dpySel * state.height,
+              motionEnabled: selCap.motion && selCap.motion.length > 0,
+              motionFrame: state.currentFrame,
+            };
+            GC.canvas.style.cursor = 'grabbing';
+            GC.renderCurrentFrame();
+            return;
           }
         }
       }
@@ -689,22 +765,40 @@
     // Active edge resize drag (one-dimensional stretch)
     if (state.edgeResizeState) {
       var es = state.edgeResizeState;
-      var cap = GC.findCaption(es.captionId);
-      if (cap) {
-        var elm = GC.unrotatePoint(m.x, m.y, es.bboxForUnrotate, es.rotation);
-        var curPos = es.axis === 'h' ? elm.x : elm.y;
-        var delta = curPos - es.startPos;
-        // edges: 0=top, 1=right, 2=bottom, 3=left
-        if (es.axis === 'h') {
-          // Right or left edge: delta in pixels → normalise to fraction of canvas width
-          var sign = (es.edgeIndex === 1) ? 1 : -1;
-          cap.boxWidth = Math.max(0.05, Math.min(1, es.startBoxWidth + sign * delta / state.width));
-        } else {
-          var sign = (es.edgeIndex === 2) ? 1 : -1;
-          cap.boxHeight = Math.max(0.03, Math.min(1, es.startBoxHeight + sign * delta / state.height));
+      if (es.overlayId) {
+        var ov = GC.findOverlay(es.overlayId);
+        if (ov) {
+          var elm = GC.unrotatePoint(m.x, m.y, es.bboxForUnrotate, es.rotation);
+          var curPos = es.axis === 'h' ? elm.x : elm.y;
+          var delta = curPos - es.startPos;
+          // edges: 0=top, 1=right, 2=bottom, 3=left
+          if (es.axis === 'h') {
+            var sign = (es.edgeIndex === 1) ? 1 : -1;
+            ov.scaleX = Math.max(0.01, es.startScaleX + sign * delta / es.imgWidth);
+          } else {
+            var sign = (es.edgeIndex === 2) ? 1 : -1;
+            ov.scaleY = Math.max(0.01, es.startScaleY + sign * delta / es.imgHeight);
+          }
+          ov.scale = (ov.scaleX + ov.scaleY) / 2;
+          GC.renderCurrentFrame();
+          updateOverlayEditor();
         }
-        GC.renderCurrentFrame();
-        updateCaptionEditor();
+      } else {
+        var cap = GC.findCaption(es.captionId);
+        if (cap) {
+          var elm = GC.unrotatePoint(m.x, m.y, es.bboxForUnrotate, es.rotation);
+          var curPos = es.axis === 'h' ? elm.x : elm.y;
+          var delta = curPos - es.startPos;
+          if (es.axis === 'h') {
+            var sign = (es.edgeIndex === 1) ? 1 : -1;
+            cap.boxWidth = Math.max(0.05, Math.min(1, es.startBoxWidth + sign * delta / state.width));
+          } else {
+            var sign = (es.edgeIndex === 2) ? 1 : -1;
+            cap.boxHeight = Math.max(0.03, Math.min(1, es.startBoxHeight + sign * delta / state.height));
+          }
+          GC.renderCurrentFrame();
+          updateCaptionEditor();
+        }
       }
       return;
     }
@@ -718,7 +812,10 @@
           ? GC.unrotatePoint(m.x, m.y, state.resizeState.bboxForUnrotate, state.resizeState.rotation)
           : m;
         var dist = Math.sqrt(Math.pow(rlm.x - state.resizeState.anchorX, 2) + Math.pow(rlm.y - state.resizeState.anchorY, 2));
-        ov.scale = Math.max(0.01, state.resizeState.startScale * (dist / state.resizeState.startDist));
+        var ratio = dist / state.resizeState.startDist;
+        ov.scaleX = Math.max(0.01, state.resizeState.startScaleX * ratio);
+        ov.scaleY = Math.max(0.01, state.resizeState.startScaleY * ratio);
+        ov.scale = (ov.scaleX + ov.scaleY) / 2;
         GC.renderCurrentFrame();
         updateOverlayEditor();
       } else {
@@ -797,6 +894,17 @@
                 var ovcy = ovCornersH[ovc].y + ovHs / 2;
                 var ovdx = ovLm.x - ovcx, ovdy = ovLm.y - ovcy;
                 if (ovdx * ovdx + ovdy * ovdy <= ovHitR * ovHitR) { onHandle = true; break; }
+              }
+              // Overlay edge handle hover
+              if (!onHandle) {
+                var ovEdgesH = GC.getOverlayEdgeHandles(ovBboxH);
+                for (var ovei = 0; ovei < ovEdgesH.length; ovei++) {
+                  var oved = ovEdgesH[ovei];
+                  var ovedx = ovLm.x - oved.x, ovedy = ovLm.y - oved.y;
+                  if (ovedx * ovedx + ovedy * ovedy <= ovHitR * ovHitR) {
+                    onEdge = oved.axis; break;
+                  }
+                }
               }
             }
           }
@@ -1291,13 +1399,25 @@
         overlayFileInput.value = '';
       });
     }
-    var ovScaleSlider = $('#ov-scale');
-    if (ovScaleSlider) {
-      ovScaleSlider.addEventListener('input', function () {
+    var ovScaleXSlider = $('#ov-scale-x');
+    if (ovScaleXSlider) {
+      ovScaleXSlider.addEventListener('input', function () {
         var ov = GC.findOverlay(state.selectedOverlayId);
         if (!ov) return;
-        ov.scale = parseFloat(ovScaleSlider.value);
-        $('#ov-scale-val').textContent = ov.scale.toFixed(2);
+        ov.scaleX = parseFloat(ovScaleXSlider.value);
+        ov.scale = (ov.scaleX + (ov.scaleY != null ? ov.scaleY : ov.scale)) / 2;
+        $('#ov-scale-x-val').textContent = ov.scaleX.toFixed(2);
+        GC.renderCurrentFrame();
+      });
+    }
+    var ovScaleYSlider = $('#ov-scale-y');
+    if (ovScaleYSlider) {
+      ovScaleYSlider.addEventListener('input', function () {
+        var ov = GC.findOverlay(state.selectedOverlayId);
+        if (!ov) return;
+        ov.scaleY = parseFloat(ovScaleYSlider.value);
+        ov.scale = ((ov.scaleX != null ? ov.scaleX : ov.scale) + ov.scaleY) / 2;
+        $('#ov-scale-y-val').textContent = ov.scaleY.toFixed(2);
         GC.renderCurrentFrame();
       });
     }

@@ -363,7 +363,7 @@
     });
 
     // Rotation handle: stem + circle below bottom-centre
-    var stemLen = GC.IS_TOUCH ? 28 : 20;
+    var stemLen = GC.HANDLE_SIZE * 1.3;
     var rotHandleX = bbox.x + bbox.w / 2;
     var rotHandleY = bbox.y + bbox.h + 5 + stemLen;
     context.beginPath();
@@ -389,7 +389,7 @@
 
   /** Get the rotation handle centre in canvas coords (before rotation transform). */
   GC.getRotationHandlePos = function (bbox) {
-    var stemLen = GC.IS_TOUCH ? 28 : 20;
+    var stemLen = GC.HANDLE_SIZE * 1.3;
     return {
       x: bbox.x + bbox.w / 2,
       y: bbox.y + bbox.h + 5 + stemLen,
@@ -480,8 +480,10 @@
       var interp = GC.getInterpolatedPosition(motion, frameIndex);
       if (interp) { px = interp.x; py = interp.y; }
     }
-    var w = ov.img.naturalWidth * ov.scale;
-    var h = ov.img.naturalHeight * ov.scale;
+    var sx = ov.scaleX != null ? ov.scaleX : ov.scale;
+    var sy = ov.scaleY != null ? ov.scaleY : ov.scale;
+    var w = ov.img.naturalWidth * sx;
+    var h = ov.img.naturalHeight * sy;
     // Position is the center of the overlay
     var cx = px * state.width;
     var cy = py * state.height;
@@ -505,8 +507,10 @@
       var interp = GC.getInterpolatedPosition(motion, frameIndex);
       if (interp) { px = interp.x; py = interp.y; }
     }
-    var w = ov.img.naturalWidth * ov.scale;
-    var h = ov.img.naturalHeight * ov.scale;
+    var sx = ov.scaleX != null ? ov.scaleX : ov.scale;
+    var sy = ov.scaleY != null ? ov.scaleY : ov.scale;
+    var w = ov.img.naturalWidth * sx;
+    var h = ov.img.naturalHeight * sy;
     return {
       x: px * state.width - w / 2,
       y: py * state.height - h / 2,
@@ -544,8 +548,16 @@
       context.fill();
     });
 
+    // Edge handles (for non-uniform stretch)
+    var edges = GC.getOverlayEdgeHandles(bbox);
+    edges.forEach(function (eh) {
+      context.beginPath();
+      context.arc(eh.x, eh.y, hs / 2, 0, Math.PI * 2);
+      context.fill();
+    });
+
     // Rotation handle
-    var stemLen = GC.IS_TOUCH ? 28 : 20;
+    var stemLen = GC.HANDLE_SIZE * 1.3;
     var rotHandleX = bbox.x + bbox.w / 2;
     var rotHandleY = bbox.y + bbox.h + 3 + stemLen;
     context.beginPath();
@@ -579,11 +591,22 @@
     ];
   };
 
+  /** Return the four edge-midpoint handle positions for an overlay's selection box. */
+  GC.getOverlayEdgeHandles = function (bbox) {
+    var pad = 3;
+    return [
+      { x: bbox.x + bbox.w / 2, y: bbox.y - pad, axis: 'v' },            // top
+      { x: bbox.x + bbox.w + pad, y: bbox.y + bbox.h / 2, axis: 'h' },   // right
+      { x: bbox.x + bbox.w / 2, y: bbox.y + bbox.h + pad, axis: 'v' },   // bottom
+      { x: bbox.x - pad, y: bbox.y + bbox.h / 2, axis: 'h' },            // left
+    ];
+  };
+
   /** Get the rotation handle centre for an overlay. */
   GC.getOverlayRotationHandlePos = function (bbox) {
     return {
       x: bbox.x + bbox.w / 2,
-      y: bbox.y + bbox.h + 3 + (GC.IS_TOUCH ? 28 : 20),
+      y: bbox.y + bbox.h + 3 + GC.HANDLE_SIZE * 1.3,
     };
   };
 

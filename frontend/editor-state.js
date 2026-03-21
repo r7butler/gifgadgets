@@ -107,9 +107,18 @@
     '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
   ];
 
-  /** Corner-handle hit radius — larger on touch devices for easier grabbing. */
+  /** Corner-handle hit radius — scales with canvas so handles stay usable on high-res images. */
   GC.IS_TOUCH = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  GC.HANDLE_SIZE = GC.IS_TOUCH ? 20 : 8;
+  var _BASE_HANDLE = GC.IS_TOUCH ? 24 : 8;
+  Object.defineProperty(GC, 'HANDLE_SIZE', {
+    get: function () {
+      if (GC.canvas && GC.canvas.width && GC.canvas.offsetWidth) {
+        var scale = GC.canvas.width / GC.canvas.offsetWidth;
+        return Math.round(_BASE_HANDLE * Math.max(1, scale));
+      }
+      return _BASE_HANDLE;
+    }
+  });
 
   // ── Factories ────────────────────────────────
 
