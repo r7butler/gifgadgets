@@ -41,9 +41,12 @@ async function frameToJpegB64(frame) {
   var blob  = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
   var ab    = await blob.arrayBuffer();
   var bytes = new Uint8Array(ab);
-  var str   = '';
-  for (var i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
-  return btoa(str);
+  var CHUNK = 8192;
+  var parts = [];
+  for (var i = 0; i < bytes.length; i += CHUNK) {
+    parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK)));
+  }
+  return btoa(parts.join(''));
 }
 
 async function doTracking(msg) {

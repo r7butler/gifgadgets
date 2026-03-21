@@ -122,9 +122,9 @@
           GC.loadImageFile(file);
         }
       };
-      get.onerror = function () {};
+      get.onerror = function () { console.warn('Failed to read pending image from IndexedDB'); };
     };
-    req.onerror = function () {};
+    req.onerror = function () { console.warn('Failed to open IndexedDB for image loading'); };
   };
 
 })();

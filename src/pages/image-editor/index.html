@@ -98,11 +98,15 @@
       tx.oncomplete = function () {
         window.location.href = '/image-editor/edit/?source=imgcap';
       };
+      tx.onerror = function () { alert('Could not save file. Please try again.'); };
     };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
   }
 
+  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
   function handleFile(file) {
     if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use an image under 50 MB.'); return; }
     if (isHeic(file)) {
       heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
         .then(function (result) {

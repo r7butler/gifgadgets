@@ -105,19 +105,35 @@
 (function () {
   var cta = document.getElementById('upload-cta');
   var fileInput = document.getElementById('hero-file-input');
+  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB per file
+  var MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200 MB total
+  var _storeRetries = 0;
   function storeAndGo(files) {
     if (!files || !files.length) return;
+    var total = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].size > MAX_FILE_SIZE) { alert('One of your files exceeds 50 MB. Please use smaller files.'); return; }
+      total += files[i].size;
+    }
+    if (total > MAX_TOTAL_SIZE) { alert('Total file size exceeds 200 MB. Please use fewer or smaller files.'); return; }
     var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
-        db.close(); indexedDB.deleteDatabase('gifwidgets').onsuccess = function(){ storeAndGo(files); }; return;
+        if (_storeRetries++ > 2) { alert('Could not prepare file storage. Please reload the page.'); return; }
+        db.close();
+        var delReq = indexedDB.deleteDatabase('gifwidgets');
+        delReq.onsuccess = function () { storeAndGo(files); };
+        delReq.onerror = function () { alert('Could not reset file storage. Please reload the page.'); };
+        return;
       }
       var tx = db.transaction('files', 'readwrite');
       tx.objectStore('files').put(Array.from(files), 'pending-gif-maker');
       tx.oncomplete = function () { window.location.href = '/gif-maker/edit/'; };
+      tx.onerror = function () { alert('Could not save files. Please try again.'); };
     };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
   }
   cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
   fileInput.addEventListener('change', function () { if (fileInput.files.length) storeAndGo(fileInput.files); });

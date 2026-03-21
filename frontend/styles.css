@@ -72,12 +72,25 @@
 /* ── Reset & Base ─────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Shared checkerboard transparency pattern */
+.checkerboard-bg {
+  background:
+    linear-gradient(45deg, #151520 25%, transparent 25%),
+    linear-gradient(-45deg, #151520 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #151520 75%),
+    linear-gradient(-45deg, transparent 75%, #151520 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background-color: #0e0e1a;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--bg-base);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -528,14 +541,6 @@ input[type="range"]::-moz-range-thumb {
 }
 .image-editor-canvas-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background:
-    linear-gradient(45deg, #151520 25%, transparent 25%),
-    linear-gradient(-45deg, #151520 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #151520 75%),
-    linear-gradient(-45deg, transparent 75%, #151520 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-  background-color: #0e0e1a;
   overflow: hidden; padding: 16px;
 }
 .image-editor-canvas-area canvas {
@@ -773,14 +778,6 @@ input[type="range"]::-moz-range-thumb {
 .canvas-container {
   flex: 1; display: flex; align-items: center; justify-content: center;
   padding: 12px; overflow: hidden; position: relative;
-  background:
-    linear-gradient(45deg, #151520 25%, transparent 25%),
-    linear-gradient(-45deg, #151520 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #151520 75%),
-    linear-gradient(-45deg, transparent 75%, #151520 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-  background-color: #0e0e1a;
 }
 #preview-canvas {
   max-width: 100%; max-height: 100%;
@@ -922,7 +919,7 @@ input[type="range"]::-moz-range-thumb {
 .btn-add-box {
   display: inline-flex; align-items: center; gap: 4px;
   background: var(--bg-secondary); border: 1px dashed var(--border);
-  color: var(--text-secondary); padding: 6px 12px; border-radius: 6px;
+  color: var(--text-secondary); padding: 6px 12px; border-radius: var(--radius-sm);
   cursor: pointer; font-size: 12px; margin-bottom: 6px; transition: border-color .2s, color .2s;
 }
 .btn-add-box:hover { border-color: var(--accent); color: var(--accent); }
@@ -1053,7 +1050,7 @@ input[type="range"]::-moz-range-thumb {
   position: absolute; top: 12px; right: 12px; background: none; border: none;
   color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .modal-close:hover { color: var(--text); background: var(--bg-base); }
 .modal-title { font-size: 1.25rem; margin-bottom: 1rem; }
@@ -1070,7 +1067,7 @@ input[type="range"]::-moz-range-thumb {
 .dl-size-info {
   text-align: center; font-size: .8125rem; color: var(--text-secondary);
   margin: -.5rem 0 .75rem; padding: .35rem .5rem;
-  background: var(--bg-tertiary); border-radius: 6px;
+  background: var(--bg-tertiary); border-radius: var(--radius-sm);
 }
 .dl-size-orig { color: var(--text-muted); }
 .dl-size-arrow { color: var(--text-muted); margin: 0 .2em; }
@@ -1080,7 +1077,7 @@ input[type="range"]::-moz-range-thumb {
 .dl-size-note { color: var(--text-muted); font-style: italic; }
 .share-link-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .share-url-input {
-  flex: 1; padding: .5rem .75rem; border-radius: 6px;
+  flex: 1; padding: .5rem .75rem; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--bg-base);
   color: var(--text); font-size: .875rem; outline: none;
 }
@@ -1100,7 +1097,7 @@ input[type="range"]::-moz-range-thumb {
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border) 50%, var(--bg-secondary) 75%);
   background-size: 800px 100%;
   animation: skeleton-shimmer 1.4s infinite linear;
@@ -1318,7 +1315,7 @@ input[type="range"]::-moz-range-thumb {
 .kf-context-menu {
   position: fixed; z-index: 200;
   background: #1e1e2e; border: 1px solid #3a3a5c;
-  border-radius: 6px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  border-radius: var(--radius-sm); padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
   min-width: 148px;
 }
 .kf-context-menu button {

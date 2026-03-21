@@ -1701,8 +1701,9 @@
         GC.setShareStatus('Copied!', 'success');
       }).catch(function () {
         input.select();
-        document.execCommand('copy');
-        GC.setShareStatus('Copied!', 'success');
+        input.setSelectionRange(0, 99999);
+        try { document.execCommand('copy'); } catch (e) {}
+        GC.setShareStatus('Selected \u2014 press Ctrl+C to copy', 'success');
       });
     });
     var btnCopyImageUrl = $('#btn-copy-image-url');
@@ -1713,8 +1714,9 @@
         GC.setShareStatus('Image URL copied!', 'success');
       }).catch(function () {
         input.select();
-        document.execCommand('copy');
-        GC.setShareStatus('Image URL copied!', 'success');
+        input.setSelectionRange(0, 99999);
+        try { document.execCommand('copy'); } catch (e) {}
+        GC.setShareStatus('Selected \u2014 press Ctrl+C to copy', 'success');
       });
     });
     var btnShareDownload = $('#btn-share-download');

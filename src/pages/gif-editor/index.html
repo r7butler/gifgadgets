@@ -209,8 +209,11 @@
       var tx = db.transaction('files', 'readwrite');
       tx.objectStore('files').put(file, 'pending');
       tx.oncomplete = function () { window.location.href = '/image-editor/edit/?source=imgcap'; };
+      tx.onerror = function () { alert('Could not save file. Please try again.'); };
     };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
   }
+  var _storeRetries = 0;
   function storeAndGo(file) {
     if (!file) return;
     var isStaticImage = file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif');
@@ -220,14 +223,19 @@
     req.onsuccess = function (e) {
       var db = e.target.result;
       if (!db.objectStoreNames.contains('files')) {
+        if (_storeRetries++ > 2) { alert('Could not prepare file storage. Please reload the page.'); return; }
         db.close();
-        indexedDB.deleteDatabase('gifwidgets').onsuccess = function () { storeAndGo(file); };
+        var delReq = indexedDB.deleteDatabase('gifwidgets');
+        delReq.onsuccess = function () { storeAndGo(file); };
+        delReq.onerror = function () { alert('Could not reset file storage. Please reload the page.'); };
         return;
       }
       var tx = db.transaction('files', 'readwrite');
       tx.objectStore('files').put(file, 'pending');
       tx.oncomplete = function () { window.location.href = '/gif-editor/edit/?source=local'; };
+      tx.onerror = function () { alert('Could not save file. Please try again.'); };
     };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
   }
   cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
   fileInput.addEventListener('change', function () { if (fileInput.files[0]) storeAndGo(fileInput.files[0]); });

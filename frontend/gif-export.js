@@ -134,7 +134,16 @@
 
     gif.on('progress', function (p) { GC.showExportProgress(p); });
 
+    var _exportTimeout = setTimeout(function () {
+      if (GC.exportInProgress) {
+        GC.exportInProgress = false;
+        GC.hideExportProgress();
+        GC.showError('Export timed out. Try reducing the number of frames or file size.');
+      }
+    }, 60000);
+
     gif.on('finished', function (blob) {
+      clearTimeout(_exportTimeout);
       GC.hideExportProgress();
       GC.exportInProgress = false;
       var fname = GC.makeCaptionedFilename();
@@ -166,7 +175,7 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
   };
 
   // ── Size Info Helper ─────────────────────────

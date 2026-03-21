@@ -250,4 +250,8 @@
     if (el) el.classList.add('hidden');
   }
 
+  window.addEventListener('beforeunload', function () {
+    if (_worker) { _worker.terminate(); _worker = null; }
+  });
+
 })();

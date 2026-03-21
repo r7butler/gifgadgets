@@ -80,8 +80,8 @@ function fileToBase64(file) {
     const reader = new FileReader();
     reader.onload = () => {
       // Strip the data URL prefix, e.g. "data:image/gif;base64,"
-      const base64 = reader.result.split(",")[1];
-      resolve(base64);
+      const parts = reader.result.split(",");
+      resolve(parts.length > 1 ? parts[1] : parts[0]);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
