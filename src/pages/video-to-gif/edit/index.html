@@ -580,7 +580,14 @@
   slWidth.addEventListener('input', function () { valWidth.textContent = slWidth.value; });
 
   btnPlayPause.addEventListener('click', function () {
-    if (video.paused || video.ended) video.play(); else video.pause();
+    if (video.paused || video.ended) {
+      if (duration && (video.currentTime < inTime || video.currentTime >= outTime - 0.05)) {
+        video.currentTime = inTime;
+      }
+      video.play();
+    } else {
+      video.pause();
+    }
   });
   btnPrevFrame.addEventListener('click', function () { stepFrame(-1); });
   btnNextFrame.addEventListener('click', function () { stepFrame(1); });
@@ -598,7 +605,13 @@
   });
 
   video.addEventListener('loadedmetadata', updateFrameCounter);
-  video.addEventListener('timeupdate', function () { updateFrameCounter(); updatePlayhead(); });
+  video.addEventListener('timeupdate', function () {
+    // Loop playback within the trim range
+    if (!video.paused && duration && outTime > inTime && video.currentTime >= outTime) {
+      video.currentTime = inTime;
+    }
+    updateFrameCounter(); updatePlayhead();
+  });
   video.addEventListener('seeked', function () { updateFrameCounter(); updatePlayhead(); });
   video.addEventListener('play', updatePlayPauseIcon);
   video.addEventListener('pause', updatePlayPauseIcon);
