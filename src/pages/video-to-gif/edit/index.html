@@ -719,6 +719,7 @@
       progressFill.style.width = (p * 30 + 70) + '%';
     });
     gif.on('finished', function (blob) {
+      video.onseeked = null;
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');
       convertBtn.disabled = false;
@@ -778,7 +779,11 @@
       message: 'Your current trim, playback position, and GIF result will be lost if you continue.',
       confirmLabel: 'Start New',
       onConfirm: function () {
-        video.pause(); video.src = '';
+        video.pause();
+        video.onerror = null;
+        video.onseeked = null;
+        video.removeAttribute('src');
+        video.load();
         document.getElementById('editor-screen').classList.add('hidden');
         document.getElementById('upload-screen').classList.remove('hidden');
         convertBtn.disabled = true;
@@ -787,6 +792,7 @@
         resultModal.classList.add('hidden');
         lastGifUrl = null;
         lastGifBlob = null;
+        detectedFps = null;
         frameScrubber.value = 0;
         frameScrubber.max = 0;
         frameCounter.textContent = '0 / 0';
@@ -795,6 +801,7 @@
         chkCrop.checked = false;
         cropSettings.classList.add('hidden');
         cropCanvas.style.display = 'none';
+        fileInput.value = '';
         updatePlayPauseIcon();
       }
     });
