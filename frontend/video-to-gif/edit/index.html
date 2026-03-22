@@ -1007,6 +1007,7 @@
   var shareConsentModal = document.getElementById('share-consent-modal');
 
   function shareUpload(blob, title, filename) {
+    setShareStatus('Getting upload link…', '');
     // Step 1: Get a presigned S3 URL
     return apiFetch(API_BASE_URL + '/share/presign', {
       method: 'POST',
@@ -1016,13 +1017,38 @@
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Presign failed'); });
       return r.json();
     }).then(function (presign) {
-      // Step 2: Upload GIF directly to S3
-      return fetch(presign.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/gif' },
-        body: blob
-      }).then(function (r) {
-        if (!r.ok) throw new Error('Upload failed');
+      setShareStatus('Uploading GIF (' + formatSize(blob.size) + ')…', '');
+      // Step 2: Upload GIF directly to S3 (retry once on failure)
+      function doS3Upload(attempt) {
+        return fetch(presign.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/gif' },
+          body: blob
+        }).then(function (r) {
+          if (!r.ok) {
+            return r.text().then(function (body) {
+              var msg = 'Upload failed (HTTP ' + r.status + ')';
+              var match = body.match(/<Message>(.*?)<\/Message>/);
+              if (match) msg += ': ' + match[1];
+              if (attempt < 2) {
+                setShareStatus('Retrying upload…', '');
+                return doS3Upload(attempt + 1);
+              }
+              throw new Error(msg);
+            });
+          }
+          return r;
+        }).catch(function (err) {
+          if (err.message && err.message.indexOf('Upload failed') === 0) throw err;
+          if (attempt < 2) {
+            setShareStatus('Retrying upload…', '');
+            return doS3Upload(attempt + 1);
+          }
+          throw new Error('Upload failed: ' + (err.message || 'network error'));
+        });
+      }
+      return doS3Upload(1).then(function () {
+        setShareStatus('Creating share link…', '');
         // Step 3: Finalize the share page
         return apiFetch(API_BASE_URL + '/share/finalize', {
           method: 'POST',

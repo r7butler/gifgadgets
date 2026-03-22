@@ -694,6 +694,7 @@
   }
 
   function shareUpload(blob, title, filename) {
+    setShareStatus('Getting upload link…', '');
     return apiFetch(API_BASE_URL + '/share/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -702,12 +703,37 @@
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || 'Presign failed'); });
       return r.json();
     }).then(function (presign) {
-      return fetch(presign.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/gif' },
-        body: blob
-      }).then(function (r) {
-        if (!r.ok) throw new Error('Upload failed');
+      setShareStatus('Uploading GIF (' + formatSize(blob.size) + ')…', '');
+      function doS3Upload(attempt) {
+        return fetch(presign.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/gif' },
+          body: blob
+        }).then(function (r) {
+          if (!r.ok) {
+            return r.text().then(function (body) {
+              var msg = 'Upload failed (HTTP ' + r.status + ')';
+              var match = body.match(/<Message>(.*?)<\/Message>/);
+              if (match) msg += ': ' + match[1];
+              if (attempt < 2) {
+                setShareStatus('Retrying upload…', '');
+                return doS3Upload(attempt + 1);
+              }
+              throw new Error(msg);
+            });
+          }
+          return r;
+        }).catch(function (err) {
+          if (err.message && err.message.indexOf('Upload failed') === 0) throw err;
+          if (attempt < 2) {
+            setShareStatus('Retrying upload…', '');
+            return doS3Upload(attempt + 1);
+          }
+          throw new Error('Upload failed: ' + (err.message || 'network error'));
+        });
+      }
+      return doS3Upload(1).then(function () {
+        setShareStatus('Creating share link…', '');
         return apiFetch(API_BASE_URL + '/share/finalize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
