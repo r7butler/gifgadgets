@@ -59,13 +59,40 @@ async function doTracking(msg) {
     framesB64.push(await frameToJpegB64(frames[i]));
   }
 
+  // Step 1: Get presigned S3 URL from Lambda
   post({ type: 'progress', text: 'Creating motion keyframes…' });
 
+  var presignResp = await apiFetch('/api/track/presign', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({}),
+  });
+
+  if (!presignResp.ok) {
+    var presignText = await presignResp.text();
+    throw new Error('Tracker API ' + presignResp.status + ': ' + presignText);
+  }
+
+  var presign = await presignResp.json();
+  if (presign.error) throw new Error(presign.error);
+
+  // Step 2: Upload frames directly to S3 via presigned PUT
+  var uploadResp = await fetch(presign.upload_url, {
+    method:  'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ frames: framesB64 }),
+  });
+
+  if (!uploadResp.ok) {
+    throw new Error('Frame upload failed: ' + uploadResp.status);
+  }
+
+  // Step 3: Tell Lambda to process via Modal
   var resp = await apiFetch(MODAL_ENDPOINT, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      frames:        framesB64,
+      s3_key:        presign.s3_key,
       frame_indices: frames.map(function (f) { return f.frameIndex; }),
       click_x:       msg.clickX / frames[0].width,
       click_y:       msg.clickY / frames[0].height,

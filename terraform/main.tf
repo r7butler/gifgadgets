@@ -116,6 +116,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "assets" {
       days = 1
     }
   }
+
+  rule {
+    id     = "expire-track-temp"
+    status = "Enabled"
+
+    filter {
+      prefix = "track/"
+    }
+
+    expiration {
+      days = 1
+    }
+  }
 }
 
 # ---------- Secrets Manager: GitHub PAT ----------
@@ -166,6 +179,44 @@ output "modal_converter_access_key_id" {
 
 output "modal_converter_secret_access_key" {
   value     = aws_iam_access_key.modal_converter.secret
+  sensitive = true
+}
+
+# ---------- IAM User for Modal Tracker (GPU object tracking) ----------
+
+resource "aws_iam_user" "modal_tracker" {
+  name = "${var.project_slug}-modal-tracker"
+}
+
+resource "aws_iam_user_policy" "modal_tracker" {
+  name = "${var.project_slug}-modal-tracker-s3"
+  user = aws_iam_user.modal_tracker.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${aws_s3_bucket.assets.arn}/track/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "modal_tracker" {
+  user = aws_iam_user.modal_tracker.name
+}
+
+output "modal_tracker_access_key_id" {
+  value = aws_iam_access_key.modal_tracker.id
+}
+
+output "modal_tracker_secret_access_key" {
+  value     = aws_iam_access_key.modal_tracker.secret
   sensitive = true
 }
 

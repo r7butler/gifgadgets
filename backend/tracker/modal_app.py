@@ -27,6 +27,7 @@ image = (
         "numpy",
         "fastapi[standard]",
         "pydantic",
+        "boto3",
     )
     .run_commands(
         "wget -q -O /root/sam2_tiny.pt "
@@ -40,19 +41,24 @@ image = (
     image=image,
     timeout=120,
     scaledown_window=240,  # scale to zero after 4 min idle
+    secrets=[modal.Secret.from_name("gifwidgets-tracker-aws")],
 )
 @modal.asgi_app()
 def fastapi_app():
     # All imports here run inside the container where dependencies are installed.
-    import os, tempfile, base64
+    import os, tempfile, base64, json as _json
     import numpy as np
     from PIL import Image
     import torch
+    import boto3
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
     from typing import List
+
+    s3_client = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    assets_bucket = os.environ["ASSETS_BUCKET"]
 
     web_app = FastAPI()
     web_app.add_middleware(
@@ -76,10 +82,11 @@ def fastapi_app():
         return _predictor["model"]
 
     class TrackRequest(BaseModel):
-        frames: List[str]         # base64-encoded JPEG per sampled frame
-        frame_indices: List[int]  # original GIF frame index for each
-        click_x: float            # normalized 0–1
-        click_y: float
+        frames: List[str] = []    # base64-encoded JPEG per sampled frame (legacy)
+        s3_key: str = ""          # S3 key for uploaded frames JSON
+        frame_indices: List[int] = []
+        click_x: float = 0.0     # normalized 0–1
+        click_y: float = 0.0
         click_frame: int = 0
         warmup: bool = False
 
@@ -90,17 +97,35 @@ def fastapi_app():
         if req.warmup:
             return {"ok": True}
 
-        if not req.frames or not req.frame_indices:
+        # Fetch frames from S3 if s3_key provided, otherwise use direct frames
+        if req.s3_key:
+            try:
+                obj = s3_client.get_object(Bucket=assets_bucket, Key=req.s3_key)
+                payload = _json.loads(obj["Body"].read())
+                frames_b64 = payload["frames"]
+                frame_indices = req.frame_indices or payload.get("frame_indices", [])
+                click_x = req.click_x or payload.get("click_x", 0.0)
+                click_y = req.click_y or payload.get("click_y", 0.0)
+            except Exception as e:
+                return JSONResponse({"error": f"Failed to fetch frames from S3: {e}"}, status_code=400)
+            # Clean up S3 object after fetching
+            try:
+                s3_client.delete_object(Bucket=assets_bucket, Key=req.s3_key)
+            except Exception:
+                pass
+        else:
+            frames_b64 = req.frames
+            frame_indices = req.frame_indices
+            click_x = float(req.click_x)
+            click_y = float(req.click_y)
+
+        if not frames_b64 or not frame_indices:
             return JSONResponse({"error": "missing frames or frame_indices"}, status_code=400)
-        if len(req.frames) != len(req.frame_indices):
+        if len(frames_b64) != len(frame_indices):
             return JSONResponse({"error": "frames and frame_indices length mismatch"}, status_code=400)
 
-        click_x       = float(req.click_x)
-        click_y       = float(req.click_y)
-        frame_indices = req.frame_indices
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            for i, b64 in enumerate(req.frames):
+            for i, b64 in enumerate(frames_b64):
                 img_bytes = base64.b64decode(b64)
                 with open(os.path.join(tmpdir, f"{i:05d}.jpg"), "wb") as f:
                     f.write(img_bytes)
@@ -109,9 +134,10 @@ def fastapi_app():
             w, h  = first.size
             first.close()
 
+            click_frame = req.click_frame
             start_idx = min(
                 range(len(frame_indices)),
-                key=lambda i: abs(frame_indices[i] - req.click_frame),
+                key=lambda i: abs(frame_indices[i] - click_frame),
             )
 
             click_px     = np.array([[click_x * w, click_y * h]], dtype=np.float32)

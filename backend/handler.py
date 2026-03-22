@@ -232,6 +232,8 @@ def handler(event, context):
         return handle_presign_upload(event)
     elif method == "POST" and path == "/convert-to-mp4":
         return handle_convert_to_mp4(event)
+    elif method == "POST" and path == "/track/presign":
+        return handle_track_presign(event)
     elif method == "POST" and path == "/track/submit":
         return handle_track_submit(event)
     elif method == "POST" and path == "/track/warmup":
@@ -657,8 +659,8 @@ def handle_convert_to_mp4(event):
 # ---------- Modal Broker Endpoints ----------
 
 
-def handle_track_submit(event):
-    """Broker for Modal SAM2 tracker — proxies request through Lambda with quota check."""
+def handle_track_presign(event):
+    """POST /track/presign — return a presigned PUT URL for tracker frame upload."""
     if "track" in FEATURES_DISABLED:
         return _cors_response(503, {"error": "Tracking is temporarily disabled"})
 
@@ -666,27 +668,68 @@ def handle_track_submit(event):
     if not allowed:
         return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
 
+    job_id = uuid.uuid4().hex[:12]
+    s3_key = f"track/{job_id}.json"
+
+    presigned_url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": ASSETS_BUCKET,
+            "Key": s3_key,
+            "ContentType": "application/json",
+        },
+        ExpiresIn=300,
+    )
+
+    _record_job(job_id, "track", ip_hash)
+
+    logger.info(json.dumps({
+        "event": "track_presign",
+        "job_id": job_id,
+        "ip_hash": ip_hash,
+    }))
+
+    return _cors_response(200, {
+        "upload_url": presigned_url,
+        "job_id": job_id,
+        "s3_key": s3_key,
+    })
+
+
+def handle_track_submit(event):
+    """Broker for Modal SAM2 tracker — passes S3 key to Modal for processing."""
+    if "track" in FEATURES_DISABLED:
+        return _cors_response(503, {"error": "Tracking is temporarily disabled"})
+
     try:
         body = _parse_body(event)
     except Exception:
         return _cors_response(400, {"error": "Invalid JSON body"})
 
+    s3_key = body.get("s3_key")
+    if not s3_key or not s3_key.startswith("track/"):
+        return _cors_response(400, {"error": "Missing or invalid s3_key"})
+
     if not MODAL_TRACKER_URL:
         return _cors_response(503, {"error": "Tracker not configured"})
 
-    job_id = uuid.uuid4().hex[:12]
-    _record_job(job_id, "track", ip_hash)
+    job_id = s3_key.split("/")[-1].replace(".json", "")
 
     logger.info(json.dumps({
         "event": "track_submit",
         "job_id": job_id,
-        "ip_hash": ip_hash,
-        "frame_count": len(body.get("frames", [])),
+        "s3_key": s3_key,
     }))
 
     try:
         url = MODAL_TRACKER_URL + "/track"
-        payload = json.dumps(body).encode("utf-8")
+        payload = json.dumps({
+            "s3_key": s3_key,
+            "click_x": body.get("click_x"),
+            "click_y": body.get("click_y"),
+            "click_frame": body.get("click_frame"),
+            "frame_indices": body.get("frame_indices"),
+        }).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=payload,
