@@ -159,8 +159,9 @@ def _check_quota(event, limit=20, window=3600):
         )
         if resp["Count"] >= limit:
             return False, ip_hash
-    except Exception:
-        pass  # If DynamoDB fails, allow the request
+    except Exception as e:
+        logger.error(json.dumps({"event": "quota_check_failed", "error": str(e)}))
+        return False, ip_hash  # Fail closed — deny if we can't verify quota
     return True, ip_hash
 
 
@@ -178,8 +179,8 @@ def _record_job(job_id, job_type, ip_hash):
             "created_at": now,
             "ttl": now + 3600,
         })
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(json.dumps({"event": "record_job_failed", "job_id": job_id, "error": str(e)}))
 
 
 def _parse_body(event):

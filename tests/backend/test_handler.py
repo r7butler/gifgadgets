@@ -392,7 +392,31 @@ class TestTrackPresign:
         body = json.loads(resp["body"])
         assert "upload_url" in body
         assert body["s3_key"].startswith("track/")
+        assert body["s3_key"].endswith(".json")
         assert "job_id" in body
+
+    def test_s3_key_matches_job_id(self, mock_aws):
+        """The s3_key should contain the job_id so submit can extract it."""
+        mock_aws["s3"].generate_presigned_url.return_value = "https://s3.example.com/presigned"
+        event = make_event("/api/track/presign", {})
+        resp = h.handler(event, None)
+        body = json.loads(resp["body"])
+        assert body["s3_key"] == f"track/{body['job_id']}.json"
+
+    def test_presigned_url_uses_json_content_type(self, mock_aws):
+        """Presigned URL should require application/json so only frame JSON can be uploaded."""
+        event = make_event("/api/track/presign", {})
+        h.handler(event, None)
+        call_args = mock_aws["s3"].generate_presigned_url.call_args
+        assert call_args[1]["Params"]["ContentType"] == "application/json"
+
+    def test_records_job_in_dynamodb(self, mock_aws):
+        """Quota tracking should happen at presign time, not submit time."""
+        event = make_event("/api/track/presign", {})
+        h.handler(event, None)
+        mock_aws["table"].put_item.assert_called_once()
+        item = mock_aws["table"].put_item.call_args[1]["Item"]
+        assert item["job_type"] == "track"
 
 
 class TestTrackSubmit:
@@ -408,8 +432,13 @@ class TestTrackSubmit:
         assert resp["statusCode"] == 400
         assert "s3_key" in json.loads(resp["body"])["error"].lower()
 
-    def test_invalid_s3_key(self):
+    def test_invalid_s3_key_wrong_prefix(self):
         event = make_event("/api/track/submit", {"s3_key": "other/bad.json"})
+        resp = h.handler(event, None)
+        assert resp["statusCode"] == 400
+
+    def test_empty_s3_key(self):
+        event = make_event("/api/track/submit", {"s3_key": ""})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 400
 
@@ -441,6 +470,80 @@ class TestTrackSubmit:
         assert "motion" in body
 
     @patch("backend.handler.urllib.request.urlopen")
+    def test_forwards_s3_key_and_metadata_to_modal(self, mock_urlopen):
+        """Submit should forward the s3_key and click metadata (not raw frames) to Modal."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"motion": []}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        event = make_event("/api/track/submit", {
+            "s3_key": "track/abc123.json",
+            "frame_indices": [0, 5, 10],
+            "click_x": 0.3,
+            "click_y": 0.7,
+            "click_frame": 5,
+        })
+        h.handler(event, None)
+
+        # Inspect what was sent to Modal
+        call_args = mock_urlopen.call_args
+        req_obj = call_args[0][0]
+        sent = json.loads(req_obj.data.decode("utf-8"))
+        assert sent["s3_key"] == "track/abc123.json"
+        assert sent["frame_indices"] == [0, 5, 10]
+        assert sent["click_x"] == 0.3
+        assert sent["click_y"] == 0.7
+        assert sent["click_frame"] == 5
+        # No raw frames should be in the payload
+        assert "frames" not in sent
+
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_submit_payload_is_small(self, mock_urlopen):
+        """The payload sent to Modal should be well under 6MB since frames are in S3."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"motion": []}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        event = make_event("/api/track/submit", {
+            "s3_key": "track/abc123.json",
+            "frame_indices": list(range(200)),  # 200 frame indices
+            "click_x": 0.5,
+            "click_y": 0.5,
+            "click_frame": 0,
+        })
+        h.handler(event, None)
+
+        req_obj = mock_urlopen.call_args[0][0]
+        payload_size = len(req_obj.data)
+        # Even with 200 frame indices, the payload should be tiny (< 10KB)
+        assert payload_size < 10_000
+
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_no_quota_check_on_submit(self, mock_urlopen, mock_aws):
+        """Submit should NOT check quota — that already happened at presign time."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"motion": []}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        # Set quota to exceeded — submit should still succeed
+        mock_aws["table"].query.return_value = {"Count": 999, "Items": []}
+        event = make_event("/api/track/submit", {
+            "s3_key": "track/abc123.json",
+            "frame_indices": [0],
+            "click_x": 0.5,
+            "click_y": 0.5,
+            "click_frame": 0,
+        })
+        resp = h.handler(event, None)
+        assert resp["statusCode"] == 200
+
+    @patch("backend.handler.urllib.request.urlopen")
     def test_modal_http_error(self, mock_urlopen):
         error_body = MagicMock()
         error_body.read.return_value = b"internal error"
@@ -463,3 +566,64 @@ class TestTrackSubmit:
         resp = h.handler(event, None)
         assert resp["statusCode"] == 502
         assert "unavailable" in json.loads(resp["body"])["error"].lower()
+
+
+class TestTrackPresignSubmitFlow:
+    """End-to-end tests for the presign → S3 upload → submit flow."""
+
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_presign_then_submit_round_trip(self, mock_urlopen, mock_aws):
+        """Presign returns an s3_key that submit accepts and forwards to Modal."""
+        mock_aws["s3"].generate_presigned_url.return_value = "https://s3.test.com/presigned"
+
+        # Step 1: Presign
+        presign_resp = h.handler(make_event("/api/track/presign", {}), None)
+        assert presign_resp["statusCode"] == 200
+        presign_body = json.loads(presign_resp["body"])
+        s3_key = presign_body["s3_key"]
+
+        # Step 2: Submit with the s3_key from presign
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({
+            "motion": [{"frame": 0, "x": 0.5, "y": 0.5}]
+        }).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        submit_resp = h.handler(make_event("/api/track/submit", {
+            "s3_key": s3_key,
+            "frame_indices": [0, 3, 6],
+            "click_x": 0.5,
+            "click_y": 0.5,
+            "click_frame": 0,
+        }), None)
+        assert submit_resp["statusCode"] == 200
+        assert "motion" in json.loads(submit_resp["body"])
+
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_presign_records_quota_submit_does_not(self, mock_urlopen, mock_aws):
+        """Only presign should write to DynamoDB for quota; submit should not."""
+        mock_aws["s3"].generate_presigned_url.return_value = "https://s3.test.com/presigned"
+
+        # Presign
+        h.handler(make_event("/api/track/presign", {}), None)
+        presign_put_count = mock_aws["table"].put_item.call_count
+        assert presign_put_count == 1
+
+        # Submit
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"motion": []}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        h.handler(make_event("/api/track/submit", {
+            "s3_key": "track/abc123.json",
+            "frame_indices": [0],
+            "click_x": 0.5,
+            "click_y": 0.5,
+            "click_frame": 0,
+        }), None)
+        # put_item count should not have increased
+        assert mock_aws["table"].put_item.call_count == presign_put_count
