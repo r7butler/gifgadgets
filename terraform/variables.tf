@@ -80,6 +80,12 @@ variable "github_pat" {
   sensitive   = true
 }
 
+variable "modal_api_key" {
+  description = "Shared secret used by Lambda to authenticate requests to Modal endpoints"
+  type        = string
+  sensitive   = true
+}
+
 variable "modal_tracker_url" {
   description = "URL of the Modal tracker endpoint (SAM2 tracking)"
   type        = string

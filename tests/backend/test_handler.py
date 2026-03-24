@@ -544,6 +544,27 @@ class TestTrackSubmit:
         assert resp["statusCode"] == 200
 
     @patch("backend.handler.urllib.request.urlopen")
+    def test_sends_api_key_header_to_modal(self, mock_urlopen):
+        """Lambda should authenticate to Modal with the X-Modal-Api-Key header."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"motion": []}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        event = make_event("/api/track/submit", {
+            "s3_key": "track/abc123.json",
+            "frame_indices": [0],
+            "click_x": 0.5,
+            "click_y": 0.5,
+            "click_frame": 0,
+        })
+        h.handler(event, None)
+
+        req_obj = mock_urlopen.call_args[0][0]
+        assert req_obj.get_header("X-modal-api-key") == "test-api-key-12345"
+
+    @patch("backend.handler.urllib.request.urlopen")
     def test_modal_http_error(self, mock_urlopen):
         error_body = MagicMock()
         error_body.read.return_value = b"internal error"

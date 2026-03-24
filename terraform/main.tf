@@ -313,6 +313,7 @@ resource "aws_lambda_function" "api" {
       GITHUB_REPO         = var.github_repo
       JOBS_TABLE          = aws_dynamodb_table.jobs.name
       FEATURES_DISABLED   = ""
+      MODAL_API_KEY       = var.modal_api_key
       MODAL_TRACKER_URL   = var.modal_tracker_url
       MODAL_CONVERTER_URL = var.modal_converter_url
     }

@@ -76,18 +76,26 @@ class Converter:
         import re
         import tempfile
         import subprocess
-        from fastapi import FastAPI
+        from fastapi import FastAPI, Header
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import JSONResponse
         from pydantic import BaseModel
+        from typing import Optional
+
+        expected_api_key = os.environ.get("MODAL_API_KEY", "")
 
         web_app = FastAPI()
         web_app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
             allow_methods=["POST", "OPTIONS"],
-            allow_headers=["Content-Type"],
+            allow_headers=["Content-Type", "X-Modal-Api-Key"],
         )
+
+        def _check_api_key(key):
+            if expected_api_key and key != expected_api_key:
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            return None
 
         class ConvertRequest(BaseModel):
             job_id: str
@@ -100,7 +108,10 @@ class Converter:
             format: str = "mp4"  # "mp4", "webm", or "gif"
 
         @web_app.post("/convert")
-        async def convert(req: ConvertRequest):
+        async def convert(req: ConvertRequest, x_modal_api_key: Optional[str] = Header(None)):
+            auth_error = _check_api_key(x_modal_api_key)
+            if auth_error:
+                return auth_error
             if not re.match(r"^[a-f0-9]{12}$", req.job_id):
                 return JSONResponse({"error": "Invalid job_id"}, status_code=400)
 
@@ -195,8 +206,11 @@ class Converter:
             return {"download_url": download_url}
 
         @web_app.post("/trim")
-        async def trim(req: TrimRequest):
+        async def trim(req: TrimRequest, x_modal_api_key: Optional[str] = Header(None)):
             """Trim a video uploaded to S3 and return a presigned download URL."""
+            auth_error = _check_api_key(x_modal_api_key)
+            if auth_error:
+                return auth_error
             if not re.match(r"^[a-f0-9]{12}$", req.job_id):
                 return JSONResponse({"error": "Invalid job_id"}, status_code=400)
             if req.format not in ("mp4", "webm", "gif"):

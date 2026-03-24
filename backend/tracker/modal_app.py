@@ -51,21 +51,22 @@ def fastapi_app():
     from PIL import Image
     import torch
     import boto3
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Header
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
-    from typing import List
+    from typing import List, Optional
 
     s3_client = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
     assets_bucket = os.environ["ASSETS_BUCKET"]
+    expected_api_key = os.environ.get("MODAL_API_KEY", "")
 
     web_app = FastAPI()
     web_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_methods=["POST", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Modal-Api-Key"],
     )
 
     _predictor = {}  # mutable container so the inner function can cache
@@ -91,7 +92,10 @@ def fastapi_app():
         warmup: bool = False
 
     @web_app.post("/track")
-    async def track(req: TrackRequest):
+    async def track(req: TrackRequest, x_modal_api_key: Optional[str] = Header(None)):
+        if expected_api_key and x_modal_api_key != expected_api_key:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
         predictor = _load_predictor()
 
         if req.warmup:

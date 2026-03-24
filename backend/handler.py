@@ -23,6 +23,7 @@ GITHUB_SECRET_ARN = os.environ.get("GITHUB_SECRET_ARN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
 JOBS_TABLE = os.environ.get("JOBS_TABLE", "")
 FEATURES_DISABLED = set(filter(None, os.environ.get("FEATURES_DISABLED", "").split(",")))
+MODAL_API_KEY = os.environ.get("MODAL_API_KEY", "")
 MODAL_TRACKER_URL = os.environ.get("MODAL_TRACKER_URL", "")
 MODAL_CONVERTER_URL = os.environ.get("MODAL_CONVERTER_URL", "")
 
@@ -731,10 +732,13 @@ def handle_track_submit(event):
             "click_frame": body.get("click_frame"),
             "frame_indices": body.get("frame_indices"),
         }).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if MODAL_API_KEY:
+            headers["X-Modal-Api-Key"] = MODAL_API_KEY
         req = urllib.request.Request(
             url,
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=110) as resp:
@@ -761,9 +765,12 @@ def handle_track_warmup(event):
     try:
         url = MODAL_TRACKER_URL + "/track"
         payload = json.dumps({"warmup": True}).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if MODAL_API_KEY:
+            headers["X-Modal-Api-Key"] = MODAL_API_KEY
         req = urllib.request.Request(
             url, data=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         urllib.request.urlopen(req, timeout=10)

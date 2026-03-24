@@ -19,6 +19,7 @@ os.environ.setdefault("GITHUB_SECRET_ARN", "arn:aws:secretsmanager:us-east-1:123
 os.environ.setdefault("GITHUB_REPO", "testuser/testrepo")
 os.environ.setdefault("JOBS_TABLE", "test-jobs")
 os.environ.setdefault("FEATURES_DISABLED", "")
+os.environ.setdefault("MODAL_API_KEY", "test-api-key-12345")
 os.environ.setdefault("MODAL_TRACKER_URL", "https://tracker.test.com")
 os.environ.setdefault("MODAL_CONVERTER_URL", "https://converter.test.com")
 
