@@ -88,6 +88,7 @@
       $('#upload-zone').classList.add('hidden');
       $('#btn-download').disabled = false;
       var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
+      if (GC.draftLoaded) GC.draftLoaded();
       GC.hideLoading();
     };
     img.onerror = function () {

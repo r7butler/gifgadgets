@@ -46,9 +46,9 @@
     state.originalFileSize = file.size || 0;
     GC.showLoading('Parsing GIF frames…');
     var reader = new FileReader();
-    reader.onload = function () {
+    reader.onload = async function () {
       try {
-        processGifBuffer(reader.result);
+        await processGifBuffer(reader.result);
         GC.hideLoading();
       } catch (err) {
         GC.hideLoading();
@@ -71,8 +71,8 @@
     }).then(function (resp) {
       if (!resp.ok) throw new Error('Network error');
       return resp.arrayBuffer();
-    }).then(function (buf) {
-      processGifBuffer(buf);
+    }).then(async function (buf) {
+      await processGifBuffer(buf);
       GC.hideLoading();
     }).catch(function (err) {
       GC.hideLoading();
@@ -125,62 +125,43 @@
    * Handles all three GIF disposal methods so composited
    * frames render correctly (keep, clear, restore).
    */
-  function processGifBuffer(buffer) {
-    var gifReader = new GifReader(new Uint8Array(buffer));
-    var w = gifReader.width;
-    var h = gifReader.height;
-    state.width = w;
-    state.height = h;
-
-    // Compositing canvas — accumulates frames that build on each other
-    var compCanvas = document.createElement('canvas');
-    compCanvas.width = w;
-    compCanvas.height = h;
-    var compCtx = compCanvas.getContext('2d', { willReadFrequently: true });
-
-    // Temporary canvas for decoding each frame's raw pixels
-    var tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = w;
-    tmpCanvas.height = h;
-    var tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
-
-    state.frames = [];
-    var prevState = null;
-
-    for (var i = 0; i < gifReader.numFrames(); i++) {
-      var info = gifReader.frameInfo(i);
-
-      // Disposal method 3 = restore to previous — save state before drawing
-      if (info.disposal === 3) {
-        prevState = compCtx.getImageData(0, 0, w, h);
-      }
-
-      // Decode frame RGBA data and composite onto the running canvas
-      var pixels = new Uint8ClampedArray(w * h * 4);
-      gifReader.decodeAndBlitFrameRGBA(i, pixels);
-      tmpCtx.clearRect(0, 0, w, h);
-      tmpCtx.putImageData(new ImageData(pixels, w, h), 0, 0);
-      compCtx.drawImage(tmpCanvas, 0, 0);
-
-      // Snapshot the composited result for this frame
-      var comp = compCtx.getImageData(0, 0, w, h);
-      state.frames.push({
-        imageData: new ImageData(new Uint8ClampedArray(comp.data), w, h),
-        delay: Math.max((info.delay || 10) * 10, 20),
-      });
-
-      // Apply disposal method
-      if (info.disposal === 2) {
-        // Clear the frame's region
-        compCtx.clearRect(info.x, info.y, info.width, info.height);
-      } else if (info.disposal === 3 && prevState) {
-        // Restore canvas to snapshot before this frame
-        compCtx.putImageData(prevState, 0, 0);
-      }
+  GC.decodeGifBuffer = async function (buffer, useWorker) {
+    var frames = [];
+    function add(frame) {
+      frames.push({ imageData: new ImageData(frame.pixels, frame.width, frame.height), delay: frame.delay });
     }
+    function progress(done, total) { GC.showLoading('Loading GIF… ' + done + ' / ' + total + ' frames'); }
+    if (useWorker !== false && typeof Worker !== 'undefined') {
+      try {
+        await new Promise(function (resolve, reject) {
+          var worker = new Worker('/gif-decode.js');
+          worker.onmessage = function (event) {
+            var message = event.data;
+            if (message.frame) add(message.frame);
+            if (message.total) progress(message.done, message.total);
+            if (message.complete || message.error) {
+              worker.terminate();
+              if (message.error) reject(new Error(message.error)); else resolve();
+            }
+          };
+          worker.onerror = function (event) { event.preventDefault(); worker.terminate(); reject(new Error('Worker unavailable')); };
+          // Keep the input available for fallback if workers/CDN imports are blocked.
+          worker.postMessage(buffer);
+        });
+        return frames;
+      } catch (_) { frames = []; }
+    }
+    await window.GWDecodeGif(buffer, add, progress);
+    return frames;
+  };
 
-    if (state.frames.length === 0) throw new Error('No frames found');
-
+  async function processGifBuffer(buffer) {
+    var frames = await GC.decodeGifBuffer(buffer);
+    if (!frames.length) throw new Error('No frames found');
+    GC.pause();
+    state.frames = frames;
+    state.width = frames[0].imageData.width;
+    state.height = frames[0].imageData.height;
     // Initialise the preview canvas
     GC.canvas.width = state.width;
     GC.canvas.height = state.height;
@@ -197,6 +178,7 @@
     var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
     $('#btn-share').disabled = false;
     $('#btn-download').disabled = false;
+    if (GC.draftLoaded) GC.draftLoaded();
   }
 
   // ── HEIC / Live Photo Loading ────────────────
@@ -238,6 +220,7 @@
           var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
           $('#btn-download').disabled = false;
           var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
+          if (GC.draftLoaded) GC.draftLoaded();
           GC.hideLoading();
         };
         img.onerror = function () {
@@ -368,7 +351,7 @@
         captureCtx.drawImage(video, 0, 0, w, h);
         var imgData = captureCtx.getImageData(0, 0, w, h);
         state.frames.push({
-          imageData: new ImageData(new Uint8ClampedArray(imgData.data), w, h),
+          imageData: imgData,
           delay: delay,
         });
 
@@ -404,6 +387,7 @@
         GC.$('#btn-share').disabled = false;
         GC.$('#btn-download').disabled = false;
 
+        if (GC.draftLoaded) GC.draftLoaded();
         GC.hideLoading();
       }
 

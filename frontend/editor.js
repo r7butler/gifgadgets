@@ -56,12 +56,14 @@
   }
 
   // ── Initialise ───────────────────────────────
-  function init() {
+  async function init() {
     GC.canvas = $('#preview-canvas');
     GC.ctx = GC.canvas.getContext('2d');
     bindEvents();
     GC.initKfMenu();
     GC.preloadGifWorker();
+
+    if (GC.restoreDraft && await GC.restoreDraft()) return;
 
     // Check URL params for a GIF to auto-load
     var params = new URLSearchParams(window.location.search);
@@ -1268,8 +1270,9 @@
           title: 'Start a new file?',
           message: 'Your current edits will be lost if you continue.',
           confirmLabel: 'Start New',
-          onConfirm: function () {
+          onConfirm: async function () {
             GC.pause();
+            if (GC.clearDraft) await GC.clearDraft();
             state.frames = [];
             state.captions = [];
             state.overlays = [];
@@ -1881,7 +1884,9 @@
     // ── Keyboard shortcuts ────────────────────
     document.addEventListener('keydown', function (e) {
       var tag = (e.target.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.defaultPrevented || e.target.isContentEditable ||
+          e.target.closest('button, a[href], input, textarea, select, [role=button], [contenteditable]') ||
+          document.querySelector('.modal-overlay:not(.hidden)')) return;
       if (state.frames.length === 0) return;
       switch (e.key) {
         case ' ':
