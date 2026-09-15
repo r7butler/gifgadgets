@@ -6,7 +6,10 @@ Deploy:
   modal setup          # one-time auth
   modal deploy backend/tracker/modal_app.py
 
-Paste the printed URL into gif-tracker-worker.js as MODAL_ENDPOINT.
+This app holds no AWS credentials. Callers presign a GET URL for the frames
+JSON and pass it as frames_url.
+
+Required Modal secret "gifwidgets-modal-api-key" with key MODAL_API_KEY.
 """
 
 import modal
@@ -27,7 +30,6 @@ image = (
         "numpy",
         "fastapi[standard]",
         "pydantic",
-        "boto3",
     )
     .run_commands(
         "wget -q -O /root/sam2_tiny.pt "
@@ -41,27 +43,22 @@ image = (
     image=image,
     timeout=120,
     scaledown_window=240,  # scale to zero after 4 min idle
-    secrets=[
-        modal.Secret.from_name("gifwidgets-tracker-aws"),
-        modal.Secret.from_name("gifwidgets-modal-api-key"),
-    ],
+    secrets=[modal.Secret.from_name("gifwidgets-modal-api-key")],
 )
 @modal.asgi_app()
 def fastapi_app():
     # All imports here run inside the container where dependencies are installed.
     import os, tempfile, base64, json as _json
+    import urllib.request
     import numpy as np
     from PIL import Image
     import torch
-    import boto3
     from fastapi import FastAPI, Header
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
     from typing import List, Optional
 
-    s3_client = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
-    assets_bucket = os.environ["ASSETS_BUCKET"]
     expected_api_key = os.environ.get("MODAL_API_KEY", "")
 
     web_app = FastAPI()
@@ -87,7 +84,7 @@ def fastapi_app():
 
     class TrackRequest(BaseModel):
         frames: List[str] = []    # base64-encoded JPEG per sampled frame (legacy)
-        s3_key: str = ""          # S3 key for uploaded frames JSON
+        frames_url: str = ""      # presigned GET URL for the uploaded frames JSON
         frame_indices: List[int] = []
         click_x: float = 0.0     # normalized 0–1
         click_y: float = 0.0
@@ -104,22 +101,19 @@ def fastapi_app():
         if req.warmup:
             return {"ok": True}
 
-        # Fetch frames from S3 if s3_key provided, otherwise use direct frames
-        if req.s3_key:
+        # Fetch frames via the caller-supplied presigned URL. This app holds no
+        # AWS credentials; the URL grants read access to exactly one object for
+        # a few minutes. Deleting the object afterwards is the caller's job.
+        if req.frames_url:
             try:
-                obj = s3_client.get_object(Bucket=assets_bucket, Key=req.s3_key)
-                payload = _json.loads(obj["Body"].read())
+                with urllib.request.urlopen(req.frames_url, timeout=30) as r:
+                    payload = _json.loads(r.read())
                 frames_b64 = payload["frames"]
                 frame_indices = req.frame_indices or payload.get("frame_indices", [])
                 click_x = req.click_x or payload.get("click_x", 0.0)
                 click_y = req.click_y or payload.get("click_y", 0.0)
             except Exception as e:
-                return JSONResponse({"error": f"Failed to fetch frames from S3: {e}"}, status_code=400)
-            # Clean up S3 object after fetching
-            try:
-                s3_client.delete_object(Bucket=assets_bucket, Key=req.s3_key)
-            except Exception:
-                pass
+                return JSONResponse({"error": f"Failed to fetch frames: {e}"}, status_code=400)
         else:
             frames_b64 = req.frames
             frame_indices = req.frame_indices

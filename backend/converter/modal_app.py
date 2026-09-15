@@ -2,16 +2,16 @@
 gifwidgets-converter — Modal GPU endpoint for WebM→MP4 conversion
 
 Uses NVIDIA T4 GPU with NVENC for hardware-accelerated H.264 encoding.
-Memory snapshots reduce cold start time by pre-loading boto3 + imports.
+Memory snapshots reduce cold start time by pre-loading imports.
+
+This app holds no AWS credentials. Callers presign one GET URL for the input
+and one PUT URL for the output and pass both in the request body.
 
 Deploy:
   modal deploy backend/converter/modal_app.py
 
-After deployment, update MODAL_CONVERTER_ENDPOINT in
-frontend/trim-video/edit/index.html with the printed URL.
-
-Required Modal secret "gifwidgets-aws" with keys:
-  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ASSETS_BUCKET
+Required Modal secret "gifwidgets-modal-api-key" with key MODAL_API_KEY,
+matching modal_api_key in terraform/secrets.auto.tfvars.
 """
 
 import modal
@@ -29,7 +29,7 @@ image = (
         "tar -xf /tmp/ffmpeg.tar.xz -C /opt/ --strip-components=1",
         "rm /tmp/ffmpeg.tar.xz",
     )
-    .pip_install("boto3", "fastapi[standard]", "pydantic")
+    .pip_install("fastapi[standard]", "pydantic")
 )
 
 
@@ -39,24 +39,9 @@ image = (
     timeout=300,
     scaledown_window=300,
     enable_memory_snapshot=True,
-    secrets=[
-        modal.Secret.from_name("gifwidgets-aws"),
-        modal.Secret.from_name("gifwidgets-modal-api-key"),
-    ],
+    secrets=[modal.Secret.from_name("gifwidgets-modal-api-key")],
 )
 class Converter:
-    @modal.enter(snap=True)
-    def load(self):
-        """Runs once before snapshot — boto3 + imports are captured."""
-        import boto3
-        import os
-
-        self.s3 = boto3.client(
-            "s3",
-            region_name=os.environ.get("AWS_REGION", "us-east-1"),
-        )
-        self.bucket = os.environ["ASSETS_BUCKET"]
-
     @modal.enter()
     def warmup(self):
         """Runs after snapshot restore — warms up NVENC on the live GPU."""
@@ -77,7 +62,9 @@ class Converter:
     def web(self):
         import os
         import re
+        import shutil
         import tempfile
+        import urllib.request
         import subprocess
         from fastapi import FastAPI, Header
         from fastapi.middleware.cors import CORSMiddleware
@@ -95,17 +82,37 @@ class Converter:
             allow_headers=["Content-Type", "X-Modal-Api-Key"],
         )
 
+        def _fetch_to_file(url, dest_path):
+            """Download a presigned GET URL to disk."""
+            with urllib.request.urlopen(url, timeout=120) as r, open(dest_path, "wb") as f:
+                shutil.copyfileobj(r, f)
+
+        def _put_file(url, src_path, content_type):
+            """Upload a file to a presigned PUT URL. Content-Type must match the
+            type the URL was signed with, or S3 rejects the signature."""
+            with open(src_path, "rb") as f:
+                body = f.read()
+            put = urllib.request.Request(
+                url, data=body, method="PUT",
+                headers={"Content-Type": content_type, "Content-Length": str(len(body))},
+            )
+            urllib.request.urlopen(put, timeout=180)
+
         def _check_api_key(key):
             if expected_api_key and key != expected_api_key:
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
             return None
 
+        # This app holds no AWS credentials. The caller presigns one GET for the
+        # input and one PUT for the output and passes both in; each grants access
+        # to a single object for a few minutes.
         class ConvertRequest(BaseModel):
-            job_id: str
-            filename: str = "converted.mp4"
+            input_url: str
+            output_url: str
 
         class TrimRequest(BaseModel):
-            job_id: str
+            input_url: str
+            output_url: str
             start: float = 0.0
             end: float | None = None
             format: str = "mp4"  # "mp4", "webm", or "gif"
@@ -115,18 +122,12 @@ class Converter:
             auth_error = _check_api_key(x_modal_api_key)
             if auth_error:
                 return auth_error
-            if not re.match(r"^[a-f0-9]{12}$", req.job_id):
-                return JSONResponse({"error": "Invalid job_id"}, status_code=400)
-
-            input_key = f"convert/{req.job_id}/input.webm"
-            output_key = f"convert/{req.job_id}/output.mp4"
-
             with tempfile.TemporaryDirectory() as tmpdir:
                 input_path = os.path.join(tmpdir, "input.webm")
                 output_path = os.path.join(tmpdir, "output.mp4")
 
                 try:
-                    self.s3.download_file(self.bucket, input_key, input_path)
+                    _fetch_to_file(req.input_url, input_path)
                 except Exception:
                     return JSONResponse(
                         {"error": "Input file not found — upload may have expired"},
@@ -175,38 +176,16 @@ class Converter:
                         status_code=500,
                     )
 
-                self.s3.upload_file(
-                    output_path,
-                    self.bucket,
-                    output_key,
-                    ExtraArgs={"ContentType": "video/mp4"},
-                )
+                try:
+                    _put_file(req.output_url, output_path, "video/mp4")
+                except Exception as e:
+                    return JSONResponse(
+                        {"error": f"Failed to upload result: {e}"}, status_code=502
+                    )
 
-            safe_filename = (
-                re.sub(r"[^\w\s.\-]", "", req.filename).strip() or "converted.mp4"
-            )
-            if not safe_filename.endswith(".mp4"):
-                safe_filename += ".mp4"
-
-            download_url = self.s3.generate_presigned_url(
-                "get_object",
-                Params={
-                    "Bucket": self.bucket,
-                    "Key": output_key,
-                    "ResponseContentDisposition": (
-                        f'attachment; filename="{safe_filename}"'
-                    ),
-                },
-                ExpiresIn=3600,
-            )
-
-            # Clean up input file
-            try:
-                self.s3.delete_object(Bucket=self.bucket, Key=input_key)
-            except Exception:
-                pass
-
-            return {"download_url": download_url}
+            # The caller presigns the user-facing download URL and deletes the
+            # input; the bucket lifecycle rule expires convert/* after a day.
+            return {"ok": True, "content_type": "video/mp4"}
 
         @web_app.post("/trim")
         async def trim(req: TrimRequest, x_modal_api_key: Optional[str] = Header(None)):
@@ -214,14 +193,10 @@ class Converter:
             auth_error = _check_api_key(x_modal_api_key)
             if auth_error:
                 return auth_error
-            if not re.match(r"^[a-f0-9]{12}$", req.job_id):
-                return JSONResponse({"error": "Invalid job_id"}, status_code=400)
             if req.format not in ("mp4", "webm", "gif"):
                 return JSONResponse({"error": "Format must be mp4, webm, or gif"}, status_code=400)
 
-            input_key = f"convert/{req.job_id}/input.webm"
             out_ext = req.format
-            output_key = f"convert/{req.job_id}/trimmed.{out_ext}"
             content_type_map = {"mp4": "video/mp4", "webm": "video/webm", "gif": "image/gif"}
             content_type = content_type_map[out_ext]
 
@@ -230,7 +205,7 @@ class Converter:
                 output_path = os.path.join(tmpdir, f"trimmed.{out_ext}")
 
                 try:
-                    self.s3.download_file(self.bucket, input_key, input_path)
+                    _fetch_to_file(req.input_url, input_path)
                 except Exception:
                     return JSONResponse(
                         {"error": "Input file not found — upload may have expired"},
@@ -301,24 +276,14 @@ class Converter:
                         status_code=500,
                     )
 
-                self.s3.upload_file(
-                    output_path, self.bucket, output_key,
-                    ExtraArgs={"ContentType": content_type},
-                )
+                try:
+                    _put_file(req.output_url, output_path, content_type)
+                except Exception as e:
+                    return JSONResponse(
+                        {"error": f"Failed to upload result: {e}"}, status_code=502
+                    )
 
-            download_url = self.s3.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self.bucket, "Key": output_key},
-                ExpiresIn=3600,
-            )
-
-            # Clean up input
-            try:
-                self.s3.delete_object(Bucket=self.bucket, Key=input_key)
-            except Exception:
-                pass
-
-            return {"download_url": download_url, "content_type": content_type}
+            return {"ok": True, "content_type": content_type}
 
         @web_app.post("/warmup")
         async def warmup():

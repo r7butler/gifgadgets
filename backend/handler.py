@@ -723,10 +723,27 @@ def handle_track_submit(event):
         "s3_key": s3_key,
     }))
 
+    # Hand the tracker a short-lived presigned GET for exactly this object
+    # instead of an S3 key it would need its own AWS credentials to read.
+    # Expiry comfortably exceeds the 110s call timeout so a Modal cold start
+    # cannot outlive the URL.
+    try:
+        frames_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": ASSETS_BUCKET, "Key": s3_key},
+            ExpiresIn=600,
+        )
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "track_error", "job_id": job_id,
+            "error": f"presign failed: {e}",
+        }))
+        return _cors_response(500, {"error": "Could not prepare tracking job"})
+
     try:
         url = MODAL_TRACKER_URL + "/track"
         payload = json.dumps({
-            "s3_key": s3_key,
+            "frames_url": frames_url,
             "click_x": body.get("click_x"),
             "click_y": body.get("click_y"),
             "click_frame": body.get("click_frame"),
@@ -756,6 +773,13 @@ def handle_track_submit(event):
             "event": "track_error", "job_id": job_id, "error": str(e),
         }))
         return _cors_response(502, {"error": "Tracker unavailable"})
+    finally:
+        # The tracker used to delete this itself. Best-effort: the bucket
+        # lifecycle rule expires track/* after a day regardless.
+        try:
+            s3.delete_object(Bucket=ASSETS_BUCKET, Key=s3_key)
+        except Exception:
+            pass
 
 
 def handle_track_warmup(event):

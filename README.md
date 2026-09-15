@@ -1,143 +1,219 @@
 # GifWidgets
 
-Free browser-based media tools: GIF editor with AI-powered caption tracking, image editor, video trimmer, video-to-GIF converter, and photo format converters. No signup, no mandatory watermark.
+Free browser-based media tools: GIF editor with AI-powered caption tracking, image editor,
+video-to-GIF converter, and photo format converters. No signup, no mandatory watermark.
 
 **Live site:** [gifwidgets.com](https://gifwidgets.com)
 
 ## Architecture
 
-```
-                  ┌──────────────┐
-                  │  CloudFront  │
-                  └──────┬───────┘
-                         │
-              ┌──────────┼──────────┐
-              │          │          │
-     ┌────────▼───────┐ │  ┌───────▼────────┐
-     │ S3 Static Site │ │  │  Lambda (API)  │
-     │ (frontend)     │ │  │  Function URL  │
-     └────────────────┘ │  └───────┬────────┘
-                        │          │
-                 ┌──────▼─────┐    │
-                 │  S3 GIF    │◄───┘
-                 │  Assets    │
-                 └────────────┘
-
-     ┌─────────────────────────────────────────────┐
-     │          Modal (Serverless GPU)              │
-     │                                              │
-     │  ┌─────────────────┐  ┌───────────────────┐ │
-     │  │ Tracker (L40S)  │  │ Converter (T4)    │ │
-     │  │ SAM 2.1 — AI    │  │ FFmpeg NVENC —    │ │
-     │  │ object tracking  │  │ WebM → MP4        │ │
-     │  └─────────────────┘  └───────────────────┘ │
-     └─────────────────────────────────────────────┘
-```
-
-## Project Structure
+Everything is served from a single CloudFront distribution on `gifwidgets.com`. The
+static site comes from S3; `/api/*` is routed to a Lambda Function URL. A second
+distribution serves public media at `content.gifwidgets.com`.
 
 ```
-gifcaption/
-  frontend/
+                        ┌──────────────┐
+   gifwidgets.com  ───► │  CloudFront  │
+                        └──────┬───────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │ /*                        │ /api/*
+        ┌────────▼────────┐        ┌─────────▼────────┐
+        │ S3 static site  │        │ Lambda (API)     │
+        │ gifwidgets-     │        │ Function URL     │
+        │ site-prod       │        │ + WAF rate limit │
+        └─────────────────┘        └─────────┬────────┘
+                                             │ presigned URLs
+                        ┌────────────────────┼────────────────────┐
+                        │                    │                    │
+               ┌────────▼────────┐  ┌────────▼────────┐  ┌────────▼────────┐
+               │ S3 assets       │  │ DynamoDB        │  │ Modal (GPU)     │
+               │ gifwidgets-     │  │ job / rate-limit │  │ Tracker  (L4)   │
+               │ assets-prod     │  │ records          │  │ Converter (T4)  │
+               └────────┬────────┘  └─────────────────┘  └─────────────────┘
+                        │
+       content.gifwidgets.com (CloudFront) ──► share/ and gifs/ only
+```
+
+### How Modal is called
+
+Lambda brokers every Modal request; browsers never talk to Modal directly.
+
+1. Browser asks Lambda for a presigned S3 `PUT` and uploads its frames.
+2. Browser calls `/api/track/submit`.
+3. Lambda presigns a short-lived `GET` for that one object and sends the URL to Modal,
+   along with a shared secret in the `X-Modal-Api-Key` header.
+4. Modal fetches over plain HTTPS, runs inference, and returns the result.
+5. Lambda deletes the S3 object.
+
+**Modal holds no AWS credentials.** Each presigned URL grants access to a single object
+for a few minutes, so there are no long-lived access keys to rotate or leak.
+
+### Bucket exposure
+
+The assets bucket is only readable through CloudFront under `share/*` and `gifs/*`.
+The `convert/*` and `track/*` prefixes are internal working space reached solely by
+Lambda and presigned URLs, and a lifecycle rule expires both after one day.
+
+## Project structure
+
+```
+gifwidgets/
+  frontend/                # Built output — deployed to S3 as-is
     index.html             # Homepage
     editor.html            # GIF caption editor
-    create.html            # Upload page
     gif.html               # GIF viewer
+    app.js                 # apiFetch helper (adds x-amz-content-sha256)
     editor.js              # Editor orchestrator
     canvas-rendering.js    # Frame rendering
     gif-playback.js        # GIF loading/playback
     gif-timeline.js        # Visual timeline UI
-    gif-export.js          # GIF encoding/export
-    gif-tracker.js         # AI caption tracking (Modal client)
+    gif-export.js          # GIF encoding/export (client-side, gif.js)
+    gif-tracker.js         # AI caption tracking client
     gif-tracker-worker.js  # Web Worker for tracker API calls
     editor-state.js        # Centralized state
-    app.js                 # Backend API helpers
-    styles.css             # Styles
-    image-editor/          # Image editing tool
-    trim-video/            # Video trimmer (uses converter Modal app)
-    video-to-gif/          # Video-to-GIF converter
-    gif-editor/            # GIF editing tools
-    photo-converter/       # Format converters (jpg↔png↔webp, heic→jpg, etc.)
+    crop-gif/  gif-editor/  gif-editor-advanced/  gif-maker/
+    gif-resizer/  image-editor/  photo-converter/  video-to-gif/
+  src/
+    pages/                 # Jinja2 page sources — edit these, not frontend/
+    templates/             # Shared layout partials
   backend/
-    handler.py             # Lambda API (upload, share, presign, convert)
+    handler.py             # Lambda API (upload, share, presign, track broker)
     requirements.txt
-    tracker/
-      modal_app.py         # SAM 2.1 video object tracking (L40S GPU)
-    converter/
-      modal_app.py         # NVENC hardware video encoding (T4 GPU)
+    tracker/modal_app.py   # SAM 2.1 object tracking (L4 GPU)
+    converter/modal_app.py # FFmpeg NVENC encoding (T4 GPU) — see note below
   terraform/
-    main.tf                # AWS resources (S3, Lambda, CloudFront, Route53, ACM)
-    variables.tf           # Input variables
-    outputs.tf             # Output values
-  scripts/
-    deploy-backend.sh      # Deploy Lambda
-    deploy-frontend.sh     # Deploy frontend to S3
-    deploy-tracker.sh      # Deploy tracker Modal app
-    deploy-converter.sh    # Deploy converter Modal app
-    deploy-infra.sh        # Apply Terraform
-    set-aws-profile.sh     # AWS credential setup
+    main.tf                # S3, Lambda, CloudFront, WAF, DynamoDB, Route53
+    variables.tf           # Input variables (defaults target production)
+    outputs.tf
+  scripts/                 # Deploy helpers — see Deploying
+  build.py                 # Renders src/pages/**/*.html into frontend/
 ```
+
+`frontend/` is generated. Edit `src/pages/` and rebuild; editing `frontend/` directly
+gets overwritten on the next deploy.
+
+> **Note on the converter:** the Modal converter app and the Lambda routes
+> `/convert/presign-upload` and `/convert-to-mp4` are not reachable from the current
+> UI — video-to-GIF encodes client-side with gif.js. The app is deployed and
+> credential-free, but nothing calls it. Wire it up or remove it.
 
 ## Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.3
-- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials
-- [Modal](https://modal.com/) CLI (`pip install modal && modal setup`)
-- Python 3.11
+- [Terraform](https://www.terraform.io/downloads) >= 1.10 (S3 native state locking)
+- [AWS CLI v2](https://aws.amazon.com/cli/), signed in via IAM Identity Center
+- [Modal CLI](https://modal.com/) (`pip install modal`)
+- Python 3.11, Docker (for the frontend build)
+
+### AWS access
+
+Credentials come from IAM Identity Center (SSO) — there are no static access keys.
+
+```bash
+aws sso login --profile gifwidgets
+source ./scripts/set-aws-profile.sh     # exports AWS_PROFILE, prints the account
+```
+
+The deploy scripts default to the `gifwidgets` profile and fail early with a clear
+message if the session has expired. Terraform also fails fast if the credentials
+resolve to an account other than `expected_account_id`.
+
+### Modal workspace
+
+The apps live in the `r7butler` workspace. If that is not your active Modal profile,
+scope commands rather than switching globally:
+
+```bash
+export MODAL_PROFILE=r7butler
+modal profile list      # confirm which workspace is active
+```
+
+### Secrets
+
+Terraform reads two values from `terraform/secrets.auto.tfvars` (gitignored):
+
+```hcl
+github_issue_poster_pat = "..."   # fine-grained PAT, used by the Report an Issue button
+modal_api_key           = "..."   # shared secret, openssl rand -hex 32
+```
+
+`modal_api_key` must match the `MODAL_API_KEY` key in the Modal secret
+`gifwidgets-modal-api-key`. Lambda sends it as `X-Modal-Api-Key`; the Modal apps
+reject requests that do not match.
+
+> The Modal apps skip the auth check entirely when `MODAL_API_KEY` is unset, which
+> would leave the GPU endpoints open to the internet. Never deploy them without it.
 
 ## Deploying
 
-### AWS Infrastructure
+State lives in S3 (`gifwidgets-tfstate-425750453898`) with native locking, so
+`terraform init` needs no backend flags. Bucket names, domains, the ACM certificate,
+and the hosted zone are all defaults in `variables.tf` — no `-var` flags required.
+
+### 1. FFmpeg Lambda layer
+
+Only needed on a fresh environment or to pick up a new FFmpeg release.
 
 ```bash
-cd terraform
-terraform init
-terraform apply \
-  -var="site_bucket_name=gifwidgets-site" \
-  -var="assets_bucket_name=gifwidgets-assets"
+./scripts/build-ffmpeg-layer.sh
 ```
 
-Update `API_BASE_URL` in `frontend/app.js` with the Lambda Function URL from `terraform output`.
+Downloads a static FFmpeg build, verifies the publisher's MD5, and pins the zip's
+SHA-256 in `terraform/ffmpeg-layer.sha256` so an unexpected upstream change fails
+loudly. Pass `FFMPEG_ALLOW_UPDATE=1` to accept a new build. `ffprobe` is deliberately
+excluded — nothing calls it, and including it pushes the zip past Lambda's 50 MB
+direct-upload limit.
 
-### Frontend
+### 2. Lambda + infrastructure
 
 ```bash
-aws s3 sync frontend/ s3://gifwidgets-site/ --delete
-aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
+./scripts/deploy-backend.sh     # builds terraform/lambda.zip, updates the function
+./scripts/deploy-infra.sh       # terraform apply
 ```
 
-### Modal GPU Endpoints
+On a brand-new environment run `deploy-backend.sh` first so `lambda.zip` exists, then
+`deploy-infra.sh` to create the function. The first `deploy-backend.sh` run ends with
+an error from `update-function-code` because the function does not exist yet — expected.
+
+### 3. Modal GPU endpoints
 
 ```bash
-# AI object tracker (SAM 2.1 on L40S)
-modal deploy backend/tracker/modal_app.py
-
-# Video converter (FFmpeg NVENC on T4)
-modal deploy backend/converter/modal_app.py
+export MODAL_PROFILE=r7butler
+./scripts/deploy-tracker.sh
+./scripts/deploy-converter.sh
 ```
 
-After deploying, update the endpoint URLs in:
-- `frontend/gif-tracker-worker.js` → `MODAL_ENDPOINT`
-- `frontend/trim-video/edit/index.html` → `MODAL_CONVERTER_ENDPOINT`
+The endpoint URLs are derived from the workspace name. If they change, update
+`modal_tracker_url` / `modal_converter_url` in `variables.tf` and re-apply so Lambda
+points at the new endpoints. Nothing in the frontend references Modal URLs.
 
-### Lambda Backend
+### 4. Frontend
 
 ```bash
-cd backend
-pip install -r requirements.txt -t package/
-cp handler.py package/
-cd package && zip -r ../../terraform/lambda.zip . && cd ../..
+./scripts/deploy-frontend.sh
 ```
 
-Or use the deploy scripts in `scripts/`.
+Renders `src/pages/` through Jinja2 in Docker, syncs to the site bucket, and issues a
+CloudFront invalidation. No URL injection is needed — the API is same-origin at `/api`.
+
+## Notes
+
+**`x-amz-content-sha256` is required on API calls with a body.** CloudFront's OAC does
+not hash the request body when signing to a Lambda Function URL, so the caller must
+supply the payload hash or the request is rejected with a 403 signature error. The
+`apiFetch` helper in `frontend/app.js` handles this; anything calling the API outside
+that helper — curl, tests, scripts — has to set it too.
+
+**GPU costs are separate from AWS.** Both Modal apps scale to zero, so idle is free,
+but active GPU time is billed by Modal. The WAF rate limit on `/api` is the main thing
+standing between a scraper and a surprising bill.
 
 ## Cleanup
 
 ```bash
 cd terraform
-terraform destroy \
-  -var="site_bucket_name=gifwidgets-site" \
-  -var="assets_bucket_name=gifwidgets-assets"
+terraform destroy
 ```
 
-> **Note:** Empty the S3 buckets before Terraform can delete them.
+> Empty the S3 buckets first — Terraform cannot delete non-empty buckets. The state
+> bucket is not managed by Terraform and must be removed separately.

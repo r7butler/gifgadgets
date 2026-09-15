@@ -159,83 +159,11 @@ resource "aws_secretsmanager_secret_version" "github_pat" {
   secret_id     = aws_secretsmanager_secret.github_pat.id
   secret_string = var.github_issue_poster_pat
 }
-
-# ---------- IAM User for Modal Converter (GPU MP4 conversion) ----------
-
-resource "aws_iam_user" "modal_converter" {
-  name = "${var.project_slug}-modal-converter"
-}
-
-resource "aws_iam_user_policy" "modal_converter" {
-  name = "${var.project_slug}-modal-converter-s3"
-  user = aws_iam_user.modal_converter.name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ]
-        Resource = "${aws_s3_bucket.assets.arn}/convert/*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_access_key" "modal_converter" {
-  user = aws_iam_user.modal_converter.name
-}
-
-output "modal_converter_access_key_id" {
-  value = aws_iam_access_key.modal_converter.id
-}
-
-output "modal_converter_secret_access_key" {
-  value     = aws_iam_access_key.modal_converter.secret
-  sensitive = true
-}
-
-# ---------- IAM User for Modal Tracker (GPU object tracking) ----------
-
-resource "aws_iam_user" "modal_tracker" {
-  name = "${var.project_slug}-modal-tracker"
-}
-
-resource "aws_iam_user_policy" "modal_tracker" {
-  name = "${var.project_slug}-modal-tracker-s3"
-  user = aws_iam_user.modal_tracker.name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:DeleteObject"
-        ]
-        Resource = "${aws_s3_bucket.assets.arn}/track/*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_access_key" "modal_tracker" {
-  user = aws_iam_user.modal_tracker.name
-}
-
-output "modal_tracker_access_key_id" {
-  value = aws_iam_access_key.modal_tracker.id
-}
-
-output "modal_tracker_secret_access_key" {
-  value     = aws_iam_access_key.modal_tracker.secret
-  sensitive = true
-}
+# Modal holds no AWS credentials. The former gifwidgets-modal-converter and
+# gifwidgets-modal-tracker IAM users (and their long-lived access keys) were
+# removed: Lambda now presigns a GET for the input and a PUT for the output
+# and passes those URLs to Modal, so each grant covers one object for minutes
+# rather than a whole prefix indefinitely.
 
 # ---------- IAM Role for Lambda ----------
 
@@ -309,13 +237,13 @@ resource "aws_iam_role_policy" "lambda" {
 # ---------- Lambda Function ----------
 
 resource "aws_lambda_function" "api" {
-  function_name                  = local.lambda_function_name
-  role                           = aws_iam_role.lambda.arn
-  handler                        = "handler.handler"
-  runtime                        = "python3.11"
-  timeout                        = 180
-  memory_size                    = 1024
-  layers                         = [aws_lambda_layer_version.ffmpeg.arn]
+  function_name = local.lambda_function_name
+  role          = aws_iam_role.lambda.arn
+  handler       = "handler.handler"
+  runtime       = "python3.11"
+  timeout       = 180
+  memory_size   = 1024
+  layers        = [aws_lambda_layer_version.ffmpeg.arn]
 
   filename         = "${path.module}/lambda.zip"
   source_code_hash = filebase64sha256("${path.module}/lambda.zip")
@@ -847,13 +775,13 @@ resource "aws_cloudwatch_dashboard" "main" {
     widgets = [
       # --- Row 1: Lambda health ---
       {
-        type   = "text"
-        x      = 0, y = 0, width = 24, height = 1
+        type       = "text"
+        x          = 0, y = 0, width = 24, height = 1
         properties = { markdown = "## Lambda API" }
       },
       {
-        type   = "metric"
-        x      = 0, y = 1, width = 8, height = 6
+        type = "metric"
+        x    = 0, y = 1, width = 8, height = 6
         properties = {
           title  = "Invocations"
           region = "us-east-1"
@@ -867,8 +795,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type   = "metric"
-        x      = 8, y = 1, width = 8, height = 6
+        type = "metric"
+        x    = 8, y = 1, width = 8, height = 6
         properties = {
           title  = "Duration (ms)"
           region = "us-east-1"
@@ -881,8 +809,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type   = "metric"
-        x      = 16, y = 1, width = 8, height = 6
+        type = "metric"
+        x    = 16, y = 1, width = 8, height = 6
         properties = {
           title  = "Concurrent Executions"
           region = "us-east-1"
@@ -895,13 +823,13 @@ resource "aws_cloudwatch_dashboard" "main" {
       },
       # --- Row 2: WAF ---
       {
-        type   = "text"
-        x      = 0, y = 7, width = 24, height = 1
+        type       = "text"
+        x          = 0, y = 7, width = 24, height = 1
         properties = { markdown = "## WAF" }
       },
       {
-        type   = "metric"
-        x      = 0, y = 8, width = 12, height = 6
+        type = "metric"
+        x    = 0, y = 8, width = 12, height = 6
         properties = {
           title  = "Allowed vs Blocked"
           region = "us-east-1"
@@ -914,8 +842,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type   = "metric"
-        x      = 12, y = 8, width = 12, height = 6
+        type = "metric"
+        x    = 12, y = 8, width = 12, height = 6
         properties = {
           title  = "Rate-Limited Requests"
           region = "us-east-1"
@@ -928,13 +856,13 @@ resource "aws_cloudwatch_dashboard" "main" {
       },
       # --- Row 3: CloudFront ---
       {
-        type   = "text"
-        x      = 0, y = 14, width = 24, height = 1
+        type       = "text"
+        x          = 0, y = 14, width = 24, height = 1
         properties = { markdown = "## CloudFront (Site)" }
       },
       {
-        type   = "metric"
-        x      = 0, y = 15, width = 8, height = 6
+        type = "metric"
+        x    = 0, y = 15, width = 8, height = 6
         properties = {
           title  = "Requests"
           region = "us-east-1"
@@ -946,8 +874,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type   = "metric"
-        x      = 8, y = 15, width = 8, height = 6
+        type = "metric"
+        x    = 8, y = 15, width = 8, height = 6
         properties = {
           title  = "Error Rate (%)"
           region = "us-east-1"
@@ -960,8 +888,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type   = "metric"
-        x      = 16, y = 15, width = 8, height = 6
+        type = "metric"
+        x    = 16, y = 15, width = 8, height = 6
         properties = {
           title  = "Data Transferred"
           region = "us-east-1"
