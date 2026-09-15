@@ -39,7 +39,10 @@ image = (
     timeout=300,
     scaledown_window=300,
     enable_memory_snapshot=True,
-    secrets=[modal.Secret.from_name("gifwidgets-aws")],
+    secrets=[
+        modal.Secret.from_name("gifwidgets-aws"),
+        modal.Secret.from_name("gifwidgets-modal-api-key"),
+    ],
 )
 class Converter:
     @modal.enter(snap=True)

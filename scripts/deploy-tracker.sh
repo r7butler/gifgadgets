@@ -3,6 +3,18 @@ set -euo pipefail
 
 # Deploy the gifwidgets tracker to Modal.
 #
+# Prerequisites:
+#   modal secret create gifwidgets-tracker-aws \
+#     AWS_ACCESS_KEY_ID=<key> \
+#     AWS_SECRET_ACCESS_KEY=<secret> \
+#     ASSETS_BUCKET=<bucket-name>
+#
+#   modal secret create gifwidgets-modal-api-key \
+#     MODAL_API_KEY=<same value as modal_api_key in terraform/secrets.auto.tfvars>
+#
+# MODAL_API_KEY is required: the auth check in modal_app.py is skipped entirely
+# when it is unset, which would leave this GPU endpoint open to the internet.
+#
 # Usage:
 #   ./scripts/deploy-tracker.sh
 

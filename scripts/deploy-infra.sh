@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure we're using the personal AWS profile
-if [[ "${AWS_PROFILE:-}" != "personal" ]]; then
-  echo "==> Setting AWS_PROFILE=personal"
-  export AWS_PROFILE=personal
+# AWS profile: defaults to the gifwidgets SSO profile, override with AWS_PROFILE=...
+export AWS_PROFILE="${AWS_PROFILE:-gifwidgets}"
+if ! aws sts get-caller-identity >/dev/null 2>&1; then
+  echo "ERROR: no valid AWS credentials for profile '$AWS_PROFILE'."
+  echo "Run: aws sso login --profile $AWS_PROFILE"
+  exit 1
 fi
+echo "==> AWS_PROFILE=$AWS_PROFILE ($(aws sts get-caller-identity --query Account --output text))"
 
 # Deploy infrastructure with Terraform.
 # Usage:

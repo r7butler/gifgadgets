@@ -1,5 +1,15 @@
 terraform {
-  required_version = ">= 1.3"
+  required_version = ">= 1.10"
+
+  # Remote state in S3. Versioned + encrypted, with native S3 locking
+  # (use_lockfile, Terraform >= 1.10) so no DynamoDB table is needed.
+  backend "s3" {
+    bucket       = "gifwidgets-tfstate-425750453898"
+    key          = "gifwidgets/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 
   required_providers {
     aws = {
@@ -13,7 +23,14 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {
+  lifecycle {
+    postcondition {
+      condition     = var.expected_account_id == null || self.account_id == var.expected_account_id
+      error_message = "Wrong AWS account: credentials resolve to ${self.account_id}, but expected_account_id is ${var.expected_account_id}. Check AWS_PROFILE."
+    }
+  }
+}
 
 
 provider "aws" {
@@ -140,7 +157,7 @@ resource "aws_secretsmanager_secret" "github_pat" {
 
 resource "aws_secretsmanager_secret_version" "github_pat" {
   secret_id     = aws_secretsmanager_secret.github_pat.id
-  secret_string = var.github_pat
+  secret_string = var.github_issue_poster_pat
 }
 
 # ---------- IAM User for Modal Converter (GPU MP4 conversion) ----------

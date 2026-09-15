@@ -41,7 +41,10 @@ image = (
     image=image,
     timeout=120,
     scaledown_window=240,  # scale to zero after 4 min idle
-    secrets=[modal.Secret.from_name("gifwidgets-tracker-aws")],
+    secrets=[
+        modal.Secret.from_name("gifwidgets-tracker-aws"),
+        modal.Secret.from_name("gifwidgets-modal-api-key"),
+    ],
 )
 @modal.asgi_app()
 def fastapi_app():
