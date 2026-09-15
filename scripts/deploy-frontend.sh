@@ -2,13 +2,15 @@
 set -euo pipefail
 
 # AWS profile: defaults to the gifwidgets SSO profile, override with AWS_PROFILE=...
-export AWS_PROFILE="${AWS_PROFILE:-gifwidgets}"
+if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -z "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" ]]; then
+  export AWS_PROFILE="${AWS_PROFILE:-gifwidgets}"
+fi
 if ! aws sts get-caller-identity >/dev/null 2>&1; then
-  echo "ERROR: no valid AWS credentials for profile '$AWS_PROFILE'."
-  echo "Run: aws sso login --profile $AWS_PROFILE"
+  echo "ERROR: no valid AWS credentials for profile '${AWS_PROFILE:-environment}'."
+  echo "Run: aws sso login --profile ${AWS_PROFILE:-gifwidgets}"
   exit 1
 fi
-echo "==> AWS_PROFILE=$AWS_PROFILE ($(aws sts get-caller-identity --query Account --output text))"
+echo "==> AWS_PROFILE=${AWS_PROFILE:-environment} ($(aws sts get-caller-identity --query Account --output text))"
 
 # Deploy frontend: build templates and sync to S3.
 # The API is routed through CloudFront at /api (same origin), so no URL injection needed.
@@ -29,7 +31,7 @@ docker run --rm -v "$PROJECT_DIR:/app" gifwidgets-build
 
 # Sync to S3
 echo "==> Syncing frontend to s3://$SITE_BUCKET/ ..."
-aws s3 sync "$FRONTEND_DIR/" "s3://$SITE_BUCKET/" --delete
+aws s3 sync "$FRONTEND_DIR/" "s3://$SITE_BUCKET/" --delete --exclude "g/*"
 
 # Invalidate CloudFront cache
 echo "==> Invalidating CloudFront cache..."

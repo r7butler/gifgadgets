@@ -107,7 +107,7 @@ class TestParseBody:
 class TestGetClientIp:
     def test_xff_header(self):
         event = {"headers": {"x-forwarded-for": "5.6.7.8, 10.0.0.1"}}
-        assert h._get_client_ip(event) == "5.6.7.8"
+        assert h._get_client_ip(event) == "10.0.0.1"
 
     def test_source_ip_fallback(self):
         event = {"headers": {}, "requestContext": {"http": {"sourceIp": "9.9.9.9"}}}

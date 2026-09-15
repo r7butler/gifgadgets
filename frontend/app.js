@@ -135,20 +135,8 @@ async function shareGif(blob, title, filename, contentType) {
 }
 
 async function _shareViaBinary(blob, title, filename) {
-  var headers = { "Content-Type": "image/gif", "X-Title": title || "" };
-  if (filename) headers["X-Filename"] = filename;
-
-  const response = await apiFetch(API_BASE_URL + "/share/upload", {
-    method: "POST",
-    headers: headers,
-    body: blob,
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || "Upload failed");
-  }
-  return response.json();
+  // JSON metadata preserves emoji and non-Latin titles/filenames.
+  return _shareViaPresign(blob, title, filename, "image/gif");
 }
 
 async function _shareViaPresign(blob, title, filename, contentType) {

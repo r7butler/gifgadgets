@@ -7,9 +7,13 @@ without real credentials.
 import os
 import json
 import base64
+import time
 import pytest
 
 # Set environment variables BEFORE importing handler
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+os.environ.setdefault("AWS_EC2_METADATA_DISABLED", "true")
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("ASSETS_BUCKET", "test-assets")
 os.environ.setdefault("SITE_BUCKET", "test-site")
@@ -36,7 +40,15 @@ def mock_aws(monkeypatch):
 
     # Default: quota check returns count=0 (allowed)
     mock_table.query.return_value = {"Count": 0, "Items": []}
+    mock_table.update_item.return_value = {}
     mock_dynamodb.Table.return_value = mock_table
+    # Issued jobs for isolated handler tests. Security tests use real Moto records.
+    records = {
+        "abcdef123456": {"job_type": "trim", "ttl": int(time.time()) + 3600},
+        "abc123abc123": {"job_type": "track", "ttl": int(time.time()) + 3600},
+    }
+    mock_table.put_item.side_effect = lambda **kw: records.update({kw["Item"]["job_id"]: kw["Item"]})
+    mock_table.get_item.side_effect = lambda **kw: {"Item": records.get(kw["Key"]["job_id"], {})}
 
     # Default: presigned URL
     mock_s3.generate_presigned_url.return_value = "https://s3.test.com/presigned"

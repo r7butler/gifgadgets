@@ -59,7 +59,9 @@ def fastapi_app():
     from pydantic import BaseModel
     from typing import List, Optional
 
-    expected_api_key = os.environ.get("MODAL_API_KEY", "")
+    expected_api_key = os.environ.get("MODAL_API_KEY", "").strip()
+    if not expected_api_key:
+        raise RuntimeError("MODAL_API_KEY must be configured")
 
     web_app = FastAPI()
     web_app.add_middleware(
@@ -93,7 +95,7 @@ def fastapi_app():
 
     @web_app.post("/track")
     async def track(req: TrackRequest, x_modal_api_key: Optional[str] = Header(None)):
-        if expected_api_key and x_modal_api_key != expected_api_key:
+        if not expected_api_key or x_modal_api_key != expected_api_key:
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
         predictor = _load_predictor()

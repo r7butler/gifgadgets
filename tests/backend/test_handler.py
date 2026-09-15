@@ -2,6 +2,7 @@
 
 import json
 import base64
+from botocore.exceptions import ClientError
 from unittest.mock import patch, MagicMock
 import urllib.error
 
@@ -198,16 +199,10 @@ class TestSharePresign:
 
 
 class TestShareFinalize:
-    def test_valid_slug(self, mock_aws):
-        event = make_event("/api/share/finalize", {
-            "slug": "test-captioned-abc12345",
-            "title": "Test",
-        })
-        resp = h.handler(event, None)
-        assert resp["statusCode"] == 200
-        body = json.loads(resp["body"])
-        assert "share_url" in body
-        mock_aws["s3"].put_object.assert_called_once()
+    def test_unissued_slug_rejected(self, mock_aws):
+        event = make_event("/api/share/finalize", {"slug": "test-captioned-" + "a" * 32})
+        assert h.handler(event, None)["statusCode"] == 400
+        mock_aws["s3"].put_object.assert_not_called()
 
     def test_missing_slug(self):
         event = make_event("/api/share/finalize", {"title": "Test"})
@@ -232,7 +227,7 @@ class TestPresignUpload:
         assert resp["statusCode"] == 503
 
     def test_rate_limited(self, mock_aws):
-        mock_aws["table"].query.return_value = {"Count": 20, "Items": []}
+        mock_aws["table"].update_item.side_effect = ClientError({"Error": {"Code": "ConditionalCheckFailedException"}}, "UpdateItem")
         event = make_event("/api/convert/presign-upload", {"content_type": "video/webm"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 429
@@ -330,7 +325,7 @@ class TestReportIssue:
         assert resp["statusCode"] == 400
 
     def test_rate_limited(self, mock_aws):
-        mock_aws["table"].query.return_value = {"Count": 3, "Items": []}
+        mock_aws["table"].update_item.side_effect = ClientError({"Error": {"Code": "ConditionalCheckFailedException"}}, "UpdateItem")
         event = make_event("/api/report-issue", {"title": "Bug", "body": "text"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 429
@@ -379,7 +374,7 @@ class TestTrackPresign:
         assert resp["statusCode"] == 503
 
     def test_rate_limited(self, mock_aws):
-        mock_aws["table"].query.return_value = {"Count": 20, "Items": []}
+        mock_aws["table"].update_item.side_effect = ClientError({"Error": {"Code": "ConditionalCheckFailedException"}}, "UpdateItem")
         event = make_event("/api/track/presign", {})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 429
@@ -422,7 +417,7 @@ class TestTrackPresign:
 class TestTrackSubmit:
     def test_feature_disabled(self, monkeypatch):
         monkeypatch.setattr(h, "FEATURES_DISABLED", {"track"})
-        event = make_event("/api/track/submit", {"s3_key": "track/abc123.json"})
+        event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 503
 
@@ -444,7 +439,7 @@ class TestTrackSubmit:
 
     def test_tracker_not_configured(self, monkeypatch):
         monkeypatch.setattr(h, "MODAL_TRACKER_URL", "")
-        event = make_event("/api/track/submit", {"s3_key": "track/abc123.json"})
+        event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 503
         assert "not configured" in json.loads(resp["body"])["error"]
@@ -458,7 +453,7 @@ class TestTrackSubmit:
         mock_urlopen.return_value = mock_response
 
         event = make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": [0, 3, 6],
             "click_x": 0.5,
             "click_y": 0.5,
@@ -479,7 +474,7 @@ class TestTrackSubmit:
         mock_urlopen.return_value = mock_response
 
         event = make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": [0, 5, 10],
             "click_x": 0.3,
             "click_y": 0.7,
@@ -491,7 +486,8 @@ class TestTrackSubmit:
         call_args = mock_urlopen.call_args
         req_obj = call_args[0][0]
         sent = json.loads(req_obj.data.decode("utf-8"))
-        assert sent["s3_key"] == "track/abc123.json"
+        assert sent["frames_url"] == "https://s3.test.com/presigned"
+        assert "s3_key" not in sent
         assert sent["frame_indices"] == [0, 5, 10]
         assert sent["click_x"] == 0.3
         assert sent["click_y"] == 0.7
@@ -509,7 +505,7 @@ class TestTrackSubmit:
         mock_urlopen.return_value = mock_response
 
         event = make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": list(range(200)),  # 200 frame indices
             "click_x": 0.5,
             "click_y": 0.5,
@@ -534,7 +530,7 @@ class TestTrackSubmit:
         # Set quota to exceeded — submit should still succeed
         mock_aws["table"].query.return_value = {"Count": 999, "Items": []}
         event = make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": [0],
             "click_x": 0.5,
             "click_y": 0.5,
@@ -553,7 +549,7 @@ class TestTrackSubmit:
         mock_urlopen.return_value = mock_response
 
         event = make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": [0],
             "click_x": 0.5,
             "click_y": 0.5,
@@ -575,7 +571,7 @@ class TestTrackSubmit:
             hdrs={},
             fp=error_body,
         )
-        event = make_event("/api/track/submit", {"s3_key": "track/abc123.json"})
+        event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 502
         assert "failed" in json.loads(resp["body"])["error"].lower()
@@ -583,7 +579,7 @@ class TestTrackSubmit:
     @patch("backend.handler.urllib.request.urlopen")
     def test_modal_connection_error(self, mock_urlopen):
         mock_urlopen.side_effect = ConnectionError("Connection refused")
-        event = make_event("/api/track/submit", {"s3_key": "track/abc123.json"})
+        event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 502
         assert "unavailable" in json.loads(resp["body"])["error"].lower()
@@ -640,7 +636,7 @@ class TestTrackPresignSubmitFlow:
         mock_urlopen.return_value = mock_response
 
         h.handler(make_event("/api/track/submit", {
-            "s3_key": "track/abc123.json",
+            "s3_key": "track/abc123abc123.json",
             "frame_indices": [0],
             "click_x": 0.5,
             "click_y": 0.5,

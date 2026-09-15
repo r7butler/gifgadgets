@@ -72,7 +72,9 @@ class Converter:
         from pydantic import BaseModel
         from typing import Optional
 
-        expected_api_key = os.environ.get("MODAL_API_KEY", "")
+        expected_api_key = os.environ.get("MODAL_API_KEY", "").strip()
+        if not expected_api_key:
+            raise RuntimeError("MODAL_API_KEY must be configured")
 
         web_app = FastAPI()
         web_app.add_middleware(
@@ -99,7 +101,7 @@ class Converter:
             urllib.request.urlopen(put, timeout=180)
 
         def _check_api_key(key):
-            if expected_api_key and key != expected_api_key:
+            if not expected_api_key or key != expected_api_key:
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
             return None
 
@@ -286,7 +288,10 @@ class Converter:
             return {"ok": True, "content_type": content_type}
 
         @web_app.post("/warmup")
-        async def warmup():
+        async def warmup(x_modal_api_key: Optional[str] = Header(None)):
+            auth_error = _check_api_key(x_modal_api_key)
+            if auth_error:
+                return auth_error
             return {"ok": True}
 
         return web_app

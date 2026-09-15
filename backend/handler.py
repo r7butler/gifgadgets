@@ -1,4 +1,5 @@
 import json
+import html
 import os
 import re
 import subprocess
@@ -12,6 +13,7 @@ import urllib.request
 import urllib.error
 
 import boto3
+from botocore.exceptions import ClientError
 
 # ---------- Configuration ----------
 
@@ -67,8 +69,11 @@ def _sanitize_slug_base(filename):
 
 def _build_share_page(title, gif_url, slug, content_type="image/gif"):
     """Return an HTML string for a shareable page with OG meta tags."""
-    safe_title = title.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
-    site_root = SITE_CDN_URL or ""
+    safe_title = html.escape(title, quote=True)
+    gif_url = html.escape(gif_url, quote=True)
+    slug = html.escape(slug, quote=True)
+    content_type = html.escape(content_type, quote=True)
+    site_root = html.escape(SITE_CDN_URL or "", quote=True)
     is_video = content_type.startswith("video/")
 
     if is_video:
@@ -139,38 +144,38 @@ def _get_client_ip(event):
     """Extract client IP, handling CloudFront X-Forwarded-For."""
     xff = event.get("headers", {}).get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return event.get("requestContext", {}).get("http", {}).get("sourceIp", "unknown")
 
 
-def _check_quota(event, limit=20, window=3600):
-    """Check per-IP rate quota via DynamoDB. Returns (allowed, ip_hash)."""
+def _check_quota(event, limit=20, window=3600, operation="compute"):
+    """Atomically reserve a request; reporting does not consume compute quota."""
     table = _get_jobs_table()
     if not table:
-        return True, ""
-    ip = _get_client_ip(event)
-    ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
-    cutoff = int(time.time()) - window
+        return False, ""
+    ip_hash = hashlib.sha256(_get_client_ip(event).encode()).hexdigest()[:16]
+    now = int(time.time())
+    bucket = now // window
     try:
-        resp = table.query(
-            IndexName="ip_hash-created_at-index",
-            KeyConditionExpression="ip_hash = :h AND created_at > :c",
-            ExpressionAttributeValues={":h": ip_hash, ":c": cutoff},
-            Select="COUNT",
+        table.update_item(
+            Key={"job_id": f"quota:{operation}:{ip_hash}:{bucket}"},
+            UpdateExpression="SET #ttl = :ttl ADD requests :one",
+            ConditionExpression="attribute_not_exists(requests) OR requests < :limit",
+            ExpressionAttributeNames={"#ttl": "ttl"},
+            ExpressionAttributeValues={":ttl": (bucket + 2) * window, ":one": 1, ":limit": limit},
         )
-        if resp["Count"] >= limit:
-            return False, ip_hash
-    except Exception as e:
-        logger.error(json.dumps({"event": "quota_check_failed", "error": str(e)}))
-        return False, ip_hash  # Fail closed — deny if we can't verify quota
-    return True, ip_hash
+        return True, ip_hash
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            logger.exception("Quota reservation failed")
+        return False, ip_hash
 
 
 def _record_job(job_id, job_type, ip_hash):
     """Record a job in DynamoDB for quota tracking."""
     table = _get_jobs_table()
     if not table:
-        return
+        raise RuntimeError("Job storage is not configured")
     now = int(time.time())
     try:
         table.put_item(Item={
@@ -182,6 +187,7 @@ def _record_job(job_id, job_type, ip_hash):
         })
     except Exception as e:
         logger.error(json.dumps({"event": "record_job_failed", "job_id": job_id, "error": str(e)}))
+        raise
 
 
 def _parse_body(event):
@@ -396,72 +402,153 @@ def handle_share_upload(event):
 
 
 def handle_share_presign(event):
-    """POST /share/presign — return a presigned PUT URL for direct upload."""
+    """Keep the PUT client contract; the random slug is a publication capability.
+
+    Only server-issued metadata can be published. The PUT URL reaches a private
+    temporary object, never the immutable public object.
+    """
     try:
         body = _parse_body(event)
+        filename = body.get("filename") or None
+        title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
+        content_type = body.get("content_type") or "image/gif"
+        if content_type not in CONTENT_TYPE_TO_EXT:
+            return _cors_response(400, {"error": "Unsupported media type"})
+        slug = f"{_sanitize_slug_base(filename)}-captioned-{uuid.uuid4().hex}"
+    except (ValueError, TypeError, AttributeError):
+        return _cors_response(400, {"error": "Invalid share metadata"})
+    table = _get_jobs_table()
+    if not table:
+        return _cors_response(503, {"error": "Sharing is temporarily unavailable"})
+    key = f"pending-share/{slug}{CONTENT_TYPE_TO_EXT[content_type]}"
+    table.put_item(Item={
+        "job_id": "share:" + slug, "job_type": "share", "title": title,
+        "content_type": content_type, "input_key": key,
+        "ttl": int(time.time()) + 86400,
+    }, ConditionExpression="attribute_not_exists(job_id)")
+    url = s3.generate_presigned_url("put_object", Params={
+        "Bucket": ASSETS_BUCKET, "Key": key, "ContentType": content_type,
+    }, ExpiresIn=300)
+    return _cors_response(200, {"upload_url": url, "slug": slug,
+                                "title": title, "content_type": content_type})
+
+
+def _valid_media(data, content_type):
+    """Signature check, not a full decoder. CDN headers also prohibit scripts."""
+    return {
+        "image/gif": data.startswith((b"GIF87a", b"GIF89a")),
+        "image/png": data.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/jpeg": data.startswith(b"\xff\xd8\xff"),
+        "image/webp": data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+        "video/mp4": data[4:8] == b"ftyp",
+        "video/webm": data.startswith(b"\x1aE\xdf\xa3"),
+    }.get(content_type, False)
+
+
+def _run_once(job_id, job_type, result_key, work, retry_errors=False, retry_event=None):
+    """Claim an issued job, and return saved responses on network retries.
+
+    Responses live in private S3 (tracking results can exceed DynamoDB's item
+    limit). Concurrent requests wait for the first result without rerunning work.
+    Failed shares can be retried. Known conversion failures can also be retried,
+    consuming an existing compute-quota allowance rather than another upload.
+    Ambiguous remote failures are cached to avoid running the same GPU job twice.
+    """
+    table = _get_jobs_table()
+    if not table:
+        return _cors_response(503, {"error": "Job storage unavailable"})
+    item = table.get_item(Key={"job_id": job_id}, ConsistentRead=True).get("Item", {})
+    if item.get("job_type") != job_type or item.get("ttl", 0) <= int(time.time()):
+        return _cors_response(400, {"error": "Unknown or expired job"})
+    deadline = time.monotonic() + 115
+    while True:
+        try:
+            claim = table.update_item(Key={"job_id": job_id},
+                UpdateExpression="SET running = :yes ADD attempts :one",
+                ConditionExpression="attribute_exists(job_id) AND attribute_not_exists(running)",
+                ExpressionAttributeValues={":yes": True, ":one": 1},
+                ReturnValues="ALL_NEW")
+            break
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            try:
+                response = s3.get_object(Bucket=ASSETS_BUCKET, Key=result_key)
+                with response["Body"] as stream:
+                    return json.loads(stream.read())
+            except ClientError as err:
+                if err.response["Error"]["Code"] not in ("NoSuchKey", "404"):
+                    raise
+            if time.monotonic() >= deadline:
+                return _cors_response(504, {"error": "Processing has not completed. Please retry."})
+            time.sleep(1)
+    if retry_event and claim.get("Attributes", {}).get("attempts", 1) > 1:
+        allowed, _ = _check_quota(retry_event)
+        if not allowed:
+            table.update_item(Key={"job_id": job_id}, UpdateExpression="REMOVE running")
+            return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
+    try:
+        result = work(item)
     except Exception:
-        return _cors_response(400, {"error": "Invalid JSON body"})
-
-    filename = body.get("filename") or None
-    title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
-    content_type = body.get("content_type") or "image/gif"
-
-    ext = CONTENT_TYPE_TO_EXT.get(content_type, ".gif")
-    slug_base = _sanitize_slug_base(filename)
-    short_id = uuid.uuid4().hex[:8]
-    slug = f"{slug_base}-captioned-{short_id}"
-    s3_key = f"share/{slug}{ext}"
-
-    presigned_url = s3.generate_presigned_url(
-        "put_object",
-        Params={
-            "Bucket": ASSETS_BUCKET,
-            "Key": s3_key,
-            "ContentType": content_type,
-        },
-        ExpiresIn=300,
-    )
-
-    return _cors_response(200, {
-        "upload_url": presigned_url,
-        "slug": slug,
-        "title": title,
-        "content_type": content_type,
-    })
+        logger.exception("Job failed: %s", job_id)
+        result = _cors_response(502, {"error": "Processing failed. Please try again."})
+    if ((retry_errors and result["statusCode"] >= 400)
+            or (retry_event and result["statusCode"] in (400, 500))):
+        table.update_item(Key={"job_id": job_id}, UpdateExpression="REMOVE running")
+    else:
+        try:
+            s3.put_object(Bucket=ASSETS_BUCKET, Key=result_key,
+                          Body=json.dumps(result).encode(), ContentType="application/json")
+        except Exception:
+            logger.exception("Could not save job response: %s", job_id)
+            if retry_errors:
+                # Publication can reconstruct its result from immutable objects.
+                table.update_item(Key={"job_id": job_id}, UpdateExpression="REMOVE running")
+            # Deliver completed work even if caching is unavailable. Compute
+            # remains claimed so a retry cannot silently rerun expensive work.
+    return result
 
 
 def handle_share_finalize(event):
-    """POST /share/finalize — create the share page after file was uploaded via presigned URL."""
     try:
-        body = _parse_body(event)
-    except Exception:
+        slug = _parse_body(event).get("slug")
+        if not isinstance(slug, str) or not re.fullmatch(r"[\w-]+-captioned-[a-f0-9]{32}", slug):
+            return _cors_response(400, {"error": "Invalid slug"})
+    except (ValueError, AttributeError):
         return _cors_response(400, {"error": "Invalid JSON body"})
 
-    slug = body.get("slug")
-    title = (body.get("title") or "").strip()[:200] or "Captioned GIF"
-    content_type = body.get("content_type") or "image/gif"
-    if not slug:
-        return _cors_response(400, {"error": "Missing 'slug' field"})
+    def publish(item):
+        content_type = item["content_type"]
+        key = f"share/{slug}{CONTENT_TYPE_TO_EXT[content_type]}"
+        try:
+            s3.head_object(Bucket=ASSETS_BUCKET, Key=key)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] not in ("404", "NoSuchKey"):
+                raise
+            # Inspect a small header and copy only that exact object version.
+            # A completed copy is never overwritten, including after a page-write failure.
+            obj = s3.get_object(Bucket=ASSETS_BUCKET, Key=item["input_key"], Range="bytes=0-31")
+            with obj["Body"] as stream:
+                if not _valid_media(stream.read(), content_type):
+                    return _cors_response(400, {"error": "File does not match its media type"})
+            s3.copy_object(Bucket=ASSETS_BUCKET, Key=key,
+                CopySource={"Bucket": ASSETS_BUCKET, "Key": item["input_key"]},
+                CopySourceIfMatch=obj["ETag"], MetadataDirective="REPLACE",
+                ContentType=content_type, CacheControl="public, max-age=31536000, immutable")
+        media_url = f"{SITE_CDN_URL}/{key}"
+        page = _build_share_page(item["title"], media_url, slug, content_type)
+        try:
+            s3.put_object(Bucket=SITE_BUCKET, Key=f"g/{slug}.html",
+                Body=page.encode(), ContentType="text/html; charset=utf-8",
+                CacheControl="public, max-age=86400", IfNoneMatch="*")
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "PreconditionFailed":
+                raise
+            # A previous attempt published the same immutable media and metadata.
+        return _cors_response(200, {"slug": slug,
+            "share_url": f"{SITE_CDN_URL}/g/{slug}.html", "gif_url": media_url})
 
-    ext = CONTENT_TYPE_TO_EXT.get(content_type, ".gif")
-    s3_key = f"share/{slug}{ext}"
-    media_url = f"{SITE_CDN_URL}/{s3_key}"
-
-    share_html = _build_share_page(title, media_url, slug, content_type)
-    s3.put_object(
-        Bucket=SITE_BUCKET,
-        Key=f"g/{slug}.html",
-        Body=share_html.encode("utf-8"),
-        ContentType="text/html; charset=utf-8",
-        CacheControl="public, max-age=86400",
-    )
-
-    share_url = f"{SITE_CDN_URL}/g/{slug}.html"
-    return _cors_response(200, {
-        "slug": slug,
-        "share_url": share_url,
-        "gif_url": media_url,
-    })
+    return _run_once("share:" + slug, "share", f"pending-share/{slug}.result.json", publish, retry_errors=True)
 
 
 def _get_recent_jobs(ip_hash, limit=10):
@@ -487,7 +574,7 @@ def _get_recent_jobs(ip_hash, limit=10):
 def handle_report_issue(event):
     """Handle POST /report-issue — post a GitHub issue using the stored PAT."""
     # Rate limit: max 3 issues per IP per hour
-    allowed, ip_hash = _check_quota(event, limit=3, window=3600)
+    allowed, ip_hash = _check_quota(event, limit=3, window=3600, operation="report")
     if not allowed:
         return _cors_response(429, {"error": "Too many reports. Please try again later."})
 
@@ -563,7 +650,7 @@ def handle_presign_upload(event):
         return _cors_response(400, {"error": "Invalid JSON body"})
 
     content_type = body.get("content_type") or "video/webm"
-    job_id = uuid.uuid4().hex[:12]
+    job_id = uuid.uuid4().hex
     s3_key = f"convert/{job_id}/input.webm"
 
     presigned_url = s3.generate_presigned_url(
@@ -591,7 +678,7 @@ def handle_presign_upload(event):
     })
 
 
-def handle_convert_to_mp4(event):
+def _convert_to_mp4(event):
     """POST /convert-to-mp4 — convert an uploaded WebM to MP4 using ffmpeg."""
     try:
         body = _parse_body(event)
@@ -600,7 +687,7 @@ def handle_convert_to_mp4(event):
 
     job_id = body.get("job_id")
     filename = body.get("filename", "converted.mp4")
-    if not job_id or not re.match(r"^[a-f0-9]{12}$", job_id):
+    if not job_id or not re.match(r"^(?:[a-f0-9]{12}|[a-f0-9]{32})$", job_id):
         return _cors_response(400, {"error": "Invalid job_id"})
 
     input_key = f"convert/{job_id}/input.webm"
@@ -670,7 +757,7 @@ def handle_track_presign(event):
     if not allowed:
         return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
 
-    job_id = uuid.uuid4().hex[:12]
+    job_id = uuid.uuid4().hex
     s3_key = f"track/{job_id}.json"
 
     presigned_url = s3.generate_presigned_url(
@@ -698,7 +785,7 @@ def handle_track_presign(event):
     })
 
 
-def handle_track_submit(event):
+def _track_submit(event):
     """Broker for Modal SAM2 tracker — passes S3 key to Modal for processing."""
     if "track" in FEATURES_DISABLED:
         return _cors_response(503, {"error": "Tracking is temporarily disabled"})
@@ -709,7 +796,7 @@ def handle_track_submit(event):
         return _cors_response(400, {"error": "Invalid JSON body"})
 
     s3_key = body.get("s3_key")
-    if not s3_key or not s3_key.startswith("track/"):
+    if not isinstance(s3_key, str) or not re.fullmatch(r"track/(?:[a-f0-9]{12}|[a-f0-9]{32})\.json", s3_key):
         return _cors_response(400, {"error": "Missing or invalid s3_key"})
 
     if not MODAL_TRACKER_URL:
@@ -783,7 +870,13 @@ def handle_track_submit(event):
 
 
 def handle_track_warmup(event):
-    """Best-effort warmup for Modal tracker — no quota check."""
+    """Coalesce warmups globally; repeat calls still succeed without GPU work."""
+    if "track" in FEATURES_DISABLED:
+        return _cors_response(200, {"ok": True})
+    allowed, _ = _check_quota({"headers": {}, "requestContext": {}},
+                             limit=1, window=60, operation="warmup")
+    if not allowed:
+        return _cors_response(200, {"ok": True})
     if not MODAL_TRACKER_URL:
         return _cors_response(200, {"ok": True})
     try:
@@ -801,3 +894,28 @@ def handle_track_warmup(event):
     except Exception:
         pass
     return _cors_response(200, {"ok": True})
+
+
+def handle_track_submit(event):
+    if "track" in FEATURES_DISABLED or not MODAL_TRACKER_URL:
+        return _track_submit(event)
+    try:
+        key = _parse_body(event).get("s3_key")
+        if not isinstance(key, str) or not re.fullmatch(r"track/(?:[a-f0-9]{12}|[a-f0-9]{32})\.json", key):
+            return _cors_response(400, {"error": "Missing or invalid s3_key"})
+    except (ValueError, AttributeError):
+        return _cors_response(400, {"error": "Invalid JSON body"})
+    return _run_once(key[6:-5], "track", key + ".result.json", lambda _: _track_submit(event))
+
+
+def handle_convert_to_mp4(event):
+    if "trim" in FEATURES_DISABLED:
+        return _cors_response(503, {"error": "Video processing is temporarily disabled"})
+    try:
+        job_id = _parse_body(event).get("job_id")
+        if not isinstance(job_id, str) or not re.fullmatch(r"(?:[a-f0-9]{12}|[a-f0-9]{32})", job_id):
+            return _cors_response(400, {"error": "Invalid job_id"})
+    except (ValueError, AttributeError):
+        return _cors_response(400, {"error": "Invalid JSON body"})
+    return _run_once(job_id, "trim", f"convert/{job_id}/result.json",
+                     lambda _: _convert_to_mp4(event), retry_event=event)

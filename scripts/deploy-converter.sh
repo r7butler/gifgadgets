@@ -12,8 +12,7 @@ set -euo pipefail
 #   modal secret create gifwidgets-modal-api-key \
 #     MODAL_API_KEY=<same value as modal_api_key in terraform/secrets.auto.tfvars>
 #
-# MODAL_API_KEY is required: the auth check in modal_app.py is skipped entirely
-# when it is unset, which would leave this GPU endpoint open to the internet.
+# MODAL_API_KEY is required: startup fails if it is missing or empty.
 #
 # Usage:
 #   ./scripts/deploy-converter.sh

@@ -61,6 +61,13 @@ resource "aws_s3_bucket" "site" {
   bucket = var.site_bucket_name
 }
 
+resource "aws_s3_bucket_versioning" "site" {
+  bucket = aws_s3_bucket.site.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "site" {
   bucket                  = aws_s3_bucket.site.id
   block_public_acls       = true
@@ -120,6 +127,17 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
 
 resource "aws_s3_bucket_lifecycle_configuration" "assets" {
   bucket = aws_s3_bucket.assets.id
+
+  rule {
+    id     = "expire-pending-shares"
+    status = "Enabled"
+    filter {
+      prefix = "pending-share/"
+    }
+    expiration {
+      days = 1
+    }
+  }
 
   rule {
     id     = "expire-convert-temp"
@@ -197,6 +215,13 @@ resource "aws_iam_role_policy" "lambda" {
           "s3:DeleteObject"
         ]
         Resource = "${aws_s3_bucket.assets.arn}/*"
+      },
+      {
+        # Lets HEAD/GET distinguish a missing object (404) from denied access.
+        # Required for immutable publication and waiting for saved job results.
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.assets.arn
       },
       {
         Effect   = "Allow"
@@ -369,6 +394,10 @@ resource "aws_cloudfront_function" "add_coop_headers" {
     function handler(event) {
       var response = event.response;
       var uri = event.request.uri;
+      if (uri.indexOf('/g/') === 0) {
+        response.headers['content-security-policy'] = {value: "default-src 'none'; img-src https:; media-src https:; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"};
+        response.headers['x-content-type-options'] = {value: 'nosniff'};
+      }
       return response;
     }
   EOF
@@ -488,6 +517,27 @@ resource "aws_cloudfront_origin_access_control" "lambda" {
   signing_protocol                  = "sigv4"
 }
 
+# Uploaded media cannot execute scripts, including previously uploaded objects.
+resource "aws_cloudfront_response_headers_policy" "media" {
+  name = "${var.project_slug}-media-safety"
+  security_headers_config {
+    content_type_options {
+      override = true
+    }
+    content_security_policy {
+      content_security_policy = "sandbox; default-src 'none'; media-src 'self'; img-src 'self'; style-src 'unsafe-inline'"
+      override                = true
+    }
+  }
+  custom_headers_config {
+    items {
+      header   = "Cross-Origin-Resource-Policy"
+      value    = "cross-origin"
+      override = true
+    }
+  }
+}
+
 # CloudFront distribution for GIF assets (stable, SEO-friendly URLs)
 resource "aws_cloudfront_distribution" "assets" {
   enabled = true
@@ -501,10 +551,11 @@ resource "aws_cloudfront_distribution" "assets" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "s3-assets"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
+    target_origin_id           = "s3-assets"
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.media.id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
 
     forwarded_values {
       query_string = false
@@ -685,6 +736,7 @@ resource "aws_cloudfront_distribution" "site" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 120
     }
   }
 
@@ -703,11 +755,12 @@ resource "aws_cloudfront_distribution" "site" {
 
   # Route /share/* to the assets S3 bucket (immutable shared GIFs)
   ordered_cache_behavior {
-    path_pattern           = "/share/*"
-    target_origin_id       = "s3-assets"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
+    path_pattern               = "/share/*"
+    target_origin_id           = "s3-assets"
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.media.id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
 
     forwarded_values {
       query_string = false
