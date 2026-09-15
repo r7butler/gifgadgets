@@ -611,11 +611,18 @@ resource "aws_s3_bucket_policy" "assets" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontOAC"
+        # Only the public-facing prefixes are readable through CloudFront.
+        # convert/ and track/ are internal working prefixes reached solely by
+        # Lambda and by presigned URLs, so exposing them on the CDN would let
+        # anything written there be served from content.gifwidgets.com.
+        Sid       = "AllowCloudFrontOACPublicPrefixes"
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.assets.arn}/*"
+        Resource = [
+          "${aws_s3_bucket.assets.arn}/share/*",
+          "${aws_s3_bucket.assets.arn}/gifs/*",
+        ]
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = [
