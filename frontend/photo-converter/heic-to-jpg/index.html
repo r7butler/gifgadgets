@@ -26,6 +26,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
+  <script src="/tool-funnel.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   <!-- heic2any library for HEIC decoding in the browser -->
@@ -228,7 +229,7 @@
 
   <footer class="site-footer" role="contentinfo">
   <div class="site-footer-inner">
-    <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+    <p>© 2026 GifWidgets — Free browser-based media tools.</p>
     <nav class="site-footer-links" aria-label="Footer navigation">
       <a href="/">All Tools</a>
       <a href="/gif-editor/">GIF Editor</a>
@@ -281,6 +282,8 @@
       return;
     }
     currentFile = file;
+    GWFunnel.accepted(file.size);
+    GWFunnel.ready();
     document.getElementById('file-name').textContent = file.name;
     document.getElementById('file-size').textContent = formatSize(file.size);
     fileInfo.classList.remove('hidden');
@@ -310,7 +313,9 @@
 
   convertBtn.addEventListener('click', function() {
     if (!currentFile) return;
+    var exportMetric = GWFunnel.exportStarted();
     if (typeof heic2any === 'undefined') {
+      exportMetric.fail('decode');
       alert('The HEIC conversion library failed to load. Please check your internet connection and try refreshing the page.');
       return;
     }
@@ -330,6 +335,15 @@
       fill.style.width = '90%';
       // resultBlob may be an array for burst/sequence photos; take first
       var blob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob;
+
+      if (!blob || blob.type !== 'image/jpeg') {
+        exportMetric.fail('unsupported_output');
+        progressEl.classList.add('hidden');
+        convertBtn.disabled = false;
+        alert('Your browser could not produce the requested format. Try another browser.');
+        return;
+      }
+      exportMetric.complete();
       var outUrl = URL.createObjectURL(blob);
 
       // Load converted blob as image to get dimensions
@@ -367,7 +381,7 @@
       };
       img.src = outUrl;
     }).catch(function(err) {
-      console.error('HEIC conversion error:', err);
+      exportMetric.fail('decode');
       alert('Could not convert this HEIC file. Please make sure the file is a valid HEIC/HEIF image.');
       progressEl.classList.add('hidden');
       convertBtn.disabled = false;

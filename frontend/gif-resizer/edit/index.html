@@ -11,6 +11,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
+  <script src="/tool-funnel.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -342,6 +343,7 @@
   // ── Load GIF ──
 
   function loadGif(file) {
+    GWFunnel.accepted(file.size);
     gifFilename = (file.name || 'gif').replace(/\.[^.]+$/, '');
     loadingOverlay.classList.remove('hidden');
     loadingText.textContent = 'Decoding GIF…';
@@ -349,12 +351,20 @@
 
     var reader = new FileReader();
     reader.onload = function () {
-      var result = decodeGif(reader.result);
+      var result;
+      try { result = decodeGif(reader.result); }
+      catch (_) {
+        GWFunnel.failure('decode');
+        loadingOverlay.classList.add('hidden');
+        alert('Could not decode this GIF. Please try another file.');
+        return;
+      }
       loadingOverlay.classList.add('hidden');
 
       origWidth = result.width;
       origHeight = result.height;
       frames = result.frames;
+      GWFunnel.ready();
       currentFrame = 0;
 
       originalSizeEl.textContent = origWidth + ' × ' + origHeight + ' · ' + frames.length + ' frames';
@@ -370,6 +380,11 @@
 
       updatePreview();
       updateFrameCounter();
+    };
+    reader.onerror = function () {
+      GWFunnel.failure('read');
+      loadingOverlay.classList.add('hidden');
+      alert('Could not read this file.');
     };
     reader.readAsArrayBuffer(file);
   }
@@ -467,6 +482,7 @@
     if (newW > origWidth || newH > origHeight) { alert('Cannot upscale beyond the original dimensions.'); return; }
 
     stopPlayback();
+    var exportMetric = GWFunnel.exportStarted();
     resizeBtn.disabled = true;
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
@@ -503,6 +519,7 @@
     });
 
     gif.on('finished', function (blob) {
+      exportMetric.complete();
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');
       resizeBtn.disabled = false;

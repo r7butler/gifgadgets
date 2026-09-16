@@ -8,14 +8,14 @@
   <meta name="keywords" content="jpg to png, jpeg to png converter, convert jpg to png online free, jpg png converter" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#f59e0b" />
-  <link rel="canonical" href="https://gifwidgets.com/photo-converter/jpg-to-png/" />
+  <link rel="canonical" href="{{ site_url }}/photo-converter/jpg-to-png/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="JPG to PNG Converter — Free Online | GifWidgets" />
   <meta property="og:description" content="Convert JPG and JPEG images to lossless PNG format instantly in your browser. No upload, no signup." />
   <meta property="og:site_name" content="GifWidgets" />
-  <meta property="og:url" content="https://gifwidgets.com/photo-converter/jpg-to-png/" />
+  <meta property="og:url" content="{{ site_url }}/photo-converter/jpg-to-png/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
@@ -29,7 +29,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "JPG to PNG Converter",
-    "url": "https://gifwidgets.com/photo-converter/jpg-to-png/",
+    "url": "{{ site_url }}/photo-converter/jpg-to-png/",
     "description": "Free browser-based tool to convert JPG and JPEG images to lossless PNG format. No file upload, no signup required.",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "Any",
@@ -228,6 +228,8 @@
       return;
     }
     currentFile = file;
+    GWFunnel.accepted(file.size);
+    GWFunnel.ready();
     document.getElementById('file-name').textContent = file.name;
     document.getElementById('file-size').textContent = formatSize(file.size);
     fileInfo.classList.remove('hidden');
@@ -257,6 +259,7 @@
 
   convertBtn.addEventListener('click', function() {
     if (!currentFile) return;
+    var exportMetric = GWFunnel.exportStarted();
     progressEl.classList.remove('hidden');
     resultEl.classList.add('hidden');
     var fill = document.querySelector('.conv-progress-fill');
@@ -273,6 +276,14 @@
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       canvas.toBlob(function(blob) {
+        if (!blob || blob.type !== 'image/png') {
+          exportMetric.fail('unsupported_output');
+          progressEl.classList.add('hidden');
+          convertBtn.disabled = false;
+          alert('Your browser could not produce the requested format. Try another browser.');
+          return;
+        }
+        exportMetric.complete();
         fill.style.width = '100%';
         var outUrl = URL.createObjectURL(blob);
         resultImg.src = outUrl;
@@ -289,6 +300,7 @@
       }, 'image/png');
     };
     img.onerror = function() {
+      exportMetric.fail('decode');
       URL.revokeObjectURL(url);
       alert('Could not load the image. Please try another file.');
       progressEl.classList.add('hidden');

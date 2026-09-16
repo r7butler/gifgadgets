@@ -344,42 +344,42 @@
 
   function detectVideoFps(cb) {
     if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) { cb(null); return; }
+    var firstMediaTime = null, presented = 0, callbackId, finished = false;
     var startQuality = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality().totalVideoFrames : 0;
-    var firstMediaTime = null;
-    var presented = 0;
-    var target = 12;
-
+    // Short clips and background tabs may never deliver twelve callbacks.
+    var timeout = setTimeout(function () { finish(null); }, 1500);
+    function finish(fps) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      video.cancelVideoFrameCallback(callbackId);
+      video.removeEventListener('ended', onEnded);
+      video.pause();
+      cb(fps);
+    }
+    function onEnded() { finish(null); }
     function onFrame(now, meta) {
+      if (finished) return;
       if (firstMediaTime === null) firstMediaTime = meta.mediaTime;
       presented++;
-      if (presented >= target) {
-        video.pause();
+      if (presented >= 12) {
         var elapsed = meta.mediaTime - firstMediaTime;
-        var raw;
-        // Prefer getVideoPlaybackQuality — counts ALL decoded frames including dropped ones,
-        // so a 60fps video on a 30Hz display still reports 60.
-        if (video.getVideoPlaybackQuality && elapsed > 0) {
+        if (elapsed <= 0) { finish(null); return; }
+        var raw = (presented - 1) / elapsed;
+        if (video.getVideoPlaybackQuality) {
           var decoded = video.getVideoPlaybackQuality().totalVideoFrames - startQuality;
           if (decoded > presented) raw = decoded / elapsed;
         }
-        // Fallback to rVFC-presented frames
-        if (!raw && elapsed > 0) raw = (presented - 1) / elapsed;
-        video.currentTime = 0;
-        if (!raw) { cb(null); return; }
-        // Snap to nearest common frame rate
         var common = [12, 15, 20, 24, 25, 30, 50, 60];
-        var best = common[0];
-        for (var i = 1; i < common.length; i++) {
-          if (Math.abs(raw - common[i]) < Math.abs(raw - best)) best = common[i];
-        }
-        cb(best);
-      } else {
-        video.requestVideoFrameCallback(onFrame);
-      }
+        var best = common.reduce(function (best, fps) {
+          return Math.abs(fps - raw) < Math.abs(best - raw) ? fps : best;
+        }, common[0]);
+        finish(best);
+      } else callbackId = video.requestVideoFrameCallback(onFrame);
     }
-
-    video.requestVideoFrameCallback(onFrame);
-    video.play().catch(function () { cb(null); });
+    video.addEventListener('ended', onEnded);
+    callbackId = video.requestVideoFrameCallback(onFrame);
+    video.play().catch(function () { finish(null); });
   }
 
   function getMaxClipDuration() {
@@ -622,9 +622,14 @@
   var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
   function loadVideo(file) {
     if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use a video under 200 MB.'); return; }
+    GWFunnel.accepted(file.size);
+    var loadFailed = false;
     videoFilename = file.name.replace(/\.[^.]+$/, '') || 'video';
     var url = URL.createObjectURL(file);
     video.onerror = function () {
+      loadFailed = true;
+      convertBtn.disabled = dlBtnHeader.disabled = btnShare.disabled = true;
+      GWFunnel.failure('decode');
       URL.revokeObjectURL(url);
       alert('Could not load this video. The format or codec may not be supported by your browser. Try converting it to MP4 first.');
     };
@@ -633,13 +638,14 @@
       duration = video.duration;
       document.getElementById('upload-screen').classList.add('hidden');
       document.getElementById('editor-screen').classList.remove('hidden');
-      convertBtn.disabled = false;
-      dlBtnHeader.disabled = false;
-      btnShare.disabled = false;
+      convertBtn.disabled = true;
+      dlBtnHeader.disabled = true;
+      btnShare.disabled = true;
       updatePlayPauseIcon();
 
       // Detect native FPS, then initialise time range
       detectVideoFps(function (fps) {
+        if (loadFailed) return;
         if (fps) {
           detectedFps = fps;
           var capped = Math.min(fps, 60); // slider max is 60
@@ -655,17 +661,23 @@
           + (duration > maxClip ? ' (max ' + maxClip + 's at ' + slFps.value + ' FPS)' : '')
           + (detectedFps ? ' · Detected ' + detectedFps + ' FPS' : '');
         updateFrameCounter();
+        convertBtn.disabled = false;
+        dlBtnHeader.disabled = false;
+        btnShare.disabled = false;
+        GWFunnel.ready();
       });
     };
   }
 
   // ── Convert ──
 
+  var exportMetric;
   function startConversion() {
     var fps = parseInt(slFps.value);
     var maxWidth = parseInt(slWidth.value);
     if (outTime <= inTime) { alert('End time must be after start time.'); return; }
 
+    exportMetric = GWFunnel.exportStarted();
     convertBtn.disabled = true;
     resultModal.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
@@ -732,6 +744,7 @@
       progressFill.style.width = (p * 30 + 70) + '%';
     });
     gif.on('finished', function (blob) {
+      exportMetric.complete();
       video.onseeked = null;
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');

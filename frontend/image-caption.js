@@ -52,6 +52,7 @@
    * still frame so the shared editor can caption it.
    */
   GC.loadImageFile = function (file) {
+    GWFunnel.accepted(file.size);
     GC.showLoading('Loading image…');
     var url = URL.createObjectURL(file);
     var img = new Image();
@@ -88,12 +89,14 @@
       $('#upload-zone').classList.add('hidden');
       $('#btn-download').disabled = false;
       var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
+      GWFunnel.ready();
       if (GC.draftLoaded) GC.draftLoaded();
       GC.hideLoading();
     };
     img.onerror = function () {
       URL.revokeObjectURL(url);
       GC.hideLoading();
+      GWFunnel.failure('decode');
       GC.showError('Could not load image.');
     };
     img.src = url;

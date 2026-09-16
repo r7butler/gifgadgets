@@ -41,15 +41,34 @@ for (const converter of converters) {
         await expect(page.locator("#btn-convert")).toBeEnabled({ timeout: 5_000 });
       });
 
-      test("conversion produces result with download button", async ({ page }) => {
+      test("conversion produces the requested format or reports unsupported encoding", async ({ page }) => {
         await page.goto(converter.path);
         const fileInput = page.locator("#file-input");
         await fileInput.setInputFiles(path.join(FIXTURES, converter.input));
 
+        const expectedType = converter.path.includes('to-webp') ? 'image/webp'
+          : converter.path.includes('to-jpg') ? 'image/jpeg' : 'image/png';
+        const supported = await page.evaluate(type => new Promise(resolve => {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 1;
+          canvas.toBlob(blob => resolve(blob && blob.type === type), type);
+        }), expectedType);
+        const unsupportedDialog = supported ? null : page.waitForEvent('dialog').then(async dialog => {
+          const message = dialog.message();
+          await dialog.accept();
+          return message;
+        });
         // Wait for convert button to enable, then click it
         const convertBtn = page.locator("#btn-convert");
         await expect(convertBtn).toBeEnabled({ timeout: 10_000 });
         await convertBtn.click();
+
+        if (!supported) {
+          expect(await unsupportedDialog).toContain('could not produce the requested format');
+          await expect(page.locator('#conv-result')).toBeHidden();
+          await expect(convertBtn).toBeEnabled();
+          return;
+        }
 
         // Wait for result section
         const result = page.locator("#conv-result");
@@ -58,6 +77,9 @@ for (const converter of converters) {
         // Download button should be present
         const downloadBtn = page.locator("#btn-download");
         await expect(downloadBtn).toBeVisible();
+        const outputType = await page.locator('#result-img').evaluate(async img =>
+          (await (await fetch(img.src)).blob()).type);
+        expect(outputType).toBe(expectedType);
       });
     }
   });

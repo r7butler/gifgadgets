@@ -348,6 +348,7 @@
   // ── Load GIF ──
 
   function loadGif(file) {
+    GWFunnel.accepted(file.size);
     gifFilename = (file.name || 'gif').replace(/\.[^.]+$/, '');
     loadingOverlay.classList.remove('hidden');
     loadingText.textContent = 'Decoding GIF…';
@@ -355,12 +356,20 @@
 
     var reader = new FileReader();
     reader.onload = function () {
-      var result = decodeGif(reader.result);
+      var result;
+      try { result = decodeGif(reader.result); }
+      catch (_) {
+        GWFunnel.failure('decode');
+        loadingOverlay.classList.add('hidden');
+        alert('Could not decode this GIF. Please try another file.');
+        return;
+      }
       loadingOverlay.classList.add('hidden');
 
       origWidth = result.width;
       origHeight = result.height;
       frames = result.frames;
+      GWFunnel.ready();
       currentFrame = 0;
 
       originalSizeEl.textContent = origWidth + ' × ' + origHeight + ' · ' + frames.length + ' frames';
@@ -374,6 +383,11 @@
       updatePreview();
       updateFrameCounter();
       drawCropOverlay();
+    };
+    reader.onerror = function () {
+      GWFunnel.failure('read');
+      loadingOverlay.classList.add('hidden');
+      alert('Could not read this file.');
     };
     reader.readAsArrayBuffer(file);
   }
@@ -544,6 +558,7 @@
   function startCrop() {
     if (!frames.length || crop.w < 1 || crop.h < 1) return;
     stopPlayback();
+    var exportMetric = GWFunnel.exportStarted();
     cropBtn.disabled = true;
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
@@ -580,6 +595,7 @@
     });
 
     gif.on('finished', function (blob) {
+      exportMetric.complete();
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');
       cropBtn.disabled = false;

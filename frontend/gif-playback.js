@@ -42,6 +42,7 @@
   var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
   GC.loadGifFromFile = function (file) {
     if (file.size > MAX_FILE_SIZE) { GC.showError('File is too large. Please use a file under 200 MB.'); return; }
+    GWFunnel.accepted(file.size);
     state.gifFilename = file.name || null;
     state.originalFileSize = file.size || 0;
     GC.showLoading('Parsing GIF frames…');
@@ -52,11 +53,13 @@
         GC.hideLoading();
       } catch (err) {
         GC.hideLoading();
+        GWFunnel.failure('decode');
         GC.showError('Failed to parse GIF: ' + err.message);
       }
     };
     reader.onerror = function () {
       GC.hideLoading();
+      GWFunnel.failure('read');
       GC.showError('Could not read file.');
     };
     reader.readAsArrayBuffer(file);
@@ -72,6 +75,7 @@
       if (!resp.ok) throw new Error('Network error');
       return resp.arrayBuffer();
     }).then(async function (buf) {
+      GWFunnel.accepted(buf.byteLength);
       await processGifBuffer(buf);
       GC.hideLoading();
     }).catch(function (err) {
@@ -178,6 +182,7 @@
     var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
     $('#btn-share').disabled = false;
     $('#btn-download').disabled = false;
+    GWFunnel.ready();
     if (GC.draftLoaded) GC.draftLoaded();
   }
 
@@ -185,6 +190,7 @@
 
   /** Convert a HEIC/HEIF file to JPEG in-browser and load it as a single frame. */
   GC.loadHeicAsImage = function (file) {
+    GWFunnel.accepted(file.size);
     GC.showLoading('Converting HEIC…');
     heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
       .then(function (result) {
@@ -220,18 +226,21 @@
           var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.remove('hidden');
           $('#btn-download').disabled = false;
           var _bs = $('#btn-share'); if (_bs) _bs.disabled = false;
+          GWFunnel.ready();
           if (GC.draftLoaded) GC.draftLoaded();
           GC.hideLoading();
         };
         img.onerror = function () {
           URL.revokeObjectURL(url);
           GC.hideLoading();
+          GWFunnel.failure('decode');
           GC.showError('Could not load HEIC image.');
         };
         img.src = url;
       })
       .catch(function (err) {
         GC.hideLoading();
+        GWFunnel.failure('decode');
         GC.showError('HEIC conversion failed: ' + (err.message || err));
       });
   };
@@ -285,6 +294,7 @@
    * and populate GC.state.frames as if a GIF had been loaded.
    */
   GC.loadVideoAsGif = function (file) {
+    GWFunnel.accepted(file.size);
     state.gifFilename = (file.name || 'video').replace(/\.[^.]+$/, '') + '.gif';
     state.originalFileSize = 0; // Video→GIF conversion: original size not comparable
     GC.showLoading('Converting video to GIF frames…');
@@ -298,6 +308,7 @@
     video.onerror = function () {
       URL.revokeObjectURL(url);
       GC.hideLoading();
+      GWFunnel.failure('decode');
       GC.showError('Could not load video. The format may not be supported by your browser.');
     };
 
@@ -306,6 +317,7 @@
       if (!isFinite(duration) || duration <= 0) {
         URL.revokeObjectURL(url);
         GC.hideLoading();
+        GWFunnel.failure('decode');
         GC.showError('Could not determine video duration.');
         return;
       }
@@ -367,6 +379,7 @@
         URL.revokeObjectURL(url);
         if (state.frames.length === 0) {
           GC.hideLoading();
+          GWFunnel.failure('decode');
           GC.showError('No frames could be extracted from the video.');
           return;
         }
@@ -387,6 +400,7 @@
         GC.$('#btn-share').disabled = false;
         GC.$('#btn-download').disabled = false;
 
+        GWFunnel.ready();
         if (GC.draftLoaded) GC.draftLoaded();
         GC.hideLoading();
       }

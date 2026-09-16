@@ -11,6 +11,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
+  <script src="/tool-funnel.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -673,6 +674,7 @@
 
     loadingOverlay.classList.remove('hidden');
     progressFill.style.width = '0%';
+    GWFunnel.accepted(acceptedFiles.reduce(function (sum, file) { return sum + file.size; }, 0));
     loadingText.textContent = 'Loading file 1 / ' + acceptedFiles.length + '…';
 
     var loaded = [];
@@ -688,6 +690,7 @@
           truncated = true;
         }
         frames = frames.concat(loaded);
+        if (loaded.length) GWFunnel.ready();
         onFramesChanged();
         if (!document.getElementById('upload-screen').classList.contains('hidden')) {
           document.getElementById('upload-screen').classList.add('hidden');
@@ -715,6 +718,7 @@
         idx++;
         loadNext();
       }).catch(function () {
+        GWFunnel.failure('decode');
         idx++;
         loadNext();
       });
@@ -1326,6 +1330,7 @@
 
     stopPlayback();
 
+    var exportMetric = GWFunnel.exportStarted();
     makeBtn.disabled = true;
     resultModal.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
@@ -1416,6 +1421,7 @@
       });
 
       gif.on('finished', function (blob) {
+      exportMetric.complete();
         progressFill.style.width = '100%';
         loadingOverlay.classList.add('hidden');
         makeBtn.disabled = false;

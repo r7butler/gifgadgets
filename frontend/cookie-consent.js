@@ -4,6 +4,7 @@
   if (window.GWAnalyticsChoices) return;
   var choice;
   try { choice = localStorage.getItem('gc_cookie_consent'); } catch (_) {}
+  window.GWAnalyticsAllowed = function () { return choice === 'accepted'; };
   var started = false;
   function start() {
     window['ga-disable-G-STTEFW2R1M'] = false;

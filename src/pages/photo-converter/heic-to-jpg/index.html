@@ -8,14 +8,14 @@
   <meta name="keywords" content="heic to jpg, heic to jpeg converter, convert iphone photos to jpg, heic jpg online free, heif to jpg" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#f59e0b" />
-  <link rel="canonical" href="https://gifwidgets.com/photo-converter/heic-to-jpg/" />
+  <link rel="canonical" href="{{ site_url }}/photo-converter/heic-to-jpg/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
   <meta property="og:description" content="Convert iPhone HEIC photos to universally compatible JPG. Free, browser-based, no upload required." />
   <meta property="og:site_name" content="GifWidgets" />
-  <meta property="og:url" content="https://gifwidgets.com/photo-converter/heic-to-jpg/" />
+  <meta property="og:url" content="{{ site_url }}/photo-converter/heic-to-jpg/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
@@ -34,7 +34,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "HEIC to JPG Converter",
-    "url": "https://gifwidgets.com/photo-converter/heic-to-jpg/",
+    "url": "{{ site_url }}/photo-converter/heic-to-jpg/",
     "description": "Free browser-based tool to convert iPhone HEIC and HEIF photos to JPG format with adjustable quality. Powered by heic2any. No file upload required.",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "Any",
@@ -254,6 +254,8 @@
       return;
     }
     currentFile = file;
+    GWFunnel.accepted(file.size);
+    GWFunnel.ready();
     document.getElementById('file-name').textContent = file.name;
     document.getElementById('file-size').textContent = formatSize(file.size);
     fileInfo.classList.remove('hidden');
@@ -283,7 +285,9 @@
 
   convertBtn.addEventListener('click', function() {
     if (!currentFile) return;
+    var exportMetric = GWFunnel.exportStarted();
     if (typeof heic2any === 'undefined') {
+      exportMetric.fail('decode');
       alert('The HEIC conversion library failed to load. Please check your internet connection and try refreshing the page.');
       return;
     }
@@ -303,6 +307,15 @@
       fill.style.width = '90%';
       // resultBlob may be an array for burst/sequence photos; take first
       var blob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob;
+
+      if (!blob || blob.type !== 'image/jpeg') {
+        exportMetric.fail('unsupported_output');
+        progressEl.classList.add('hidden');
+        convertBtn.disabled = false;
+        alert('Your browser could not produce the requested format. Try another browser.');
+        return;
+      }
+      exportMetric.complete();
       var outUrl = URL.createObjectURL(blob);
 
       // Load converted blob as image to get dimensions
@@ -340,7 +353,7 @@
       };
       img.src = outUrl;
     }).catch(function(err) {
-      console.error('HEIC conversion error:', err);
+      exportMetric.fail('decode');
       alert('Could not convert this HEIC file. Please make sure the file is a valid HEIC/HEIF image.');
       progressEl.classList.add('hidden');
       convertBtn.disabled = false;

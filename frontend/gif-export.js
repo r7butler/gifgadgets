@@ -34,6 +34,7 @@
   GC.exportGif = function (opts) {
     if (state.frames.length === 0 || GC.exportInProgress) return;
     opts = opts || {};
+    var exportMetric = GWFunnel.exportStarted();
     GC.exportInProgress = true;
     GC.showExportProgress(0);
 
@@ -46,6 +47,7 @@
     var outH = crop ? crop.h : compSize.h;
 
     if (outW <= 0 || outH <= 0) {
+      exportMetric.fail('validation');
       GC.showError('Crop region is too small.');
       GC.exportInProgress = false;
       return;
@@ -77,6 +79,7 @@
 
     var workerUrl = state._workerBlobUrl;
     if (!workerUrl) {
+      exportMetric.fail('encode');
       GC.showError('GIF worker not ready. Please try again.');
       GC.exportInProgress = false;
       return;
@@ -138,11 +141,13 @@
       if (GC.exportInProgress) {
         GC.exportInProgress = false;
         GC.hideExportProgress();
+        exportMetric.fail('timeout');
         GC.showError('Export timed out. Try reducing the number of frames or file size.');
       }
     }, 60000);
 
     gif.on('finished', function (blob) {
+      exportMetric.complete();
       clearTimeout(_exportTimeout);
       GC.hideExportProgress();
       GC.exportInProgress = false;
@@ -367,6 +372,7 @@
    */
   GC.exportImage = function (opts) {
     if (state.frames.length === 0) return;
+    var exportMetric = GWFunnel.exportStarted();
     var onBlob  = opts && opts.onBlob;
     var fmt     = state.exportFormat  || 'image/jpeg';
     var quality = state.exportQuality != null ? state.exportQuality : 0.92;
@@ -375,6 +381,12 @@
     var id      = Math.random().toString(36).slice(2, 5);
     var canvas  = renderFrameToCanvas();
     canvas.toBlob(function (blob) {
+      if (!blob || blob.type !== fmt) {
+        exportMetric.fail('unsupported_output');
+        GC.showError('Your browser could not produce the requested format.');
+        return;
+      }
+      exportMetric.complete();
       if (onBlob) {
         onBlob(blob, base + '-captioned-' + id + ext);
       } else {

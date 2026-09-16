@@ -26,6 +26,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
+  <script src="/tool-funnel.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   
@@ -216,7 +217,7 @@
 
   <footer class="site-footer" role="contentinfo">
   <div class="site-footer-inner">
-    <p>© 2025 GifWidgets — Free browser-based media tools.</p>
+    <p>© 2026 GifWidgets — Free browser-based media tools.</p>
     <nav class="site-footer-links" aria-label="Footer navigation">
       <a href="/">All Tools</a>
       <a href="/gif-editor/">GIF Editor</a>
@@ -257,6 +258,8 @@
       return;
     }
     currentFile = file;
+    GWFunnel.accepted(file.size);
+    GWFunnel.ready();
     document.getElementById('file-name').textContent = file.name;
     document.getElementById('file-size').textContent = formatSize(file.size);
     fileInfo.classList.remove('hidden');
@@ -286,6 +289,7 @@
 
   convertBtn.addEventListener('click', function() {
     if (!currentFile) return;
+    var exportMetric = GWFunnel.exportStarted();
     progressEl.classList.remove('hidden');
     resultEl.classList.add('hidden');
     var fill = document.querySelector('.conv-progress-fill');
@@ -302,6 +306,14 @@
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       canvas.toBlob(function(blob) {
+        if (!blob || blob.type !== 'image/png') {
+          exportMetric.fail('unsupported_output');
+          progressEl.classList.add('hidden');
+          convertBtn.disabled = false;
+          alert('Your browser could not produce the requested format. Try another browser.');
+          return;
+        }
+        exportMetric.complete();
         fill.style.width = '100%';
         var outUrl = URL.createObjectURL(blob);
         resultImg.src = outUrl;
@@ -318,6 +330,7 @@
       }, 'image/png');
     };
     img.onerror = function() {
+      exportMetric.fail('decode');
       URL.revokeObjectURL(url);
       alert('Could not load the image. Please try another file.');
       progressEl.classList.add('hidden');

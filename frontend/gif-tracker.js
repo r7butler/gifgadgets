@@ -26,6 +26,7 @@
 
   // ── Worker lifecycle ─────────────────────────
 
+  var _trackingMetric = null;
   var _worker = null;
   var _trackingCap = null;   // caption or overlay being tracked (set during a run)
   var _timelineBuilt = false;
@@ -35,6 +36,7 @@
     _worker = new Worker('/gif-tracker-worker.js');
     _worker.onmessage = _handleWorkerMessage;
     _worker.onerror = function (e) {
+      if (_trackingMetric) _trackingMetric.fail();
       _hideTrackingProgress();
       GC.showError('Tracker worker error: ' + e.message);
       _trackingCap = null;
@@ -65,6 +67,7 @@
       GC.renderCurrentFrame();
 
     } else if (msg.type === 'done') {
+      if (_trackingMetric) _trackingMetric.complete();
       if (_trackingCap) {
         _trackingCap.motion.sort(function (a, b) { return a.frame - b.frame; });
         GC.buildTimeline();
@@ -76,6 +79,7 @@
       _trackingCap = null;
 
     } else if (msg.type === 'error') {
+      if (_trackingMetric) _trackingMetric.fail();
       _hideTrackingProgress();
       GC.showError('Tracking failed: ' + msg.message);
       _trackingCap = null;
@@ -162,6 +166,8 @@
     _trackingCap = target;
     _timelineBuilt = false;
 
+    if (_trackingMetric) _trackingMetric.fail();
+    _trackingMetric = GWFunnel.trackingStarted();
     _showTrackingProgress('Initializing…');
 
     _getWorker().postMessage({
