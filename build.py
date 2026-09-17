@@ -32,13 +32,40 @@ def build():
             any(c in site_url for c in '\"<> \n\r')):
         raise ValueError("SITE_URL must be an HTTPS origin without a path or credentials")
 
+    # Brand name. site_brand_accent is the trailing span the logo highlights, so the
+    # two must stay consistent: site_brand_lead + site_brand_accent == site_brand.
+    site_brand = os.environ.get("SITE_BRAND", config["site_brand"])
+    site_brand_accent = os.environ.get("SITE_BRAND_ACCENT", config["site_brand_accent"])
+    if not site_brand or any(c in site_brand for c in '<>"\n\r'):
+        raise ValueError("site_brand must be non-empty and free of markup characters")
+    if not site_brand.endswith(site_brand_accent):
+        raise ValueError(
+            f"site_brand_accent {site_brand_accent!r} must be the tail of site_brand {site_brand!r}"
+        )
+    site_brand_lead = site_brand[: len(site_brand) - len(site_brand_accent)]
+
+    # Text burned into watermarked exports. Display text, so it is configured
+    # explicitly rather than derived from the lowercase hostname.
+    site_watermark = os.environ.get(
+        "SITE_WATERMARK", config.get("site_watermark") or parsed.hostname)
+    if any(c in site_watermark for c in '\'"\\\n\r'):
+        raise ValueError("site_watermark must not contain quotes, backslashes or newlines")
+
     env = Environment(
         loader=FileSystemLoader([PAGES_DIR, TEMPLATES_DIR]),
         keep_trailing_newline=True,
         undefined=StrictUndefined,
     )
 
-    env.globals.update(site_url=site_url, active_nav=None, current_year=datetime.now(timezone.utc).year)
+    env.globals.update(
+        site_url=site_url,
+        site_brand=site_brand,
+        site_brand_lead=site_brand_lead,
+        site_brand_accent=site_brand_accent,
+        site_watermark=site_watermark,
+        active_nav=None,
+        current_year=datetime.now(timezone.utc).year,
+    )
 
     count = 0
     for dirpath, _dirnames, filenames in os.walk(PAGES_DIR):

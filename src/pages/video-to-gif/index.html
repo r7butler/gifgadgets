@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Free Online Video to GIF Converter — MP4, WebM, MOV to GIF | GifWidgets{% endblock %}
+{% block title %}Free Online Video to GIF Converter — MP4, WebM, MOV to GIF | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert video to GIF online for free. Upload any MP4, WebM, MOV, or AVI file, set start/end time, choose FPS and size, and download an animated GIF instantly. No signup." />
@@ -9,11 +9,11 @@
   <meta name="theme-color" content="#10b981" />
   <link rel="canonical" href="{{ site_url }}/video-to-gif/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Free Online Video to GIF Converter | GifWidgets" />
+  <meta property="og:title" content="Free Online Video to GIF Converter | {{ site_brand }}" />
   <meta property="og:description" content="Convert MP4, WebM, MOV to animated GIF online for free. Control FPS, size, and time range." />
   <meta property="og:url" content="{{ site_url }}/video-to-gif/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Video to GIF Converter — GifWidgets" />
+  <meta name="twitter:title" content="Video to GIF Converter — {{ site_brand }}" />
   <meta name="twitter:description" content="Convert any video to GIF online free. Set time range, FPS, and size. No signup." />
 {% endblock %}
 
@@ -22,7 +22,7 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "GifWidgets Video to GIF Converter",
+    "name": "{{ site_brand }} Video to GIF Converter",
     "url": "{{ site_url }}/video-to-gif/",
     "description": "Free online video to GIF converter. Upload MP4, WebM, MOV, or AVI and download an animated GIF with full control over time range, FPS, and size.",
     "applicationCategory": "MultimediaApplication",

@@ -1,0 +1,7 @@
+# These values also live in variables.tf defaults for future deployments.
+# Verified Issued; covers both apex domains and their wildcard subdomains.
+acm_certificate_arn = "arn:aws:acm:us-east-1:425750453898:certificate/a9928a42-ece7-42f9-bd4b-069cc5ef9a2d"
+additional_site_domains = {
+  "gifgadgets.com"     = "gifgadgets.com"
+  "www.gifgadgets.com" = "gifgadgets.com"
+}

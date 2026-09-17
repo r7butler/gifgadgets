@@ -1,19 +1,20 @@
-# GifWidgets
+# GifGadgets
 
 Free browser-based media tools: GIF editor with AI-powered caption tracking, image editor,
 video-to-GIF converter, and photo format converters. No signup, no mandatory watermark.
 
-**Live site:** [gifwidgets.com](https://gifwidgets.com)
+**Live site:** [gifgadgets.com](https://gifgadgets.com) — `gifwidgets.com` and
+`www.gifgadgets.com` permanently redirect to it.
 
 ## Architecture
 
-Everything is served from a single CloudFront distribution on `gifwidgets.com`. The
+Everything is served from a single CloudFront distribution on `gifgadgets.com`. The
 static site comes from S3; `/api/*` is routed to a Lambda Function URL. A second
 distribution serves public media at `content.gifwidgets.com`.
 
 ```
                         ┌──────────────┐
-   gifwidgets.com  ───► │  CloudFront  │
+   gifgadgets.com  ───► │  CloudFront  │
                         └──────┬───────┘
                                │
                  ┌─────────────┴─────────────┐
@@ -92,6 +93,11 @@ gifwidgets/
 
 `frontend/` is generated. Edit `src/pages/` and rebuild; editing `frontend/` directly
 gets overwritten on the next deploy.
+
+> **Naming:** S3 buckets, `project_slug`, and the Modal app names still use
+> `gifwidgets`. That is deliberate — they are invisible to users and to search
+> engines, and renaming buckets would force recreation and a data copy.
+> The public brand and domain live in `site.config.json`.
 
 > **Note on the converter:** the Modal converter app and the Lambda routes
 > `/convert/presign-upload` and `/convert-to-mp4` are not reachable from the current

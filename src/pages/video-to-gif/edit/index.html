@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Video to GIF Converter — GifWidgets{% endblock %}
+{% block title %}Video to GIF Converter — {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="robots" content="noindex" />
@@ -108,7 +108,7 @@
 {% block content %}
 <div class="vtg-app" id="app">
   <header class="editor-header">
-    <a href="/" class="logo">Gif<span class="logo-accent">Widgets</span></a>
+    <a href="/" class="logo">{{ site_brand_lead }}<span class="logo-accent">{{ site_brand_accent }}</span></a>
     <div class="header-actions">
       <button id="btn-new" class="btn btn-ghost" aria-label="Load new video" title="Load a different video">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -214,7 +214,7 @@
       <div class="vtg-section">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">
           <input type="checkbox" id="chk-watermark" checked style="accent-color:var(--cat-gif)" />
-          Include GifWidgets watermark
+          Include {{ site_brand }} watermark
         </label>
       </div>
       <div class="vtg-section">
@@ -406,8 +406,8 @@
     ctx2d.fillStyle = '#ffffff';
     ctx2d.strokeStyle = '#000000';
     ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
-    ctx2d.strokeText('GifWidgets.com', w - 6, h - 4);
-    ctx2d.fillText('GifWidgets.com', w - 6, h - 4);
+    ctx2d.strokeText('{{ site_watermark }}', w - 6, h - 4);
+    ctx2d.fillText('{{ site_watermark }}', w - 6, h - 4);
     ctx2d.restore();
   }
 
@@ -1104,7 +1104,7 @@
       var reddit = document.getElementById('btn-share-reddit');
       if (reddit) reddit.href = 'https://www.reddit.com/submit?url=' + enc(result.share_url) + '&title=' + enc('Converted GIF');
       var twitter = document.getElementById('btn-share-twitter');
-      if (twitter) twitter.href = 'https://twitter.com/intent/tweet?url=' + enc(result.share_url) + '&text=' + enc('Converted GIF — made with GifWidgets');
+      if (twitter) twitter.href = 'https://twitter.com/intent/tweet?url=' + enc(result.share_url) + '&text=' + enc('Converted GIF — made with {{ site_brand }}');
       document.getElementById('share-skeletons').classList.add('hidden');
       document.getElementById('share-ready').classList.remove('hidden');
       document.getElementById('share-social-skeletons').classList.add('hidden');

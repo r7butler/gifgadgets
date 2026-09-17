@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}JPG to PNG Converter — Free Online | GifWidgets{% endblock %}
+{% block title %}JPG to PNG Converter — Free Online | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert JPG and JPEG images to PNG format instantly in your browser. Free, no upload to server, no signup. Lossless PNG output every time." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="JPG to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:title" content="JPG to PNG Converter — Free Online | {{ site_brand }}" />
   <meta property="og:description" content="Convert JPG and JPEG images to lossless PNG format instantly in your browser. No upload, no signup." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/jpg-to-png/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="JPG to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:title" content="JPG to PNG Converter — Free Online | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert JPG images to lossless PNG instantly in your browser. Free, private, no signup." />
 {% endblock %}
 
@@ -65,7 +65,7 @@
       {
         "@type": "Question",
         "name": "What file types does this accept?",
-        "acceptedAnswer": {"@type": "Answer", "text": "This converter accepts .jpg and .jpeg files (JPEG images). For other formats, use one of the other converters on GifWidgets."}
+        "acceptedAnswer": {"@type": "Answer", "text": "This converter accepts .jpg and .jpeg files (JPEG images). For other formats, use one of the other converters on {{ site_brand }}."}
       }
     ]
   }

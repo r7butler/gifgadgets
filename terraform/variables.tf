@@ -20,7 +20,7 @@ variable "project_slug" {
 variable "site_brand_name" {
   description = "Human-friendly brand name used in descriptions and comments"
   type        = string
-  default     = "GifWidgets"
+  default     = "GifGadgets"
 }
 
 variable "site_bucket_name" {
@@ -47,6 +47,21 @@ variable "assets_domain_name" {
   default     = "content.gifwidgets.com"
 }
 
+variable "enable_domain_redirect" {
+  description = "Redirect old site and www hostnames to gifgadgets.com. Disable only while provisioning new domain connectivity."
+  type        = bool
+  default     = true
+}
+
+variable "additional_site_domains" {
+  description = "Additional site hostnames mapped to their existing public Route 53 zone names. Requires a supplied ACM certificate covering every site hostname."
+  type        = map(string)
+  default = {
+    "gifgadgets.com"     = "gifgadgets.com"
+    "www.gifgadgets.com" = "gifgadgets.com"
+  }
+}
+
 variable "route53_zone_id" {
   description = "Optional Route 53 hosted zone ID for the root domain. Set this to skip hosted zone name lookup."
   type        = string
@@ -63,7 +78,7 @@ variable "github_repo" {
 variable "acm_certificate_arn" {
   description = "Optional ACM certificate ARN (must be in us-east-1) for the root domain. Leave null to have Terraform create and validate one."
   type        = string
-  default     = "arn:aws:acm:us-east-1:425750453898:certificate/ef4942b6-ee6c-46d8-8cf4-03d990bf16d5"
+  default     = "arn:aws:acm:us-east-1:425750453898:certificate/a9928a42-ece7-42f9-bd4b-069cc5ef9a2d"
   nullable    = true
 }
 

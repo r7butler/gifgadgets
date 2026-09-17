@@ -118,7 +118,7 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "PUT"]
-    allowed_origins = ["https://gifwidgets.com", "http://localhost:3000"]
+    allowed_origins = ["https://gifwidgets.com", "https://gifgadgets.com", "https://www.gifgadgets.com", "http://localhost:3000"]
     max_age_seconds = 3600
   }
 }
@@ -371,6 +371,20 @@ resource "aws_cloudfront_function" "rewrite_index" {
     function handler(event) {
       var request = event.request;
       var uri = request.uri;
+      var host = request.headers.host.value.toLowerCase();
+      if (${var.enable_domain_redirect} && (host === 'gifwidgets.com' || host === 'www.gifgadgets.com')) {
+        var query = [];
+        var params = request.querystring || {};
+        Object.keys(params).forEach(function(key) {
+          var values = params[key].multiValue || [params[key]];
+          values.forEach(function(item) { query.push(key + '=' + item.value); });
+        });
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: { location: { value: 'https://gifgadgets.com' + uri + (query.length ? '?' + query.join('&') : '') } }
+        };
+      }
       // Append index.html if URI ends with '/' or has no file extension
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
@@ -711,8 +725,15 @@ resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   default_root_object = "index.html"
   comment             = "${var.site_brand_name} static site"
-  aliases             = [local.root_domain_name]
+  aliases             = distinct(concat([local.root_domain_name], keys(var.additional_site_domains)))
   web_acl_id          = aws_wafv2_web_acl.api.arn
+
+  lifecycle {
+    precondition {
+      condition     = length(var.additional_site_domains) == 0 || var.acm_certificate_arn != null
+      error_message = "Additional site domains require an existing ACM certificate covering the root domain and every additional hostname."
+    }
+  }
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name

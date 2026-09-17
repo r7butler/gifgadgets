@@ -8,7 +8,8 @@ domain migration, new ad placements, or encoder replacement is included.
 - `site.config.json` owns the public HTTPS origin. `build.py` feeds `site_url` into
   canonical links, Open Graph URLs, structured data, sitemap and robots templates.
   Python builds can override it with `SITE_URL`. Docker/deployment builds read the
-  checked-in config. Defaults still point at gifwidgets.com.
+  checked-in config. Defaults point at gifgadgets.com; `site_brand`,
+  `site_brand_accent` and `site_watermark` carry the brand name.
 - `src/templates/site/robots.txt` explicitly allows Mediapartners-Google and keeps
   generic crawler restrictions. Editor noindex metadata stays in place.
 - Consent-gated task events cover the photo converters, GIF/image editors, resizer,
@@ -55,8 +56,8 @@ and some unexpected library exceptions will appear as incomplete funnels rather
 than categorized failures. Saving an individual GIF frame is not part of this initial
 whole-output export funnel.
 
-GA4 currently uses the existing property ID `G-STTEFW2R1M`. Confirm it belongs to the
-intended production property. Register event-scoped dimensions `tool_name`,
+GA4 uses property `GifGadgets`, stream `https://gifgadgets.com`, measurement ID
+`G-RF99W324GB`, declared once as `GA_ID` in `frontend/cookie-consent.js`. Register event-scoped dimensions `tool_name`,
 `size_bucket`, `failure_category` and a `duration_ms` custom metric (milliseconds).
 Use tool-specific funnels: maker accepts batches; photo converters initialize their
 form before decoding. Do not combine their readiness times into one performance KPI.
@@ -104,7 +105,7 @@ should be uploaded to a competitor without permission.
 
 ## What Robert needs to provide or do
 
-1. **Search Console:** verify ownership of gifwidgets.com (or provide existing
+1. **Search Console:** verify ownership of gifgadgets.com (or provide existing
    property access), submit `/sitemap.xml`, and export page/query performance and
    indexing reports. These determine the next tool cluster; no keyword demand or
    traffic forecast has been assumed.

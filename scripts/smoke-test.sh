@@ -9,9 +9,16 @@ set -euo pipefail
 #
 # Usage:
 #   ./scripts/smoke-test.sh                                        # tests prod
-#   BASE_URL=https://dev.gifwidgets.com ./scripts/smoke-test.sh    # tests dev
+#   BASE_URL=https://dev.gifgadgets.com ./scripts/smoke-test.sh    # tests dev
+#
+# Defaults follow site.config.json so a rebrand does not need edits here.
 
-BASE_URL="${BASE_URL:-https://gifwidgets.com}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SITE_CONFIG="$SCRIPT_DIR/../site.config.json"
+cfg() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$SITE_CONFIG" "$1"; }
+
+BASE_URL="${BASE_URL:-$(cfg site_url)}"
+SITE_BRAND="${SITE_BRAND:-$(cfg site_brand)}"
 PASSED=0
 FAILED=0
 
@@ -35,7 +42,7 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/")
 check "Homepage returns 200" "$([[ "$STATUS" == "200" ]] && echo true || echo false)"
 
 BODY=$(curl -s "$BASE_URL/")
-check "Homepage contains GifWidgets" "$([[ "$BODY" == *"GifWidgets"* ]] && echo true || echo false)"
+check "Homepage contains $SITE_BRAND" "$([[ "$BODY" == *"$SITE_BRAND"* ]] && echo true || echo false)"
 
 # Tool pages
 for TOOL in gif-editor gif-maker video-to-gif image-editor gif-resizer crop-gif photo-converter; do

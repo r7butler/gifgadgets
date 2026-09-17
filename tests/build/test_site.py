@@ -32,5 +32,25 @@ class SiteBuildTests(unittest.TestCase):
             with self.subTest(origin=origin), patch.dict(os.environ, {'SITE_URL': origin}), self.assertRaises(ValueError):
                 module.build()
 
+    def test_brand_is_templated(self):
+        """No page may hardcode a brand name; the split logo must reassemble."""
+        env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Brand',
+               'SITE_WATERMARK': 'ExampleBrand.test'}
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output), patch.dict(os.environ, env):
+            module.build()
+            root = Path(output)
+            for file in root.rglob('*.html'):
+                text = file.read_text()
+                self.assertNotIn('GifGadgets', text, f'hardcoded brand in {file.name}')
+                self.assertNotIn('GifWidgets', text, f'stale brand in {file.name}')
+            home = (root / 'index.html').read_text()
+            self.assertIn('Example<span class="logo-accent">Brand</span>', home)
+            self.assertIn('ExampleBrand.test', (root / 'gif-maker/edit/index.html').read_text())
+
+    def test_brand_accent_must_be_brand_suffix(self):
+        env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Widgets'}
+        with patch.dict(os.environ, env), self.assertRaises(ValueError):
+            module.build()
+
 if __name__ == '__main__':
     unittest.main()

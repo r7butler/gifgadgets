@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}Free Online Photo Format Converters — JPG, PNG, WebP, HEIC | GifWidgets{% endblock %}
+{% block title %}Free Online Photo Format Converters — JPG, PNG, WebP, HEIC | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Free online photo format converters: JPG to PNG, PNG to JPG, WebP to JPG, JPG to WebP, HEIC to JPG, SVG to PNG, GIF to PNG and more. 100% browser-based, no upload required." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Free Online Photo Format Converters — JPG, PNG, WebP, HEIC | GifWidgets" />
+  <meta property="og:title" content="Free Online Photo Format Converters — JPG, PNG, WebP, HEIC | {{ site_brand }}" />
   <meta property="og:description" content="Convert between JPG, PNG, WebP, HEIC, SVG and GIF formats instantly in your browser. No upload, no signup, always free." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Free Online Photo Format Converters | GifWidgets" />
+  <meta name="twitter:title" content="Free Online Photo Format Converters | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert between JPG, PNG, WebP, HEIC, SVG and GIF formats instantly in your browser. No upload, no signup." />
 {% endblock %}
 
@@ -33,7 +33,7 @@
     "description": "Free browser-based photo format converters: JPG, PNG, WebP, HEIC, SVG, GIF — no upload required.",
     "isPartOf": {
       "@type": "WebSite",
-      "name": "GifWidgets",
+      "name": "{{ site_brand }}",
       "url": "{{ site_url }}/"
     },
     "hasPart": [
@@ -57,7 +57,7 @@
       {
         "@type": "Question",
         "name": "Are these photo converters really free?",
-        "acceptedAnswer": {"@type": "Answer", "text": "Yes, all converters on GifWidgets are completely free with no hidden fees, no signup, and no watermarks on output files."}
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes, all converters on {{ site_brand }} are completely free with no hidden fees, no signup, and no watermarks on output files."}
       },
       {
         "@type": "Question",
@@ -205,7 +205,7 @@
       <dl class="tool-faq">
         <div class="tool-faq-item">
           <dt>Are these photo converters really free?</dt>
-          <dd>Yes. Every converter on GifWidgets is free to use with no hidden fees, no watermarks, and no signup required.</dd>
+          <dd>Yes. Every converter on {{ site_brand }} is free to use with no hidden fees, no watermarks, and no signup required.</dd>
         </div>
         <div class="tool-faq-item">
           <dt>Do my photos get uploaded to a server?</dt>

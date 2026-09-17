@@ -633,7 +633,9 @@
     ctx2d.fillStyle = '#ffffff';
     ctx2d.strokeStyle = '#000000';
     ctx2d.lineWidth = Math.max(1, fontSize * 0.15);
-    var text = 'GifWidgets.com';
+    // Keep in sync with site_watermark in site.config.json — this file is
+    // hand-maintained source, not rendered through build.py.
+    var text = 'GifGadgets.com';
     var x = compSize.w - 6;
     var y = compSize.h - 4;
     ctx2d.strokeText(text, x, y);

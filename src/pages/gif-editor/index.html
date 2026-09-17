@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "gif-editor" %}
 
-{% block title %}GIF Editor — Motion Captions, Object Tracking, Crop & More | GifWidgets{% endblock %}
+{% block title %}GIF Editor — Motion Captions, Object Tracking, Crop & More | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Advanced online GIF editor with motion keyframes, AI object tracking, zoom, crop, and compression. Add animated captions that follow objects across frames. Free, no signup." />
@@ -10,11 +10,11 @@
   <meta name="theme-color" content="#10b981" />
   <link rel="canonical" href="{{ site_url }}/gif-editor/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="GIF Editor — Motion Captions & Object Tracking | GifWidgets" />
+  <meta property="og:title" content="GIF Editor — Motion Captions & Object Tracking | {{ site_brand }}" />
   <meta property="og:description" content="Add animated captions that follow objects across GIF frames. Motion keyframes, AI tracking, crop, zoom, compression. Free, no signup." />
   <meta property="og:url" content="{{ site_url }}/gif-editor/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="GIF Editor — GifWidgets" />
+  <meta name="twitter:title" content="GIF Editor — {{ site_brand }}" />
   <meta name="twitter:description" content="Motion captions, AI object tracking, keyframes, crop, zoom. The most powerful free online GIF editor." />
 {% endblock %}
 
@@ -23,7 +23,7 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "GifWidgets GIF Editor",
+    "name": "{{ site_brand }} GIF Editor",
     "url": "{{ site_url }}/gif-editor/",
     "description": "Advanced online GIF editor with motion keyframes, AI object tracking, crop, zoom, and compression controls.",
     "applicationCategory": "MultimediaApplication",

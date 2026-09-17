@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}GIF to PNG Converter — Free Online | GifWidgets{% endblock %}
+{% block title %}GIF to PNG Converter — Free Online | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert GIF images to PNG online for free. Extracts the first frame of animated GIFs as a high-quality PNG. Instant, browser-based, no upload required." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="GIF to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:title" content="GIF to PNG Converter — Free Online | {{ site_brand }}" />
   <meta property="og:description" content="Extract the first frame of any GIF as a high-quality PNG image. Free, instant, runs entirely in your browser." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/gif-to-png/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="GIF to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:title" content="GIF to PNG Converter — Free Online | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert GIF to PNG — extract the first frame as a high-quality PNG. Free, no upload, instant." />
 {% endblock %}
 
@@ -55,7 +55,7 @@
       {
         "@type": "Question",
         "name": "Can I extract multiple frames from an animated GIF?",
-        "acceptedAnswer": {"@type": "Answer", "text": "This tool extracts only the first frame. To extract all frames, use the GifWidgets GIF Editor which allows frame-by-frame access."}
+        "acceptedAnswer": {"@type": "Answer", "text": "This tool extracts only the first frame. To extract all frames, use the {{ site_brand }} GIF Editor which allows frame-by-frame access."}
       },
       {
         "@type": "Question",
@@ -170,7 +170,7 @@
           </div>
           <div class="tool-faq-item">
             <dt>Can I extract all frames from an animated GIF?</dt>
-            <dd>This tool extracts only the first frame. To access individual frames, use the GifWidgets GIF Editor which provides frame-by-frame editing.</dd>
+            <dd>This tool extracts only the first frame. To access individual frames, use the {{ site_brand }} GIF Editor which provides frame-by-frame editing.</dd>
           </div>
           <div class="tool-faq-item">
             <dt>Why use PNG instead of JPG for GIF conversion?</dt>

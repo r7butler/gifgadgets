@@ -2,7 +2,7 @@
 
 {% block viewport %}<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />{% endblock %}
 
-{% block title %}Image Editor — GifWidgets{% endblock %}
+{% block title %}Image Editor — {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="robots" content="noindex" />
@@ -36,7 +36,7 @@
   <div class="editor-app">
     <!-- Header -->
     <header class="editor-header">
-      <a href="/" class="logo">Gif<span class="logo-accent">Widgets</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Image Editor</span></a>
+      <a href="/" class="logo">{{ site_brand_lead }}<span class="logo-accent">{{ site_brand_accent }}</span> <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px">Image Editor</span></a>
       <div class="header-actions">
         <button id="btn-new" class="btn btn-ghost" title="Load a different image" aria-label="Load new image">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -295,7 +295,7 @@
             <div class="other-options-body">
               <label class="option-label">
                 <input type="checkbox" id="chk-watermark" checked />
-                <span>Include GifWidgets watermark</span>
+                <span>Include {{ site_brand }} watermark</span>
               </label>
               <div class="form-group" style="margin-top:12px;margin-bottom:8px">
                 <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)">Export Format</label>

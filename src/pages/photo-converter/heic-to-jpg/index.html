@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}HEIC to JPG Converter — Free Online | GifWidgets{% endblock %}
+{% block title %}HEIC to JPG Converter — Free Online | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert HEIC and HEIF iPhone photos to JPG format online for free. Instant browser-based conversion using heic2any — no upload, no signup, no app required." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
+  <meta property="og:title" content="HEIC to JPG Converter — Free Online | {{ site_brand }}" />
   <meta property="og:description" content="Convert iPhone HEIC photos to universally compatible JPG. Free, browser-based, no upload required." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/heic-to-jpg/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="HEIC to JPG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:title" content="HEIC to JPG Converter — Free Online | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert iPhone HEIC photos to JPG. Free, private, runs in your browser using heic2any." />
 {% endblock %}
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}SVG to PNG Converter — Free Online | GifWidgets{% endblock %}
+{% block title %}SVG to PNG Converter — Free Online | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert SVG vector files to PNG images online for free. Choose 1x, 2x, or 4x scale for high-resolution output. Instant, browser-based, no upload required." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SVG to PNG Converter — Free Online | GifWidgets" />
+  <meta property="og:title" content="SVG to PNG Converter — Free Online | {{ site_brand }}" />
   <meta property="og:description" content="Rasterize SVG vector files to PNG at 1x, 2x, or 4x scale. Free, instant, runs entirely in your browser." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/svg-to-png/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="SVG to PNG Converter — Free Online | GifWidgets" />
+  <meta name="twitter:title" content="SVG to PNG Converter — Free Online | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert SVG to PNG at 1x, 2x, 4x scale. Free, private, browser-based." />
 {% endblock %}
 

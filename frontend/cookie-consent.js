@@ -2,21 +2,24 @@
 (function () {
   'use strict';
   if (window.GWAnalyticsChoices) return;
+  // GA4 measurement ID — declared once so a property change is a one-line edit.
+  var GA_ID = 'G-RF99W324GB';
+  var GA_DISABLE_KEY = 'ga-disable-' + GA_ID;
   var choice;
   try { choice = localStorage.getItem('gc_cookie_consent'); } catch (_) {}
   window.GWAnalyticsAllowed = function () { return choice === 'accepted'; };
   var started = false;
   function start() {
-    window['ga-disable-G-STTEFW2R1M'] = false;
+    window[GA_DISABLE_KEY] = false;
     if (started) return;
     started = true;
     window.dataLayer = window.dataLayer || [];
     window.gtag = function () { window.dataLayer.push(arguments); };
     window.gtag('js', new Date());
-    window.gtag('config', 'G-STTEFW2R1M', { page_location: location.origin + location.pathname });
+    window.gtag('config', GA_ID, { page_location: location.origin + location.pathname });
     var script = document.createElement('script');
     script.async = true;
-    script.src = 'https://www.googletagmanager.com/gtag/js?id=G-STTEFW2R1M';
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
     document.head.appendChild(script);
   }
   function show() {
@@ -33,7 +36,7 @@
       choice = value;
       try { localStorage.setItem('gc_cookie_consent', value); } catch (_) {}
       if (value === 'accepted') start();
-      else window['ga-disable-G-STTEFW2R1M'] = true;
+      else window[GA_DISABLE_KEY] = true;
       banner.remove();
     }
     banner.querySelector('#cookie-accept').onclick = function () { choose('accepted'); };

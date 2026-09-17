@@ -11,4 +11,4 @@ Disallow: /crop-gif/edit/
 Disallow: /gif-editor-advanced/
 Allow: /
 
-Sitemap: https://gifwidgets.com/sitemap.xml
+Sitemap: https://gifgadgets.com/sitemap.xml

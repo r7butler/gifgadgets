@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set active_nav = "photo-converter" %}
 
-{% block title %}PNG to WebP Converter — Free Online | GifWidgets{% endblock %}
+{% block title %}PNG to WebP Converter — Free Online | {{ site_brand }}{% endblock %}
 
 {% block meta %}
   <meta name="description" content="Convert PNG images to WebP format online for free. Smaller files, transparency supported. Instant browser-based conversion — no upload, no signup." />
@@ -12,14 +12,14 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="PNG to WebP Converter — Free Online | GifWidgets" />
+  <meta property="og:title" content="PNG to WebP Converter — Free Online | {{ site_brand }}" />
   <meta property="og:description" content="Convert PNG to WebP for smaller file sizes while keeping transparency. Free, instant, runs in your browser." />
-  <meta property="og:site_name" content="GifWidgets" />
+  <meta property="og:site_name" content="{{ site_brand }}" />
   <meta property="og:url" content="{{ site_url }}/photo-converter/png-to-webp/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="PNG to WebP Converter — Free Online | GifWidgets" />
+  <meta name="twitter:title" content="PNG to WebP Converter — Free Online | {{ site_brand }}" />
   <meta name="twitter:description" content="Convert PNG to WebP online free. Smaller files, transparency preserved, no upload." />
 {% endblock %}
 
