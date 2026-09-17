@@ -13,14 +13,14 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || "https://gifwidgets.com";
+const BASE_URL = __ENV.BASE_URL || "https://gifgadgets.com";
 
 export default function () {
   const res = http.get(`${BASE_URL}/`);
 
   check(res, {
     "status is 200": (r) => r.status === 200,
-    "page contains GifWidgets": (r) => r.body.includes("GifWidgets"),
+    "page contains GifGadgets": (r) => r.body.includes("GifGadgets"),
   });
 
   sleep(0.5);

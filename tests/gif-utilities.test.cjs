@@ -93,3 +93,97 @@ test('restore-background disposal clears the prior frame rectangle', () => {
   const bytes=run({tool:'trim-gif',start:2,end:2},buffer.slice(0,writer.end()));
   assert.deepEqual(Array.from(pixels(bytes,0)),[0,0,0,0,0,255,0,255]);
 });
+
+// ── Batch two ────────────────────────────────────────────
+function runBatch(options, data = fixture(), extra = []) {
+  return context.transformBatch(data, options, extra);
+}
+
+test('extract-frames selects by range, exports all, and caps the count', () => {
+  const picked = runBatch({tool:'extract-frames', extract:'selected', selection:'1,3'});
+  // frames comes from the vm realm, so copy it before a strict deep compare.
+  assert.deepEqual(Array.from(picked.frames, f => f.number), [1, 3]);
+  assert.equal(picked.width, 3);
+  assert.equal(picked.height, 2);
+  // Composed RGBA, not raw frame deltas: every frame is a full canvas.
+  picked.frames.forEach(f => assert.equal(f.pixels.length, 3 * 2 * 4));
+
+  assert.equal(runBatch({tool:'extract-frames', extract:'all'}).frames.length, 3);
+  assert.throws(() => runBatch({tool:'extract-frames', extract:'selected', selection:'4'}), /outside this GIF/);
+  assert.throws(() => runBatch({tool:'extract-frames', extract:'selected', selection:''}), /frame numbers or ranges/);
+});
+
+test('remove-gif-frames preserves or shortens duration and keeps a frame', () => {
+  // Fixture delays are 7, 13, 25 hundredths.
+  const preserved = new GifReader(runBatch(
+    {tool:'remove-gif-frames', selection:'2', duration:'preserve'}).bytes);
+  assert.equal(preserved.numFrames(), 2);
+  // The removed frame's time is added to the preceding retained frame.
+  assert.deepEqual([0,1].map(i => preserved.frameInfo(i).delay), [7 + 13, 25]);
+
+  const shortened = new GifReader(runBatch(
+    {tool:'remove-gif-frames', selection:'2', duration:'shorten'}).bytes);
+  assert.deepEqual([0,1].map(i => shortened.frameInfo(i).delay), [7, 25]);
+
+  // A removed leading frame has nothing before it, so its time moves forward.
+  const leading = new GifReader(runBatch(
+    {tool:'remove-gif-frames', selection:'1', duration:'preserve'}).bytes);
+  assert.equal(leading.frameInfo(0).delay, 7 + 13);
+
+  assert.throws(() => runBatch({tool:'remove-gif-frames', selection:'1-3', duration:'shorten'}), /at least one frame/);
+  assert.throws(() => runBatch({tool:'remove-gif-frames', selection:'2', duration:'nope'}), /duration mode/);
+});
+
+test('compress-gif strips comments losslessly and never returns a larger file', () => {
+  const data = fixture();
+  const stripped = runBatch({tool:'compress-gif', compression:'metadata'}, data);
+  assert.ok(stripped.bytes.length <= data.length);
+  assert.equal(stripped.originalSize, data.length);
+  // Image data must survive a metadata-only pass untouched.
+  const imageBlocks = b => Array.from(context.blocks(b).list).filter(x => x[0] === 44).map(x => Buffer.from(x));
+  assert.deepEqual(imageBlocks(stripped.bytes), imageBlocks(data));
+
+  const reduced = runBatch({tool:'compress-gif', compression:'colors', colors:16}, data);
+  assert.ok(reduced.bytes.length > 0);
+  assert.match(reduced.message, /Compare the result|did not improve/);
+  // Whichever branch wins, the tool must not hand back something bigger.
+  assert.ok(reduced.bytes.length <= data.length || /did not improve/.test(reduced.message));
+  assert.throws(() => runBatch({tool:'compress-gif', compression:'colors', colors:7}), /16, 32, 64, 128 or 256/);
+});
+
+test('gif-canvas resizes the output and honours background and fit', () => {
+  const padded = new GifReader(runBatch({
+    tool:'gif-canvas', width:8, height:6, fit:'pad', background:'transparent'}).bytes);
+  assert.equal(padded.width, 8);
+  assert.equal(padded.height, 6);
+  assert.equal(padded.numFrames(), 3);
+
+  const filled = runBatch({tool:'gif-canvas', width:8, height:6, fit:'contain', background:'#ff0000'});
+  const px = new Uint8Array(8 * 6 * 4);
+  new GifReader(filled.bytes).decodeAndBlitFrameRGBA(0, px);
+  // A solid background must leave no transparent pixels behind.
+  assert.ok(!Array.from({length: 8 * 6}, (_, i) => px[i * 4 + 3]).includes(0));
+
+  assert.throws(() => runBatch({tool:'gif-canvas', width:0, height:6}), /whole numbers/);
+  assert.throws(() => runBatch({tool:'gif-canvas', width:8, height:6, background:'red'}), /background color/);
+});
+
+test('combine-gifs joins inputs in order and applies speed and loop', () => {
+  const second = fixture();
+  const extra = [second.buffer.slice(second.byteOffset, second.byteOffset + second.byteLength)];
+  const opts = {tool:'combine-gifs', width:3, height:2, fit:'pad',
+                background:'transparent', repeats:-1, rate:1};
+
+  const joined = new GifReader(runBatch(opts, fixture(), extra).bytes);
+  assert.equal(joined.numFrames(), 6);          // 3 + 3, played sequentially
+  assert.equal(joined.loopCount(), null);       // -1 means repeat forever
+
+  const faster = new GifReader(runBatch({...opts, rate:2}, fixture(), extra).bytes);
+  assert.deepEqual([0,1,2].map(i => faster.frameInfo(i).delay), [4, 7, 13]);
+
+  const finite = new GifReader(runBatch({...opts, repeats:3}, fixture(), extra).bytes);
+  assert.equal(finite.loopCount(), 3);
+
+  assert.throws(() => runBatch(opts, fixture(), []), /at least two GIFs/);
+  assert.throws(() => runBatch({...opts, rate:99}, fixture(), extra), /between 0.1 and 10/);
+});

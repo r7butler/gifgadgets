@@ -15,7 +15,8 @@ const converters = [
   { name: "JPG to WebP", path: "/photo-converter/jpg-to-webp/", input: "test.jpg" },
   { name: "PNG to WebP", path: "/photo-converter/png-to-webp/", input: "test.png" },
   { name: "WebP to JPG", path: "/photo-converter/webp-to-jpg/", input: "test.webp" },
-  { name: "GIF to PNG", path: "/photo-converter/gif-to-png/", input: "test.gif" },
+  // GIF to PNG is now the frame extractor and uses the shared GIF utility UI.
+  // Its PNG and ZIP output is covered by gif-utilities.spec.js.
   { name: "SVG to PNG", path: "/photo-converter/svg-to-png/", input: "test.svg" },
   // HEIC conversion uses heic2any from CDN and requires a real HEIC file,
   // so we only test page load (no upload/conversion test).

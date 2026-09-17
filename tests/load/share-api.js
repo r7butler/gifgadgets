@@ -19,7 +19,7 @@ import crypto from "k6/crypto";
  *
  * Usage:
  *   k6 run tests/load/share-api.js
- *   k6 run -e BASE_URL=https://gifwidgets.com tests/load/share-api.js
+ *   k6 run -e BASE_URL=https://gifgadgets.com tests/load/share-api.js
  */
 
 export const options = {
@@ -35,7 +35,7 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || "https://gifwidgets.com";
+const BASE_URL = __ENV.BASE_URL || "https://gifgadgets.com";
 
 /** Build headers with the x-amz-content-sha256 body hash required by CloudFront OAC. */
 function signedHeaders(body) {

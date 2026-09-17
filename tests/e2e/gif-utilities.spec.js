@@ -111,3 +111,65 @@ for (const target of ['/gif-resizer/edit/', '/gif-editor/edit/?source=local']) {
     } else await expect.poll(()=>page.evaluate(()=>window.GC && GC.state.frames.length)).toBe(3);
   });
 }
+
+// ── Batch two ────────────────────────────────────────────
+for (const tool of ['remove-gif-frames', 'compress-gif', 'gif-canvas']) {
+  test(tool + ' downloads a real transformed animation', async ({page}) => {
+    await page.goto('/' + tool + '/');
+    await page.locator('#utility-file').setInputFiles({name:'private.gif',mimeType:'image/gif',buffer:fixture()});
+    if (tool === 'gif-canvas') {
+      await page.locator('#utility-width').fill('8');
+      await page.locator('#utility-height').fill('6');
+    }
+    await page.locator('#utility-apply').click();
+    await expect(page.locator('#utility-download')).toBeVisible();
+    const waiting = page.waitForEvent('download'); await page.locator('#utility-download').click();
+    const download = await waiting, bytes = fs.readFileSync(await download.path());
+    const reader = new GifReader(bytes);
+    // Decoding the download proves real GIF bytes, not an empty or stale blob.
+    expect(reader.numFrames()).toBe(tool === 'remove-gif-frames' ? 2 : 3);
+    expect(reader.width).toBe(tool === 'gif-canvas' ? 8 : 3);
+    expect(reader.height).toBe(tool === 'gif-canvas' ? 6 : 2);
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://gifgadgets.com/' + tool + '/');
+  });
+}
+
+test('combine-gifs joins two uploads into one animation', async ({page}) => {
+  await page.goto('/combine-gifs/');
+  await page.locator('#utility-file').setInputFiles([
+    {name:'first.gif', mimeType:'image/gif', buffer:fixture()},
+    {name:'second.gif', mimeType:'image/gif', buffer:fixture()},
+  ]);
+  await page.locator('#utility-width').fill('3');
+  await page.locator('#utility-height').fill('2');
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible();
+  const waiting = page.waitForEvent('download'); await page.locator('#utility-download').click();
+  const reader = new GifReader(fs.readFileSync(await (await waiting).path()));
+  expect(reader.numFrames()).toBe(6);   // both inputs play in sequence
+  expect(reader.width).toBe(3);
+});
+
+test('extract-frames exports a PNG for one frame and a ZIP for several', async ({page}) => {
+  await page.goto('/photo-converter/gif-to-png/');
+  await page.locator('#utility-file').setInputFiles({name:'private.gif',mimeType:'image/gif',buffer:fixture()});
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible();
+
+  // Default selection is a single frame, which should download as a plain PNG.
+  let waiting = page.waitForEvent('download');
+  await page.locator('#utility-download').click();
+  const single = fs.readFileSync(await (await waiting).path());
+  expect(Array.from(single.subarray(0, 8))).toEqual([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
+
+  // Several frames should come back as a ZIP instead.
+  await page.locator('#utility-extract').selectOption('all');
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible();
+  waiting = page.waitForEvent('download');
+  await page.locator('#utility-download').click();
+  const many = fs.readFileSync(await (await waiting).path());
+  expect(Array.from(many.subarray(0, 2))).toEqual([0x50, 0x4b]);   // "PK"
+  expect(await page.locator('link[rel="canonical"]').getAttribute('href'))
+    .toBe('https://gifgadgets.com/photo-converter/gif-to-png/');
+});

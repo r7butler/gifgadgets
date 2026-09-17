@@ -7,7 +7,7 @@ test.describe("Homepage", () => {
   });
 
   test("page loads with correct title", async ({ page }) => {
-    await expect(page).toHaveTitle(/GifWidgets/i);
+    await expect(page).toHaveTitle(/GifGadgets/i);
   });
 
   test("navigation bar is visible", async ({ page }) => {
