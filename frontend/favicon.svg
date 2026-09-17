@@ -1,5 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="GifGadgets">
+  <!-- Two overlapping G's. Drawn as paths rather than <text> so it does not
+       depend on a system font, and sized to stay legible at 16px: the front G
+       is knocked out of the back one with a background-coloured ring instead
+       of using opacity, which turns to a smudge when downscaled. -->
   <rect width="32" height="32" rx="6" fill="#6366f1"/>
-  <text x="16" y="22" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"
-        font-size="14" font-weight="800" fill="#ffffff" text-anchor="middle">GW</text>
+  <g fill="none" stroke-linecap="round">
+    <g stroke="#ffffff" stroke-width="2.8">
+      <path d="M 16.5 16 A 5.5 5.5 0 1 1 14.15 11.49"/>
+      <path d="M 16.5 16 L 12.1 16"/>
+    </g>
+    <g stroke="#6366f1" stroke-width="6.4">
+      <path d="M 26.5 16 A 5.5 5.5 0 1 1 24.15 11.49"/>
+      <path d="M 26.5 16 L 22.1 16"/>
+    </g>
+    <g stroke="#ffffff" stroke-width="2.8">
+      <path d="M 26.5 16 A 5.5 5.5 0 1 1 24.15 11.49"/>
+      <path d="M 26.5 16 L 22.1 16"/>
+    </g>
+  </g>
 </svg>
