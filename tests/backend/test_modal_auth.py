@@ -56,3 +56,11 @@ def test_converter_authenticates_every_route_and_keeps_warmup_working(apps):
             response = client.post(route, json={"input_url": "unused", "output_url": "unused"}, headers=headers)
             assert response.status_code == 401
     assert client.post("/warmup", headers={"X-Modal-Api-Key": "test-api-key-12345"}).status_code == 200
+
+
+def test_segmentation_broker_authenticates_all_routes(apps):
+    client = TestClient(apps[0]['tracker'].segment_api())
+    for route, payload in [('/segment', {'input_url':'unused','output_url':'unused','objects':[],'job_id':'test'}),
+                           ('/status', {'call_id':'fc-test'}), ('/cancel', {'call_id':'fc-test'})]:
+        for headers in ({}, {'X-Modal-Api-Key':'wrong'}):
+            assert client.post(route, json=payload, headers=headers).status_code == 401

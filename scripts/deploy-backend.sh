@@ -27,6 +27,7 @@ pip install -r "$BACKEND_DIR/requirements.txt" -t "$BACKEND_DIR/package" --quiet
 
 echo "==> Copying handler..."
 cp "$BACKEND_DIR/handler.py" "$BACKEND_DIR/package/"
+cp "$BACKEND_DIR/tracker/segmentation.py" "$BACKEND_DIR/package/"
 
 echo "==> Creating lambda.zip..."
 (cd "$BACKEND_DIR/package" && zip -r "$OUTPUT_ZIP" . -q)

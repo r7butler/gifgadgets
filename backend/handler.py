@@ -270,6 +270,10 @@ def handler(event, context):
         return handle_track_submit(event)
     elif method == "POST" and path == "/track/warmup":
         return handle_track_warmup(event)
+    elif method == "POST" and path == "/segment/presign":
+        return handle_segment_presign(event)
+    elif method == "POST" and path in ("/segment/submit", "/segment/status", "/segment/cancel"):
+        return handle_segment_job(event, path.rsplit("/", 1)[-1])
     elif method == "OPTIONS":
         return _cors_response(200, {})
     else:
@@ -765,6 +769,126 @@ def _convert_to_mp4(event):
         pass
 
     return _cors_response(200, {"download_url": download_url})
+
+
+# ---------- Background segmentation jobs ----------
+
+MODAL_SEGMENTER_URL = os.environ.get("MODAL_SEGMENTER_URL", "").rstrip("/")
+
+
+def _segment_remote(route, payload):
+    request = urllib.request.Request(MODAL_SEGMENTER_URL + route,
+        data=json.dumps(payload).encode(), method="POST",
+        headers={"Content-Type": "application/json", "X-Modal-Api-Key": MODAL_API_KEY})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read())
+
+
+def handle_segment_presign(event):
+    if "segment" in FEATURES_DISABLED or not MODAL_SEGMENTER_URL:
+        return _cors_response(503, {"error": "Background removal is temporarily unavailable."})
+    try:
+        body = _parse_body(event)
+        content_type = body.get("content_type")
+        if content_type not in ("image/gif", "image/png", "image/jpeg", "image/webp"):
+            raise ValueError()
+    except (ValueError, AttributeError):
+        return _cors_response(400, {"error": "Choose a GIF, PNG, JPG or WebP file."})
+    allowed, ip_hash = _check_quota(event, limit=20, window=3600)
+    if not allowed:
+        return _cors_response(429, {"error": "Rate limit exceeded. Please try again later."})
+    job_id = uuid.uuid4().hex
+    key = f"track/segment-{job_id}.input"
+    _record_job(job_id, "segment", ip_hash)
+    _get_jobs_table().update_item(Key={"job_id": job_id},
+        UpdateExpression="SET content_type = :type, #ttl = :ttl",
+        ExpressionAttributeNames={"#ttl": "ttl"},
+        ExpressionAttributeValues={":type": content_type, ":ttl": int(time.time()) + 7200})
+    url = s3.generate_presigned_url("put_object", Params={"Bucket": ASSETS_BUCKET,
+        "Key": key, "ContentType": content_type}, ExpiresIn=300)
+    return _cors_response(200, {"job_id": job_id, "upload_url": url})
+
+
+def handle_segment_job(event, action):
+    if "segment" in FEATURES_DISABLED and action == "submit" or not MODAL_SEGMENTER_URL:
+        return _cors_response(503, {"error": "Background removal is temporarily unavailable."})
+    try:
+        body = _parse_body(event)
+        job_id = body.get("job_id")
+        if not isinstance(job_id, str) or not re.fullmatch(r"[a-f0-9]{32}", job_id):
+            raise ValueError()
+    except (ValueError, AttributeError):
+        return _cors_response(400, {"error": "Invalid segmentation job."})
+    table = _get_jobs_table()
+    item = table.get_item(Key={"job_id": job_id}, ConsistentRead=True).get("Item", {})
+    if item.get("job_type") != "segment" or item.get("ttl", 0) <= int(time.time()):
+        return _cors_response(400, {"error": "Unknown or expired job."})
+    # The unguessable issued job ID is the capability; caller-supplied URLs and
+    # Modal call IDs are never accepted from the browser.
+    prefix = f"track/segment-{job_id}"
+    input_key, mask_key = prefix + ".input", prefix + ".masks.gz"
+
+    def cleanup():
+        try:
+            s3.delete_object(Bucket=ASSETS_BUCKET, Key=input_key)
+        except Exception:
+            logger.exception("Segmentation input cleanup failed")
+
+    def submit(_):
+        # Validate before launching paid work. There is no frame-count cap.
+        try:
+            from segmentation import validate_objects
+        except ImportError:
+            from backend.tracker.segmentation import validate_objects
+        try:
+            objects = validate_objects(body.get("objects"))
+            head = s3.head_object(Bucket=ASSETS_BUCKET, Key=input_key)
+            if not 0 < head["ContentLength"] <= 100 * 1024 * 1024:
+                raise ValueError("Choose a file up to 100 MB.")
+        except (ValueError, TypeError, KeyError) as error:
+            return _cors_response(400, {"error": str(error) or "Invalid input."})
+        # Freeze the upload so a still-valid PUT URL cannot change a running job.
+        frozen_key = prefix + ".source"
+        s3.copy_object(Bucket=ASSETS_BUCKET, Key=frozen_key,
+                       CopySource={"Bucket": ASSETS_BUCKET, "Key": input_key})
+        payload = {"job_id": job_id, "objects": objects,
+            "input_url": s3.generate_presigned_url("get_object", Params={"Bucket": ASSETS_BUCKET, "Key": frozen_key}, ExpiresIn=7200),
+            "output_url": s3.generate_presigned_url("put_object", Params={"Bucket": ASSETS_BUCKET, "Key": mask_key, "ContentType": "application/gzip"}, ExpiresIn=7200)}
+        result = _segment_remote("/segment", payload)
+        call_id = result.get("call_id")
+        if not isinstance(call_id, str) or not call_id:
+            raise ValueError("Missing job reference")
+        table.update_item(Key={"job_id": job_id}, UpdateExpression="SET call_id = :call",
+                          ExpressionAttributeValues={":call": call_id})
+        cleanup()
+        logger.info(json.dumps({"event": "segment_submitted", "job_id": job_id, "objects": len(objects)}))
+        return _cors_response(202, {"state": "running", "job_id": job_id})
+
+    try:
+        if action == "submit":
+            return _run_once(job_id, "segment", prefix + ".submitted.json", submit)
+        if item.get("cancelled"):
+            return _cors_response(200, {"state": "cancelled"})
+        if not item.get("call_id"):
+            # Do not claim cancellation succeeded before an in-flight submit
+            # has saved its call reference. The browser retries this response.
+            return _cors_response(409, {"error": "The job is still starting. Please retry."})
+        result = _segment_remote("/cancel" if action == "cancel" else "/status", {"call_id": item["call_id"]})
+        if action == "cancel":
+            table.update_item(Key={"job_id": job_id}, UpdateExpression="SET cancelled = :yes",
+                              ExpressionAttributeValues={":yes": True})
+        if result.get("state") in ("complete", "failed", "cancelled"):
+            cleanup()
+            s3.delete_object(Bucket=ASSETS_BUCKET, Key=prefix + ".source")
+        if result.get("state") == "complete":
+            result["mask_url"] = s3.generate_presigned_url("get_object",
+                Params={"Bucket": ASSETS_BUCKET, "Key": mask_key}, ExpiresIn=600)
+        if action == "cancel":
+            s3.delete_object(Bucket=ASSETS_BUCKET, Key=mask_key)
+        return _cors_response(200, result)
+    except Exception:
+        logger.exception("Segmentation request failed: %s", job_id)
+        return _cors_response(503, {"error": "Background removal is temporarily unavailable. Please retry."})
 
 
 # ---------- Modal Broker Endpoints ----------

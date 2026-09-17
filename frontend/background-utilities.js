@@ -1,0 +1,204 @@
+(() => {
+  'use strict';
+  const $ = name => document.getElementById('utility-' + name);
+  const root = document.querySelector('[data-tool]'), gif = root.dataset.gif === 'yes', replace = root.dataset.replace === 'yes';
+  let source, backgroundFile, worker, pending, original, maskBuffer, outputURL, busy = false;
+  let objects = [{points:[]}], history = [], task, generation = 0;
+  const mime = file => ({gif:'image/gif',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'})[file.name.split('.').pop().toLowerCase()];
+  const status = message => { $('status').textContent = message; };
+  function clearResult() {
+    if (outputURL) URL.revokeObjectURL(outputURL);
+    outputURL = null; $('download').hidden = $('result-wrap').hidden = true;
+    $('result').removeAttribute('src'); $('download').removeAttribute('href');
+  }
+  function setBusy(value) {
+    busy = value;
+    $('options').disabled = $('background-options').disabled = value || !original;
+    $('apply').disabled = !maskBuffer;
+    $('upload').disabled = $('new').disabled = value;
+    $('cancel').hidden = $('progress').hidden = !value;
+  }
+  function killWorker() {
+    worker?.terminate(); worker = null;
+    if (pending) { pending.reject(Error('Processing cancelled.')); pending = null; }
+  }
+  function request(data, transfer = []) {
+    return new Promise((resolve,reject) => { pending = {resolve,reject}; worker.postMessage(data,transfer); });
+  }
+  async function ensureWorker() {
+    if (worker) return;
+    const ticket = generation;
+    const activeWorker = worker = new Worker('/background-worker.js');
+    activeWorker.onmessage = ({data}) => {
+      if (data.progress !== undefined) return;
+      if (!pending) return;
+      const call = pending; pending = null;
+      if (data.type === 'error') call.reject(Error(data.message)); else call.resolve(data);
+    };
+    activeWorker.onerror = () => { if (pending) { pending.reject(Error('Image processing failed. Try a smaller file.')); pending = null; } killWorker(); };
+    const bytes = await source.arrayBuffer();
+    if (ticket !== generation) throw Error('Processing cancelled.');
+    original = await request({type:'load',buffer:bytes,mime:mime(source)},[bytes]);
+    if (backgroundFile) {
+      const buffer = await backgroundFile.arrayBuffer();
+      if (ticket !== generation) throw Error('Processing cancelled.');
+      await request({type:'background',buffer,mime:mime(backgroundFile)},[buffer]);
+    }
+    if (maskBuffer) await request({type:'masks',buffer:maskBuffer});
+  }
+  function draw() {
+    if (!original) return;
+    const canvas = $('canvas'); canvas.width = original.width; canvas.height = original.height;
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(original.pixels),original.width,original.height),0,0);
+    const scale = original.width / Math.max(1,canvas.getBoundingClientRect().width), radius = 6 * scale;
+    objects.forEach((object,index) => object.points.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x*canvas.width,p.y*canvas.height,radius,0,Math.PI*2);
+      ctx.fillStyle = p.label ? '#10b981' : '#ef4444'; ctx.fill(); ctx.lineWidth=2*scale; ctx.strokeStyle='#fff'; ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font=`bold ${10*scale}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(index+1,p.x*canvas.width,p.y*canvas.height);
+    }));
+    $('points').textContent = objects.reduce((sum,o)=>sum+o.points.length,0) + ' points across ' + objects.filter(o=>o.points.length).length + ' objects.';
+  }
+  function changedSelection() { maskBuffer = null; clearResult(); $('apply').disabled = true; draw(); }
+  function resetObjects() {
+    objects=[{points:[]}]; history=[]; $('object').innerHTML='<option value="0">Object 1</option>'; changedSelection();
+  }
+  function addPoint(x,y) {
+    if (busy || !original) return;
+    if (![x,y].every(v=>Number.isFinite(v)&&v>=0&&v<=1)) { status('Point coordinates must be between 0 and 100 percent.'); return; }
+    const index = Number($('object').value);
+    if (objects[index].points.length >= 128) { status('Use at most 128 points per object.'); return; }
+    objects[index].points.push({x,y,label:Number($('point-mode').value)}); history.push(index); changedSelection();
+  }
+  $('canvas').onclick = event => {
+    const box = $('canvas').getBoundingClientRect(); addPoint((event.clientX-box.left)/box.width,(event.clientY-box.top)/box.height);
+  };
+  $('add-point').onclick = () => addPoint($('x').valueAsNumber/100,$('y').valueAsNumber/100);
+  $('add-object').onclick = () => {
+    if (objects.length >= 32) { status('Use at most 32 objects.'); return; }
+    objects.push({points:[]}); const option=document.createElement('option'); option.value=objects.length-1; option.textContent='Object '+objects.length; $('object').append(option); $('object').value=option.value;
+  };
+  $('undo').onclick = () => { if (history.length) objects[history.pop()].points.pop(); changedSelection(); };
+  $('clear').onclick = resetObjects;
+  async function load(file) {
+    if (!file || busy) return;
+    const type=mime(file);
+    if (!(gif ? type==='image/gif' : ['image/png','image/jpeg','image/webp'].includes(type)) || !file.size || file.size>100*1024*1024) { status('Choose a supported file up to 100 MB.'); return; }
+    generation++; killWorker(); original=null; source=file; backgroundFile=null; maskBuffer=null; clearResult(); resetObjects();
+    if ($('background')) { $('background').value=''; $('background-name').textContent=''; }
+    $('original-wrap').hidden=true; $('info').textContent='';
+    window.GWFunnel?.accepted(file.size); setBusy(true); status('Reading your file…');
+    const ticket=generation;
+    try {
+      await ensureWorker(); if(ticket!==generation) return;
+      $('original-wrap').hidden=false; $('upload').hidden=true; $('new').hidden=false;
+      $('info').textContent=`${file.name} · ${original.width} × ${original.height} · ${original.count} frame${original.count===1?'':'s'}`;
+      draw(); status('Select the objects to keep, then choose Find objects.'); window.GWFunnel?.ready();
+    } catch(error) { if(ticket===generation) { original=null; source=null; killWorker(); $('upload').hidden=false; status(error.message); window.GWFunnel?.failure('decode'); } }
+    finally { if(ticket===generation) setBusy(false); }
+  }
+  $('upload').onclick=$('new').onclick=()=>$('file').click();
+  $('file').onchange=()=>{load($('file').files[0]); $('file').value='';};
+  const stage=document.querySelector('.utility-stage');
+  stage.ondragover=event=>{event.preventDefault(); $('upload').classList.add('dragover');};
+  stage.ondragleave=()=>$('upload').classList.remove('dragover');
+  stage.ondrop=event=>{event.preventDefault(); $('upload').classList.remove('dragover'); load(event.dataTransfer.files[0]);};
+  async function api(route,body) {
+    const encoded=JSON.stringify(body), raw=new TextEncoder().encode(encoded);
+    const digest=await crypto.subtle.digest('SHA-256',raw);
+    const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    const response=await fetch('/api/segment/'+route,{method:'POST',headers:{'Content-Type':'application/json','x-amz-content-sha256':hash},body:encoded,signal:AbortSignal.timeout(45000)});
+    let result; try { result=await response.json(); } catch(_) { throw Error('Background removal is unavailable. Please try again later.'); }
+    if(!response.ok) { const error=Error(result.error || 'Background processing failed.'); error.status=response.status; throw error; } return result;
+  }
+  async function cancelRemote(run) {
+    if(run.submission) { try { await run.submission; } catch(_) {} }
+    // Even an interrupted submit may have started compute; cancellation checks
+    // its saved server-side reference rather than assuming no job was launched.
+    if(!run.submission || !run.job) return;
+    for(let i=0;i<12;i++) {
+      try { await api('cancel',{job_id:run.job}); return; }
+      catch(error) { if(error.status!==409 || i===11) throw error; await new Promise(r=>setTimeout(r,1000)); }
+    }
+  }
+  async function exportResult() {
+    await ensureWorker(); status('Building your result on this device…');
+    const span=window.GWFunnel?.exportStarted();
+    try {
+      const result=await request({type:'export',gif,replace,mode:$('background-mode')?.value || 'color',fit:$('fit')?.value || 'cover',color:$('color')?.value || '#ffffff'});
+      clearResult(); const blob=new Blob([result.bytes],{type:result.mime}); outputURL=URL.createObjectURL(blob);
+      $('result').src=$('download').href=outputURL; $('download').download=source.name.replace(/\.[^.]+$/,'')+'-'+root.dataset.tool+(gif?'.gif':'.png');
+      $('download').textContent='Download '+(gif?'GIF':'PNG'); $('download').hidden=$('result-wrap').hidden=false;
+      status('Ready. Inspect the result and refine your selection if needed.'); span?.complete();
+    } catch(error) { span?.fail('encode'); throw error; }
+  }
+  $('segment').onclick=async()=>{
+    const selected=objects.filter(o=>o.points.length);
+    if(!selected.length || selected.some(o=>!o.points.some(p=>p.label===1))) { status('Add at least one keep point for each selected object.'); return; }
+    const run=task={cancelled:false}, ticket=generation;
+    clearResult(); maskBuffer=null; setBusy(true); const span=window.GWFunnel?.trackingStarted();
+    try {
+      status('Uploading source for AI object selection…');
+      const issued=await api('presign',{content_type:mime(source)}); run.job=issued.job_id;
+      if(run.cancelled) return;
+      const upload=await fetch(issued.upload_url,{method:'PUT',headers:{'Content-Type':mime(source)},body:source,signal:AbortSignal.timeout(300000)});
+      if(!upload.ok) throw Error('Source upload failed. Try again.');
+      if(run.cancelled) return;
+      run.submission=api('submit',{job_id:run.job,objects:selected}); await run.submission;
+      const started=Date.now();
+      let result;
+      while(!run.cancelled) {
+        result=await api('status',{job_id:run.job});
+        if(result.state==='complete') break;
+        if(result.state!=='running') throw Error(result.error || 'Segmentation was cancelled.');
+        status(`Finding objects in ${original.count} frame${original.count===1?'':'s'}… ${Math.round((Date.now()-started)/1000)}s. You can cancel this job.`);
+        if(Date.now()-started>3700000) throw Error('This job exceeded its processing time. Try a smaller file.');
+        await new Promise(r=>setTimeout(r,2000));
+      }
+      if(run.cancelled || ticket!==generation) return;
+      const response=await fetch(result.mask_url,{signal:AbortSignal.timeout(120000)});
+      if(!response.ok) throw Error('Could not download the masks. Please try again.');
+      const compressed=await response.blob();
+      const buffer=await new Response(compressed.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+      if(run.cancelled || ticket!==generation) return;
+      await ensureWorker(); await request({type:'masks',buffer}); maskBuffer=buffer; span?.complete();
+      await exportResult();
+    } catch(error) {
+      span?.fail('processing');
+      if(!run.cancelled && ticket===generation) {
+        status(error.message);
+        if(run.submission) { try { await cancelRemote(run); } catch(_) { status(error.message+' The server job may still be running; it stops after one hour.'); } }
+      }
+    } finally { if(!run.cancelled && ticket===generation) { task=null; setBusy(false); } }
+  };
+  $('apply').onclick=async()=>{
+    setBusy(true); clearResult(); const ticket=generation;
+    try { await exportResult(); } catch(error) { if(ticket===generation) status(error.message); }
+    finally { if(ticket===generation) setBusy(false); }
+  };
+  if(replace) {
+    for(const name of ['background-mode','fit','color']) $(name).oninput=clearResult;
+    $('background').onchange=async()=>{
+      const file=$('background').files[0]; $('background').value=''; if(!file) return;
+      const type=mime(file);
+      if(!['image/png','image/jpeg','image/webp',...(gif?['image/gif']:[])].includes(type)||file.size>100*1024*1024) { status('Choose a supported background up to 100 MB.'); return; }
+      clearResult(); setBusy(true); const ticket=generation;
+      try {
+        await ensureWorker(); const buffer=await file.arrayBuffer(); if(ticket!==generation) return;
+        await request({type:'background',buffer,mime:type},[buffer]); backgroundFile=file;
+        $('background-name').textContent=file.name; $('background-mode').value='file'; status('Background ready. Export to see the result.');
+      } catch(error) { if(ticket===generation) { backgroundFile=null; $('background-name').textContent=''; status(error.message); } }
+      finally { if(ticket===generation) setBusy(false); }
+    };
+  }
+  $('cancel').onclick=async()=>{
+    const run=task; if(run) run.cancelled=true;
+    generation++; killWorker(); $('cancel').disabled=true; status('Cancelling…');
+    try { if(run) await cancelRemote(run); status('Processing cancelled.'); }
+    catch(_) { status('Local processing stopped, but server cancellation could not be confirmed. The server job stops after one hour.'); }
+    finally { task=null; $('cancel').disabled=false; setBusy(false); }
+  };
+  window.addEventListener('resize',draw);
+  window.addEventListener('beforeunload',event=>{if(busy){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('pagehide',()=>{killWorker();if(outputURL)URL.revokeObjectURL(outputURL);});
+})();

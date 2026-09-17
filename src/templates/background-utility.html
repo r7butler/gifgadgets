@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% set active_nav = 'gif-tools' if is_gif else 'image-tools' %}
+{% block title %}{{ utility_title }} Online, Free | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ utility_description }} Free AI object selection and browser-based export. No signup." />
+<link rel="canonical" href="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:title" content="{{ utility_title }} | {{ site_brand }}" />
+<meta property="og:description" content="{{ utility_description }}" />
+<meta property="og:url" content="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/utilities.css" />{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":utility_title, "url":site_url + '/' + (utility_path | default(utility_slug)) + '/', "description":utility_description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}} | tojson }}</script>
+{%- set faq = utility_faq | default([], true) %}
+{%- if faq %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{%- for item in faq %}
+{"@type":"Question","name":{{ item.q | tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ item.a | tojson }}}}{{ "," if not loop.last }}
+{%- endfor %}
+]}</script>
+{%- endif %}
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-{{ 'gif' if is_gif else 'image' }});--hero-icon-bg:var(--cat-{{ 'gif' if is_gif else 'image' }}-dim)"{% endblock %}
+{% block content %}
+{% include 'partials/nav.html' %}
+<main class="tool-utility {{ 'image-utility' if not is_gif }}" data-tool="{{ utility_slug }}" data-gif="{{ 'yes' if is_gif else 'no' }}" data-replace="{{ 'yes' if replace_background else 'no' }}">
+<header class="tool-hero utility-hero"><div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="4"/></svg></div><h1>{{ utility_title }}</h1><p class="tool-hero-tagline">{{ utility_description }}</p><p class="utility-private">Free · No signup · AI selection uploads your source for processing</p></header>
+<div class="utility-workspace"><section class="utility-stage" aria-label="Object selection and result">
+<button id="utility-upload" class="utility-drop-zone" type="button"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg><strong>Drop your {{ 'GIF' if is_gif else 'image' }} here</strong><span>or click to browse</span><small>{{ 'GIF' if is_gif else 'PNG · JPG · WebP' }} — up to 100 MB</small></button>
+<input id="utility-file" type="file" accept="{{ 'image/gif,.gif' if is_gif else 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp' }}" aria-label="Choose source file" hidden />
+<div class="utility-previews"><figure id="utility-original-wrap" hidden><figcaption>{{ 'First frame — select visible objects' if is_gif else 'Select objects to keep' }}</figcaption><div class="utility-preview-image"><canvas id="utility-canvas" aria-label="Click to add a selection point. Coordinate inputs also allow keyboard selection."></canvas></div><p class="utility-hint">Green points keep part of the selected object. Red points exclude part of that object.</p></figure><figure id="utility-result-wrap" hidden><figcaption>Result</figcaption><div class="utility-preview-image"><img id="utility-result" alt="Background editing result" /></div></figure></div>
+<button id="utility-new" class="btn btn-ghost" type="button" hidden>Choose another file</button></section>
+<aside class="utility-sidebar" aria-label="Background settings"><div class="utility-panel-heading">Object selection</div><p id="utility-info"></p><fieldset id="utility-options" disabled><legend class="utility-sr-only">Selection settings</legend>
+<label for="utility-object">Selected object</label><select id="utility-object"><option value="0">Object 1</option></select><button id="utility-add-object" class="btn btn-ghost" type="button">Add object</button>
+<label for="utility-point-mode">Point type</label><select id="utility-point-mode"><option value="1">Keep (green)</option><option value="0">Exclude (red)</option></select>
+<details><summary>Place a point with the keyboard</summary><div class="utility-field-row"><label for="utility-x">X (%)<input id="utility-x" type="number" min="0" max="100" value="50" /></label><label for="utility-y">Y (%)<input id="utility-y" type="number" min="0" max="100" value="50" /></label></div><button id="utility-add-point" class="btn btn-ghost" type="button">Place point</button></details>
+<p id="utility-points" role="status">No points selected.</p><button id="utility-undo" class="btn btn-ghost" type="button">Undo point</button><button id="utility-clear" class="btn btn-ghost" type="button">Clear selection</button>
+<p class="utility-hint">Find objects uploads your source and selection to our AI processor. <a href="/privacy/">How files are handled</a></p><button id="utility-segment" class="btn btn-accent utility-primary" type="button">Find objects</button></fieldset>
+<fieldset id="utility-background-options" disabled><legend>Export</legend>
+{% if replace_background %}<label for="utility-background-mode">Replacement background</label><select id="utility-background-mode"><option value="color">Solid color</option><option value="file">{{ 'Image or GIF' if is_gif else 'Image' }}</option></select><label for="utility-background">Background file</label><input id="utility-background" type="file" accept="image/png,image/jpeg,image/webp{{ ',image/gif' if is_gif }}" /><p id="utility-background-name" class="utility-hint"></p><label for="utility-fit">Background fit</label><select id="utility-fit"><option value="cover">Fill canvas (crop edges)</option><option value="contain">Fit inside canvas</option></select><label for="utility-color">Background / padding color</label><input id="utility-color" type="color" value="#ffffff" />{% endif %}
+<button id="utility-apply" class="btn btn-accent utility-primary" type="button" disabled>Export {{ 'GIF' if is_gif else 'PNG' }}</button>{% if replace_background %}<p class="utility-hint">Change the replacement background and export again without another AI run.</p>{% endif %}</fieldset>
+<button id="utility-cancel" class="btn btn-ghost" type="button" hidden>Cancel processing</button><p id="utility-status" role="status" aria-live="polite"></p><progress id="utility-progress" hidden aria-label="Processing"></progress><a id="utility-download" class="btn btn-accent utility-primary" download hidden>Download</a></aside></div>
+<section class="utility-help"><h2>How to use {{ utility_title }}</h2><ol><li>Choose your source file, then click on a subject in the preview. Add a separate object for each additional subject you want to keep.</li><li>Select Find objects. Review the result; add keep or exclude points to refine the selection and run it again if needed.</li><li>{{ 'Choose a replacement background and export your result.' if replace_background else 'Download the result with a transparent background.' }}</li></ol><p>Segmentation follows your first-frame selection through every GIF frame. Source files must fit the 100 MB upload limit and available memory; there is no fixed frame-count cap. Long animations take longer to process. Selection quality varies, particularly around hair, fine detail and fast motion.</p></section>
+<section class="utility-help utility-faq"><h2>Frequently asked questions</h2><dl class="tool-faq">{% for item in utility_faq %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>{% endfor %}</dl></section>
+<h2>More {{ 'GIF' if is_gif else 'image' }} tools</h2><div class="tool-grid">{% include 'partials/gif-utility-cards.html' if is_gif else 'partials/image-utility-cards.html' %}</div>
+</main>{% include 'partials/footer.html' %}{% endblock %}
+{% block scripts %}<script src="/background-utilities.js"></script>{% endblock %}

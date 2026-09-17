@@ -24,7 +24,7 @@
     <section class="tool-section">
       <h2>The short version</h2>
       <p>Editing happens in your browser. When you resize, crop, caption, convert or build a GIF or image, the file is read by your own browser and the result is written back by your own browser. It is never uploaded, and we never receive it.</p>
-      <p>Three features are different, and each one is listed below: <strong>AI motion tracking</strong>, <strong>sharing a GIF</strong>, and <strong>reporting a problem</strong>. All three only run when you choose them.</p>
+      <p>Some features send data to a server: <strong>AI motion tracking</strong>, <strong>AI background removal and replacement</strong>, <strong>sharing a GIF</strong>, and <strong>reporting a problem</strong>. AI processing and sharing run only when you choose them.</p>
       <p>We do not ask you to create an account, and we have no way to identify you personally.</p>
     </section>
 
@@ -43,10 +43,17 @@
 
     <section class="tool-section">
       <h2>AI motion tracking</h2>
-      <p>This is the one editing feature that sends part of your file to a server, and it runs only when you start a tracking run.</p>
+      <p>This feature sends sampled frames to a server, and runs only when you start a tracking run.</p>
       <p>When you do, sampled frames from your GIF are uploaded to our storage, passed to a GPU service that computes where the object you selected moves, and the result is returned to your browser. <strong>The uploaded frames are deleted once the run completes</strong>, and the working storage they pass through expires automatically within one day regardless.</p>
       <p>The frames are used only to produce your tracking result. They are not kept, reviewed, or used to train anything.</p>
       <p>If you would rather not upload anything at all, the editor's manual keyframes produce the same kind of moving caption without a tracking run.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>AI background removal and replacement</h2>
+      <p>When you choose Find objects, the source image or GIF and your selection points are uploaded to private AWS storage and processed by SAM2 on Modal. Every GIF frame is processed. Masks are returned to your browser, where the cutout, replacement background and final export are composed. Replacement backgrounds are not uploaded.</p>
+      <p>Source files are deleted after a completed or cancelled job when the browser checks its status. If the tab closes or cleanup fails, the private working files, masks and job responses have a one-day storage expiry rule. Expiry is automatic and deletion may take additional time to complete. These files are used to produce your result, not to train models. Server logs contain job IDs, frame and object counts, dimensions and runtime, but not the media or selection points.</p>
+      <p>Use Cancel processing to stop a running GPU job. Closing the tab alone does not guarantee server cancellation. Jobs have a one-hour execution timeout. Your browser keeps the masks so changing only a replacement background does not need another server run.</p>
     </section>
 
     <section class="tool-section">

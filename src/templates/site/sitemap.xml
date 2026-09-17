@@ -37,4 +37,8 @@
   <url><loc>{{ site_url }}/video-frame-extractor/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/trim-video/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/mute-video/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/remove-image-background/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/change-image-background/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/remove-gif-background/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/swap-gif-background/</loc><priority>0.8</priority></url>
 </urlset>

@@ -37,4 +37,8 @@
   <url><loc>https://gifgadgets.com/video-frame-extractor/</loc><priority>0.8</priority></url>
   <url><loc>https://gifgadgets.com/trim-video/</loc><priority>0.8</priority></url>
   <url><loc>https://gifgadgets.com/mute-video/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/remove-image-background/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/change-image-background/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/remove-gif-background/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/swap-gif-background/</loc><priority>0.8</priority></url>
 </urlset>

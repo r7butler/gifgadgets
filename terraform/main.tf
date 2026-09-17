@@ -287,6 +287,7 @@ resource "aws_lambda_function" "api" {
       SITE_BRAND          = var.site_brand_name
       MODAL_API_KEY       = var.modal_api_key
       MODAL_TRACKER_URL   = var.modal_tracker_url
+      MODAL_SEGMENTER_URL = var.modal_segmenter_url
       MODAL_CONVERTER_URL = var.modal_converter_url
     }
   }

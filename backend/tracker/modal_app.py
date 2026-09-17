@@ -13,6 +13,7 @@ Required Modal secret "gifwidgets-modal-api-key" with key MODAL_API_KEY.
 """
 
 import modal
+from pathlib import Path
 
 app = modal.App("gifwidgets-tracker")
 
@@ -194,3 +195,100 @@ def fastapi_app():
         return {"motion": motion_list}
 
     return web_app
+
+
+# Separate CPU broker so polling never occupies a GPU. Long jobs run asynchronously
+# and write masks directly to private S3, avoiding Lambda response-size/time limits.
+_segment_model = None
+
+
+@app.function(gpu="L4", image=image.add_local_file(
+    str(Path(__file__).with_name("segmentation.py")), "/root/segmentation.py"),
+    timeout=3600, scaledown_window=60)
+def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
+    import json
+    import time
+    import tempfile
+    import urllib.request
+    import torch
+    from segmentation import segment_file
+    from sam2.build_sam import build_sam2_video_predictor
+    started = time.monotonic()
+    print(json.dumps({"event": "segmentation_started", "job_id": job_id}))
+    global _segment_model
+    if _segment_model is None:
+        _segment_model = build_sam2_video_predictor(
+            "configs/sam2.1/sam2.1_hiera_t.yaml", "/root/sam2_tiny.pt", device="cuda")
+    with tempfile.TemporaryDirectory() as work:
+        source, output = work + '/source', work + '/masks.gz'
+        # Payload limit protects memory/disk; there is deliberately no frame limit.
+        with urllib.request.urlopen(input_url, timeout=60) as response, open(source, 'wb') as f:
+            total = 0
+            while chunk := response.read(1024 * 1024):
+                total += len(chunk)
+                if total > 100 * 1024 * 1024:
+                    raise ValueError('Choose a file up to 100 MB.')
+                f.write(chunk)
+        with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
+            stats = segment_file(source, output, objects, _segment_model)
+        with open(output, 'rb') as f:
+            request = urllib.request.Request(output_url, data=f.read(), method='PUT',
+                                             headers={'Content-Type': 'application/gzip'})
+        with urllib.request.urlopen(request, timeout=120) as response:
+            response.read()
+        stats['total_seconds'] = round(time.monotonic() - started, 3)
+        print(json.dumps({'event': 'segmentation_complete', 'job_id': job_id,
+                          'input_bytes': total, **stats}))
+        return stats
+
+
+@app.function(image=modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]"),
+              secrets=[modal.Secret.from_name("gifwidgets-modal-api-key")])
+@modal.asgi_app()
+def segment_api():
+    import os
+    from fastapi import FastAPI, Header
+    from fastapi.responses import JSONResponse
+    from pydantic import BaseModel
+    from typing import Optional
+    expected = os.environ.get('MODAL_API_KEY', '').strip()
+    if not expected:
+        raise RuntimeError('MODAL_API_KEY must be configured')
+    api = FastAPI()
+
+    class Submit(BaseModel):
+        input_url: str
+        output_url: str
+        objects: list
+        job_id: str
+
+    class Poll(BaseModel):
+        call_id: str
+
+    @api.post('/segment')
+    async def submit(req: Submit, x_modal_api_key: Optional[str] = Header(None)):
+        if x_modal_api_key != expected:
+            return JSONResponse({'error': 'Unauthorized'}, status_code=401)
+        call = await segment_media.spawn.aio(req.input_url, req.output_url, req.objects, req.job_id)
+        return {'call_id': call.object_id}
+
+    @api.post('/status')
+    async def status(req: Poll, x_modal_api_key: Optional[str] = Header(None)):
+        if x_modal_api_key != expected:
+            return JSONResponse({'error': 'Unauthorized'}, status_code=401)
+        try:
+            result = await modal.FunctionCall.from_id(req.call_id).get.aio(timeout=0)
+            return {'state': 'complete', 'stats': result}
+        except TimeoutError:
+            return {'state': 'running'}
+        except Exception:
+            return {'state': 'failed', 'error': 'Segmentation failed. Try a smaller file or different selection.'}
+
+    @api.post('/cancel')
+    async def cancel(req: Poll, x_modal_api_key: Optional[str] = Header(None)):
+        if x_modal_api_key != expected:
+            return JSONResponse({'error': 'Unauthorized'}, status_code=401)
+        await modal.FunctionCall.from_id(req.call_id).cancel.aio(terminate_containers=True)
+        return {'state': 'cancelled'}
+
+    return api
