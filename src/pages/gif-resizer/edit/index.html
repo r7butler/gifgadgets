@@ -797,6 +797,7 @@
       get.onsuccess = function () {
         var file = get.result;
         if (!file) return;
+        if (file.buffer instanceof ArrayBuffer) file = new File([file.buffer], file.name, {type: file.type});
         db.transaction('files', 'readwrite').objectStore('files').delete('pending');
         if (file.type === 'image/gif' || (file.name && file.name.toLowerCase().endsWith('.gif'))) {
           loadGif(file);

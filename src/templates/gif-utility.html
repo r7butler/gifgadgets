@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}{{ utility_title }} Online, Free & Local | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ utility_description }} Free, private processing in your browser. No signup." />
+<link rel="canonical" href="{{ site_url }}/{{ utility_slug }}/" />
+<meta property="og:title" content="{{ utility_title }} | {{ site_brand }}" />
+<meta property="og:description" content="{{ utility_description }}" />
+<meta property="og:url" content="{{ site_url }}/{{ utility_slug }}/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/gif-utilities.css" />{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":utility_title, "url":site_url + '/' + utility_slug + '/', "description":utility_description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}} | tojson }}</script>
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-gif);--hero-icon-bg:var(--cat-gif-dim);--hero-glow:rgba(99,102,241,.12)"{% endblock %}
+{% block content %}
+{% include 'partials/nav.html' %}
+<main class="gif-utility" data-tool="{{ utility_slug }}">
+  <header class="tool-hero utility-hero">
+  <div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M10 8l6 4-6 4z"/></svg></div>
+  <h1>{{ utility_title }}</h1>
+  <p class="tool-hero-tagline">{{ utility_description }}</p>
+  <p class="utility-private">Free · No signup · Your GIF stays on your device</p>
+  </header>
+  <div class="utility-workspace">
+  <section class="utility-stage" aria-label="GIF preview">
+    <button id="utility-upload" class="utility-drop-zone" type="button">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg>
+      <strong>Drop a GIF here</strong><span>or click to browse</span><small>Animated GIF · Up to 40 MB</small>
+    </button>
+    <input id="utility-file" type="file" accept="image/gif,.gif" aria-label="Choose a GIF" hidden />
+    <div class="utility-previews">
+      <figure id="utility-original-wrap" hidden><figcaption>Original</figcaption><div class="utility-preview-image"><img id="utility-original" alt="Original GIF preview" /></div></figure>
+      <figure id="utility-result-wrap" hidden><figcaption>Result</figcaption><div class="utility-preview-image"><img id="utility-result" alt="Transformed GIF preview" /></div></figure>
+    </div>
+    <button id="utility-new" class="btn btn-ghost" type="button" hidden>Choose another GIF</button>
+  </section>
+  <aside class="utility-sidebar" aria-label="Animation controls">
+  <div class="utility-panel-heading">Animation settings</div>
+  <p id="utility-info"></p>
+  <fieldset id="utility-options" disabled>
+    <legend class="utility-sr-only">Animation settings</legend>
+    {% if utility_slug == 'gif-speed' %}
+    <label for="utility-rate">Speed multiplier</label><input id="utility-rate" type="number" min="0.1" max="10" step="0.1" value="2" />
+    {% elif utility_slug == 'reverse-gif' %}
+    <label><input id="utility-boomerang" type="checkbox" /> Boomerang (forward then backward)</label>
+    {% elif utility_slug == 'rotate-gif' %}
+    <label for="utility-angle">Clockwise rotation</label><select id="utility-angle"><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+    {% elif utility_slug == 'flip-gif' %}
+    <label for="utility-axis">Direction</label><select id="utility-axis"><option value="horizontal">Horizontal (mirror)</option><option value="vertical">Vertical</option></select>
+    {% elif utility_slug == 'gif-loop' %}
+    <label for="utility-loop-mode">Playback</label><select id="utility-loop-mode"><option value="forever">Repeat forever</option><option value="once">Play once</option><option value="finite">Additional repeats</option></select>
+    <label for="utility-repeats">Additional repeats after the first play</label><input id="utility-repeats" type="number" min="1" max="65535" value="1" disabled />
+    {% elif utility_slug == 'trim-gif' %}
+    <label for="utility-start">First frame to keep</label><input id="utility-start" type="number" min="1" step="1" value="1" />
+    <label for="utility-end">Last frame to keep (inclusive)</label><input id="utility-end" type="number" min="1" step="1" value="1" />
+    {% endif %}
+    <button id="utility-apply" class="btn btn-accent utility-primary" type="button">Apply and preview</button>
+  </fieldset>
+  <button id="utility-cancel" class="btn btn-ghost" type="button" hidden>Cancel processing</button>
+  <p id="utility-status" role="status" aria-live="polite"></p>
+  <progress id="utility-progress" max="100" value="0" hidden aria-label="Processing progress"></progress>
+  <a id="utility-download" class="btn btn-accent utility-primary" hidden download="edited.gif">Download GIF</a>
+  <button id="utility-replay" class="btn btn-ghost" type="button" hidden>Replay result</button>
+  <div id="utility-continue-wrap" hidden>
+    <label for="utility-next">Continue editing this result</label>
+    <select id="utility-next">
+      <option value="/gif-speed/?continue=1">Change speed</option><option value="/reverse-gif/?continue=1">Reverse</option>
+      <option value="/rotate-gif/?continue=1">Rotate</option><option value="/flip-gif/?continue=1">Flip</option>
+      <option value="/gif-loop/?continue=1">Change looping</option><option value="/trim-gif/?continue=1">Trim</option>
+      <option value="/gif-resizer/edit/">Resize</option><option value="/gif-editor/edit/?source=local">Add captions</option>
+    </select>
+    <button id="utility-continue" class="btn btn-ghost utility-primary" type="button">Continue with result</button>
+    <p>The result is passed locally to the next tool. Nothing is uploaded.</p>
+  </div>
+  </aside>
+  </div>
+  <section class="utility-help">
+  <h2>How to use {{ utility_title }}</h2>
+  <ol><li>Choose an animated GIF from your device.</li><li>{{ utility_help }}</li><li>Select Apply and preview, then download the result.</li></ol>
+  <p>Large dimensions or many frames may exceed the local memory limit even below 40 MB. Resize or shorten the source if needed.</p>
+  {% if utility_slug in ['gif-speed', 'gif-loop'] %}<p>This tool edits animation metadata while preserving the original compressed image data.</p>
+  {% else %}<p>Frames are re-encoded. File size may change. If a composed frame exceeds the GIF color limit, its colors are reduced; the result reports when that happens.</p>{% endif %}
+  </section>
+  <h2>More GIF tools</h2>
+  {% include 'partials/gif-utility-links.html' %}
+  <p><a href="/gif-resizer/">Resize a GIF</a> · <a href="/crop-gif/">Crop a GIF</a> · <a href="/gif-editor/">Add captions</a></p>
+</main>
+{% include 'partials/footer.html' %}
+{% endblock %}
+{% block scripts %}<script src="/vendor/omggif.js"></script><script src="/gif-utilities.js"></script>{% endblock %}

@@ -32,6 +32,18 @@ class SiteBuildTests(unittest.TestCase):
             with self.subTest(origin=origin), patch.dict(os.environ, {'SITE_URL': origin}), self.assertRaises(ValueError):
                 module.build()
 
+    def test_animation_utilities_are_discoverable(self):
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            for slug in ['gif-speed', 'gif-loop', 'reverse-gif', 'rotate-gif', 'flip-gif', 'trim-gif']:
+                self.assertIn('/' + slug + '/', (root / 'sitemap.xml').read_text())
+                self.assertIn('/' + slug + '/', (root / 'index.html').read_text())
+                page = (root / slug / 'index.html').read_text()
+                self.assertIn('rel="canonical"', page)
+                self.assertNotIn('noindex', page)
+                self.assertIn('id="utility-file"', page)
+
     def test_brand_is_templated(self):
         """No page may hardcode a brand name; the split logo must reassemble."""
         env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Brand',

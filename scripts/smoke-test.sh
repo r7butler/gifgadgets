@@ -45,7 +45,7 @@ BODY=$(curl -s "$BASE_URL/")
 check "Homepage contains $SITE_BRAND" "$([[ "$BODY" == *"$SITE_BRAND"* ]] && echo true || echo false)"
 
 # Tool pages
-for TOOL in gif-editor gif-maker video-to-gif image-editor gif-resizer crop-gif photo-converter; do
+for TOOL in gif-editor gif-maker video-to-gif image-editor gif-resizer crop-gif photo-converter gif-speed reverse-gif rotate-gif flip-gif gif-loop trim-gif; do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/$TOOL/")
   check "$TOOL page returns 200" "$([[ "$STATUS" == "200" ]] && echo true || echo false)"
 done

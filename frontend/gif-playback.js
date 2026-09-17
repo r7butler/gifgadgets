@@ -96,6 +96,7 @@
       var get = tx.objectStore('files').get('pending');
       get.onsuccess = function () {
         var file = get.result;
+        if (file && file.buffer instanceof ArrayBuffer) file = new File([file.buffer], file.name, {type: file.type});
         if (!file) { GC.hideLoading(); return; }
         // Clean up the pending entry
         var del = db.transaction('files', 'readwrite');
