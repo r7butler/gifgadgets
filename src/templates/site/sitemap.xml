@@ -17,6 +17,10 @@
   <url><loc>{{ site_url }}/gif-resizer/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/crop-gif/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/image-editor/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/bulk-resize-images/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/bulk-compress-images/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/bulk-convert-images/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/image-contact-sheet/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/photo-converter/</loc><priority>0.7</priority></url>
   <url><loc>{{ site_url }}/photo-converter/jpg-to-png/</loc><priority>0.6</priority></url>
   <url><loc>{{ site_url }}/photo-converter/png-to-jpg/</loc><priority>0.6</priority></url>

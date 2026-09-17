@@ -1,0 +1,14 @@
+{% extends "image-utility.html" %}
+{% set utility_slug = "bulk-resize-images" %}
+{% set utility_title = "Bulk Resize Images" %}
+{% set utility_description = "Resize many photos at once and download every result together as a ZIP." %}
+{% set utility_help = "Pick a resize mode and target size. Fit scales each image until it sits inside your box; exact size crops from the centre instead of stretching." %}
+{% set utility_faq = [
+  {"q": "Will bulk resizing stretch or distort my images?", "a": "No. Fit, set width, set height and scale by percentage all keep the original aspect ratio. Exact size is the one mode that changes the shape of the frame, and it crops from the centre rather than stretching the picture."},
+  {"q": "Are images smaller than the target enlarged?", "a": "Not unless you tick the enlarge option, which applies to the fit mode. Exact size is the exception: filling a frame larger than the source always means scaling up, so that mode enlarges regardless."},
+  {"q": "How do I get all the resized images back?", "a": "One image downloads directly. Two or more are bundled into a single ZIP file, and every result is also listed underneath the tool so you can save an individual image without unpacking the archive."},
+  {"q": "Can I change the file format while resizing?", "a": "Yes. The output format control can keep each original format, or convert everything to JPG, PNG or WebP in the same pass."},
+  {"q": "Does resizing always make the file smaller?", "a": "Usually, but not always. Fewer pixels means less data, though a PNG re-encoded by the browser is not optimised the way a dedicated PNG compressor would be. Exporting as JPG or WebP gives a much larger reduction."},
+  {"q": "How many images can I resize at once?", "a": "Up to 60 files totaling 100 MB. Each output is also limited to 8000 pixels per side and about 40 megapixels, which is where browser canvas support stops being reliable."},
+  {"q": "Are my photos uploaded anywhere?", "a": "No. Every image is decoded, resized and re-encoded by your own browser. Nothing is sent to a server, so there is no queue, no account and nothing stored."}
+] %}

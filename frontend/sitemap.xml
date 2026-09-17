@@ -17,6 +17,10 @@
   <url><loc>https://gifgadgets.com/gif-resizer/</loc><priority>0.8</priority></url>
   <url><loc>https://gifgadgets.com/crop-gif/</loc><priority>0.8</priority></url>
   <url><loc>https://gifgadgets.com/image-editor/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/bulk-resize-images/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/bulk-compress-images/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/bulk-convert-images/</loc><priority>0.8</priority></url>
+  <url><loc>https://gifgadgets.com/image-contact-sheet/</loc><priority>0.8</priority></url>
   <url><loc>https://gifgadgets.com/photo-converter/</loc><priority>0.7</priority></url>
   <url><loc>https://gifgadgets.com/photo-converter/jpg-to-png/</loc><priority>0.6</priority></url>
   <url><loc>https://gifgadgets.com/photo-converter/png-to-jpg/</loc><priority>0.6</priority></url>

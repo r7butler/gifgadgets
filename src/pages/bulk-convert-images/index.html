@@ -1,0 +1,14 @@
+{% extends "image-utility.html" %}
+{% set utility_slug = "bulk-convert-images" %}
+{% set utility_title = "Convert Images in Bulk" %}
+{% set utility_description = "Convert a whole folder of images to JPG, PNG or WebP in one pass." %}
+{% set utility_help = "Pick the format you want everything converted to, then set the quality for JPG and WebP and a background color for transparent sources." %}
+{% set utility_faq = [
+  {"q": "Which formats can this converter read and write?", "a": "It reads PNG, JPG, WebP, GIF, BMP and, where the browser supports it, AVIF. It writes JPG, PNG and WebP. If your browser cannot encode a chosen format the tool says so rather than silently handing you a different one."},
+  {"q": "What happens to transparency when I convert to JPG?", "a": "JPG cannot store transparency, so transparent areas are filled with the background color you choose. White is the default. Convert to PNG or WebP instead if you need the transparency kept."},
+  {"q": "Can I convert an animated GIF this way?", "a": "Only its first frame. A converted GIF becomes a single still image. To work with the animation itself, use the GIF tools, where extract GIF frames saves every frame as a separate PNG."},
+  {"q": "Can I convert HEIC photos from my iPhone here?", "a": "No. HEIC needs a separate decoder that most browsers do not include, so it has its own page: the HEIC to JPG converter."},
+  {"q": "Does converting improve image quality?", "a": "No. Converting a JPG to PNG makes a lossless copy of a lossy original, which preserves what is already there but cannot restore detail the original JPG threw away."},
+  {"q": "How many images can I convert at once?", "a": "Up to 60 files totaling 100 MB. A single converted image downloads on its own; several arrive as one ZIP, with each result also listed individually."},
+  {"q": "Is anything uploaded?", "a": "No. Conversion runs in your browser, so the images never leave your device."}
+] %}

@@ -21,18 +21,27 @@ loaded and then reported "Use comma-separated frame numbers or ranges".
 
 **A new tool is only finished when all five of these are done:**
 
-1. `src/pages/<slug>/index.html` — extends `gif-utility.html`, sets
-   `utility_slug`, `utility_title`, `utility_description`, `utility_help`,
-   `utility_faq` (and `utility_path` if the URL differs from the slug).
-2. Controls in `src/templates/gif-utility.html`.
-3. Transform logic in `gif-utilities-worker.js`, or `gif-utilities-batch.js`
-   with the slug added to `BATCH_TOOLS`.
-4. **Option collection and result handling in `frontend/gif-utilities.js`.**
-   This is the step that was missed. Any control the template renders must be
-   read here and put on the options object.
+1. `src/pages/<slug>/index.html` — extends `gif-utility.html` or
+   `image-utility.html`, sets `utility_slug`, `utility_title`,
+   `utility_description`, `utility_help`, `utility_faq` (and `utility_path` if
+   the URL differs from the slug).
+2. Controls in that template.
+3. Transform logic — GIF tools: `gif-utilities-worker.js`, or
+   `gif-utilities-batch.js` with the slug added to `BATCH_TOOLS`. Image tools:
+   `image-utilities.js`, with any pure arithmetic in `image-geometry.js` so it
+   can be unit tested without a DOM.
+4. **Option collection and result handling in `frontend/gif-utilities.js` or
+   `frontend/image-utilities.js`.** This is the step that was missed. Any
+   control the template renders must be read here and put on the options
+   object.
 5. **Sitemap entry in `src/templates/site/sitemap.xml` and a card in
-   `src/templates/partials/gif-utility-cards.html`.** Batch two had neither,
-   which for an indexing-driven batch defeats the point.
+   `src/templates/partials/gif-utility-cards.html` or
+   `image-utility-cards.html`.** Batch two had neither, which for an
+   indexing-driven batch defeats the point.
+
+Also add the slug to the `tools` array in `frontend/tool-funnel.js`. A slug
+missing from that list is not an error — every event is quietly filed under
+`legacy-editor` instead, which is worse, because the analytics look fine.
 
 ## Every utility page needs a FAQ
 
@@ -73,6 +82,33 @@ page sets `utility_path` so the canonical stays on the original address while
   before.
 - Converting a page between UI patterns breaks the old spec. Move its coverage
   rather than deleting it.
+
+## Two tracks, one set of conventions
+
+GIF tools and still-image tools share `frontend/utilities.css` (root class
+`.tool-utility`, accent colour via `--utility-accent`) and `frontend/zip.js`,
+but have separate templates and separate engines. Do not make one template serve
+both: the GIF one validates a GIF header, decodes with `GifReader` and offers a
+local handoff to the next GIF tool, none of which apply to a folder of JPEGs.
+
+GIF work belongs in a worker because LZW decoding every frame in JavaScript
+blocks the page. Bulk image work does not: `createImageBitmap` and
+`canvas.toBlob` are already asynchronous, so `image-utilities.js` runs on the
+main thread and yields between files. Do not add a worker to the image track
+without a measurement showing it is needed.
+
+## Never return something worse than the input
+
+The compressors promise a smaller file. When re-encoding produces a larger one
+and neither format nor dimensions changed, return the original bytes and say so
+in the status line. Both `compress-gif` and `bulk-compress-images` do this, and
+the e2e tests assert it. A tool that silently hands back a bigger file than the
+one you gave it has failed at its one job.
+
+The same principle covers formats: `canvas.toBlob` falls back to PNG when it
+cannot encode what was asked for, so always compare `blob.type` against the
+requested type and report the failure rather than delivering a PNG named
+`.webp`.
 
 ## Brand and domain
 

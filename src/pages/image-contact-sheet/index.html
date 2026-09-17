@@ -1,0 +1,14 @@
+{% extends "image-utility.html" %}
+{% set utility_slug = "image-contact-sheet" %}
+{% set utility_title = "Image Contact Sheet Maker" %}
+{% set utility_description = "Arrange a set of images into one labeled grid you can print or share." %}
+{% set utility_help = "Set the number of columns and the cell size, choose whether each cell is labeled with its file name, then pick a background and output format." %}
+{% set utility_faq = [
+  {"q": "What is a contact sheet?", "a": "A single image showing every picture in a set as a small thumbnail in a grid, usually labeled with the file name. Photographers use them as a proof sheet to review a shoot at a glance, and they are a convenient way to share a set as one file."},
+  {"q": "Are my images cropped to fit the grid?", "a": "No. Each image is scaled down until it fits inside its cell and is then centred, so tall and wide pictures sit side by side without being cut off. The leftover space in each cell shows the background."},
+  {"q": "In what order are the images placed?", "a": "In the order your browser reports them, which is normally the order shown in the file picker and is often alphabetical by file name. The selected files are listed in the sidebar so you can confirm the order before building the sheet."},
+  {"q": "How large can the sheet be?", "a": "Up to 8000 pixels on each side and around 40 megapixels overall, which is where browser canvas support stops being dependable. If your settings would exceed that, the tool reports the size it would have needed instead of producing a blank image."},
+  {"q": "Can I turn the file name labels off?", "a": "Yes. Clearing the label option removes the text strip under each cell and makes the sheet correspondingly shorter. Long file names are clipped to their cell rather than overlapping the neighbouring image."},
+  {"q": "Can the background be transparent?", "a": "Yes, if you export as PNG or WebP. JPG has no transparency, so a sheet saved as JPG always uses the solid background color."},
+  {"q": "Are the images uploaded to make the sheet?", "a": "No. The sheet is drawn in your own browser and never leaves your device."}
+] %}

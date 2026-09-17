@@ -44,6 +44,28 @@ class SiteBuildTests(unittest.TestCase):
                 self.assertNotIn('noindex', page)
                 self.assertIn('id="utility-file"', page)
 
+    def test_bulk_image_utilities_are_discoverable(self):
+        """A tool nobody can navigate to is not published, whatever the build says."""
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            sitemap = (root / 'sitemap.xml').read_text()
+            home = (root / 'index.html').read_text()
+            for slug in ['bulk-resize-images', 'bulk-compress-images',
+                         'bulk-convert-images', 'image-contact-sheet']:
+                self.assertIn('/' + slug + '/', sitemap)
+                self.assertIn('/' + slug + '/', home)
+                page = (root / slug / 'index.html').read_text()
+                self.assertIn('rel="canonical"', page)
+                self.assertNotIn('noindex', page)
+                self.assertIn('id="utility-file"', page)
+                self.assertIn('id="utility-apply"', page)
+                self.assertIn('"FAQPage"', page)
+            # The image section is the nav target, so the anchor has to exist.
+            self.assertIn('id="image-tools"', home)
+            self.assertIn('href="/#image-tools"', home)
+            self.assertIn('>Image Tools<', home)
+
     def test_brand_is_templated(self):
         """No page may hardcode a brand name; the split logo must reassemble."""
         env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Brand',
@@ -83,7 +105,7 @@ class SiteBuildTests(unittest.TestCase):
                 self.assertEqual(len(questions), len(set(questions)), f'duplicate questions in {file}')
                 checked += 1
             # Guard the guard: if the build stops emitting FAQs this must fail loudly.
-            self.assertGreaterEqual(checked, 20, 'expected FAQ schema on far more pages')
+            self.assertGreaterEqual(checked, 24, 'expected FAQ schema on far more pages')
 
     def test_gif_to_png_keeps_its_url_and_faq(self):
         """It became the frame extractor, but it is the one page already indexed."""

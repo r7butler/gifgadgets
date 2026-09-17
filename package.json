@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:gif-utilities": "node --test tests/gif-utilities.test.cjs && playwright test --config=tests/e2e/playwright.config.js gif-utilities.spec.js",
+    "test:image-utilities": "node --test tests/image-geometry.test.cjs && playwright test --config=tests/e2e/playwright.config.js image-utilities.spec.js",
     "build": "docker build -f Dockerfile.build -t gifwidgets-build . && docker run --rm -v \"$PWD:/app\" gifwidgets-build",
     "dev": "npm run build && npx serve frontend",
     "test": "npx playwright test --config=tests/e2e/playwright.config.js",

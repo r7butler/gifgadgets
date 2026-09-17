@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% set active_nav = 'image-tools' %}
+{%- set lossy_formats = utility_slug != 'image-contact-sheet' %}
+{% block title %}{{ utility_title }} Online, Free & Local | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ utility_description }} Free, private processing in your browser. No signup." />
+<link rel="canonical" href="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:title" content="{{ utility_title }} | {{ site_brand }}" />
+<meta property="og:description" content="{{ utility_description }}" />
+<meta property="og:url" content="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/utilities.css" />{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":utility_title, "url":site_url + '/' + (utility_path | default(utility_slug)) + '/', "description":utility_description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}} | tojson }}</script>
+{%- set faq = utility_faq | default([], true) %}
+{%- if faq %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{%- for item in faq %}
+{"@type":"Question","name":{{ item.q | tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ item.a | tojson }}}}{{ "," if not loop.last }}
+{%- endfor %}
+]}</script>
+{%- endif %}
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-image);--hero-icon-bg:var(--cat-image-dim);--hero-glow:rgba(14,165,233,.12)"{% endblock %}
+{% block content %}
+{% include 'partials/nav.html' %}
+<main class="tool-utility image-utility" data-tool="{{ utility_slug }}">
+  <header class="tool-hero utility-hero">
+  <div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+  <h1>{{ utility_title }}</h1>
+  <p class="tool-hero-tagline">{{ utility_description }}</p>
+  <p class="utility-private">Free · No signup · Your images stay on your device</p>
+  </header>
+  <div class="utility-workspace">
+  <section class="utility-stage" aria-label="Image preview">
+    <button id="utility-upload" class="utility-drop-zone" type="button">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg>
+      <strong>Drop your images here</strong><span>or click to browse</span><small>PNG · JPG · WebP · GIF · BMP · AVIF — up to 60 files, 100 MB total</small>
+    </button>
+    <input id="utility-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.png,.jpg,.jpeg,.webp,.gif,.bmp,.avif" aria-label="Choose images" multiple hidden />
+    {% if utility_slug == 'image-contact-sheet' %}
+    <div class="utility-previews">
+      <figure id="utility-result-wrap" hidden><figcaption>Contact sheet</figcaption><div class="utility-preview-image"><img id="utility-result" alt="Generated contact sheet" /></div></figure>
+    </div>
+    {% endif %}
+    <button id="utility-new" class="btn btn-ghost" type="button" hidden>Choose other images</button>
+  </section>
+  <aside class="utility-sidebar" aria-label="Image settings">
+  <div class="utility-panel-heading">Settings</div>
+  <p id="utility-info"></p>
+  <ol id="utility-files" class="utility-files" aria-label="Selected images" hidden></ol>
+  <fieldset id="utility-options" disabled>
+    <legend class="utility-sr-only">Image settings</legend>
+    {% if utility_slug == 'bulk-resize-images' %}
+    <label for="utility-mode">Resize mode</label>
+    <select id="utility-mode">
+      <option value="fit">Fit inside width × height</option>
+      <option value="width">Set width, keep aspect ratio</option>
+      <option value="height">Set height, keep aspect ratio</option>
+      <option value="percent">Scale by percentage</option>
+      <option value="exact">Exact size, crop to fill</option>
+    </select>
+    <div class="utility-field-row"><label for="utility-width">Width (px)<input id="utility-width" type="number" min="1" max="8000" value="1200" /></label><label for="utility-height">Height (px)<input id="utility-height" type="number" min="1" max="8000" value="1200" /></label></div>
+    <label for="utility-percent">Scale (%)</label><input id="utility-percent" type="number" min="1" max="400" value="50" disabled />
+    <label><input id="utility-enlarge" type="checkbox" /> Enlarge images smaller than the target</label>
+    <p class="utility-hint">Fit never distorts: each image is scaled until it sits inside the box. Exact size crops from the centre to fill the frame.</p>
+    {% elif utility_slug == 'bulk-compress-images' %}
+    <label for="utility-maxwidth">Also cap width (px, 0 = keep size)</label><input id="utility-maxwidth" type="number" min="0" max="8000" value="0" />
+    <p class="utility-hint">Quality applies to JPG and WebP. PNG has no quality setting, so a PNG kept as PNG usually cannot be shrunk here — choose JPG or WebP to compress it.</p>
+    {% elif utility_slug == 'image-contact-sheet' %}
+    <div class="utility-field-row"><label for="utility-columns">Columns<input id="utility-columns" type="number" min="1" max="12" value="4" /></label><label for="utility-cell">Cell size (px)<input id="utility-cell" type="number" min="32" max="1000" value="240" /></label></div>
+    <div class="utility-field-row"><label for="utility-gap">Gap (px)<input id="utility-gap" type="number" min="0" max="200" value="8" /></label><label for="utility-padding">Margin (px)<input id="utility-padding" type="number" min="0" max="200" value="16" /></label></div>
+    <label><input id="utility-labels" type="checkbox" checked /> Label each cell with the file name</label>
+    <label for="utility-label-color">Label color</label><input id="utility-label-color" type="color" value="#334155" />
+    {% endif %}
+    <label for="utility-format">Output format</label>
+    <select id="utility-format">
+      {% if utility_slug in ['bulk-resize-images', 'bulk-compress-images'] %}<option value="keep" selected>Keep each original format</option>{% endif %}
+      {% if utility_slug == 'image-contact-sheet' %}<option value="png" selected>PNG</option>{% endif %}
+      <option value="jpg"{% if utility_slug == 'bulk-convert-images' %} selected{% endif %}>JPG</option>
+      {% if utility_slug in ['bulk-resize-images', 'bulk-convert-images'] %}<option value="png">PNG</option>{% endif %}
+      <option value="webp">WebP</option>
+    </select>
+    <label for="utility-quality">Quality for JPG and WebP (10–100)</label>
+    <input id="utility-quality" type="number" min="10" max="100" step="1" value="{% if utility_slug == 'bulk-compress-images' %}75{% elif utility_slug == 'image-contact-sheet' %}92{% else %}85{% endif %}" />
+    <label for="utility-background">Background</label>
+    <select id="utility-background">
+      {% if utility_slug == 'image-contact-sheet' %}<option value="color" selected>Solid color</option><option value="transparent">Transparent</option>
+      {% else %}<option value="transparent">Keep transparency</option><option value="color">Solid color</option>{% endif %}
+    </select>
+    <label for="utility-color">Background color</label><input id="utility-color" type="color" value="#ffffff" />
+    {% if utility_slug != 'image-contact-sheet' %}<p class="utility-hint">JPG cannot store transparency. Transparent areas are filled with the background color when the output is JPG.</p>{% endif %}
+    <button id="utility-apply" class="btn btn-accent utility-primary" type="button">{% if utility_slug == 'image-contact-sheet' %}Build contact sheet{% else %}Process images{% endif %}</button>
+  </fieldset>
+  <button id="utility-cancel" class="btn btn-ghost" type="button" hidden>Cancel processing</button>
+  <p id="utility-status" role="status" aria-live="polite"></p>
+  <progress id="utility-progress" max="100" value="0" hidden aria-label="Processing progress"></progress>
+  <a id="utility-download" class="btn btn-accent utility-primary" hidden download="images.zip">Download</a>
+  </aside>
+  </div>
+  {% if utility_slug != 'image-contact-sheet' %}
+  <section id="utility-results" class="utility-thumb-grid" aria-label="Processed images" hidden></section>
+  {% endif %}
+  <section class="utility-help">
+  <h2>How to use {{ utility_title }}</h2>
+  <ol><li>Choose images from your device, or drop a whole selection onto the upload area.</li><li>{{ utility_help }}</li><li>Select {% if utility_slug == 'image-contact-sheet' %}Build contact sheet and download the result{% else %}Process images, then download a single file or every result as one ZIP{% endif %}.</li></ol>
+  <p>Everything runs on your own device. Nothing is uploaded, so there is no queue, no account and no file retention. Up to 60 images totaling 100 MB can be handled at once; very large photographs may exceed what a browser tab can hold.</p>
+  </section>
+  {%- set faq = utility_faq | default([], true) %}
+  {% if faq %}
+  <section class="utility-help utility-faq">
+  <h2>Frequently asked questions</h2>
+  <dl class="tool-faq">
+    {% for item in faq %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>
+    {% endfor %}
+  </dl>
+  </section>
+  {% endif %}
+  <h2>More image tools</h2>
+  {% include 'partials/image-utility-links.html' %}
+  <p><a href="/image-editor/">Edit a single image</a> · <a href="/photo-converter/">All photo converters</a> · <a href="/#gif-utilities">GIF tools</a></p>
+</main>
+{% include 'partials/footer.html' %}
+{% endblock %}
+{% block scripts %}<script src="/zip.js"></script><script src="/image-geometry.js"></script><script src="/image-utilities.js"></script>{% endblock %}

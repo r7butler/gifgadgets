@@ -74,7 +74,20 @@ and e2e coverage passing in Chromium, Firefox and WebKit. See
 Every utility page now carries a FAQ and `FAQPage` structured data, generated
 from a single `utility_faq` list per page.
 
-**Before starting batch three, read `memory/utility-page-conventions.md`.** It
+**Batch three is now implemented and tested (2026-09-17).** Routes:
+`/bulk-resize-images/`, `/bulk-compress-images/`, `/bulk-convert-images/` and
+`/image-contact-sheet/`. These are still-image tools, not GIF tools, so they use
+`src/templates/image-utility.html` and `frontend/image-utilities.js` rather than
+the GIF template and engine. The nav entry that read "Image Editor" now reads
+"Image Tools" and points at the homepage `#image-tools` section. See
+`docs/batch-three-utilities.md`.
+
+Batch four remains: GIF to MP4, video frame extractor, trim video, mute video.
+All four need real video encoding, which is a materially bigger problem than
+anything in batches one to three — expect WebCodecs or a WASM build of FFmpeg,
+and check bundle size and browser support before committing to an approach.
+
+**Before starting batch four, read `memory/utility-page-conventions.md`.** It
 records the five steps a tool needs to be considered finished — batch two was
 initially missing step 4 (front-end wiring in `gif-utilities.js`) and step 5
 (sitemap and homepage card), which left all five tools broken in a browser and

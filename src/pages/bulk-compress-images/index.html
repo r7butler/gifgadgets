@@ -1,0 +1,14 @@
+{% extends "image-utility.html" %}
+{% set utility_slug = "bulk-compress-images" %}
+{% set utility_title = "Bulk Compress Images" %}
+{% set utility_description = "Shrink many JPG, PNG and WebP files at once and compare the before and after sizes." %}
+{% set utility_help = "Choose a quality level, and optionally an output format and a width cap. Every result shows its new size so you can judge the trade-off before downloading." %}
+{% set utility_faq = [
+  {"q": "How much smaller will my images get?", "a": "There is no guaranteed reduction, and any tool promising a fixed size is guessing. A photo saved at quality 75 typically lands well under half its original size, while an already optimised file may barely move. The summary reports the real before and after totals."},
+  {"q": "Is the compression lossless?", "a": "No. JPG and WebP quality settings discard image detail, and lower quality discards more. That is what makes the file smaller. If you need an exact copy of the original pixels, this is not the right tool."},
+  {"q": "Why did my PNG not get any smaller?", "a": "PNG has no quality setting, so a PNG kept as PNG is simply re-encoded and often comes out the same size or larger. Choosing JPG or WebP as the output format is what actually compresses it."},
+  {"q": "What happens if compressing makes a file larger?", "a": "The original is kept untouched and reported as unchanged in the summary, so you never download something bigger than what you started with. That check applies only when the format and dimensions were not changed."},
+  {"q": "What quality setting should I use?", "a": "75 is a reasonable default for photographs, and 60 to 85 covers most needs. Flat graphics, screenshots and text show compression artifacts much earlier than photographs, so check the result thumbnails before settling on a number."},
+  {"q": "Is EXIF data such as camera model or GPS location kept?", "a": "No. Re-encoding through the browser canvas drops all metadata, so the compressed copies carry no camera, date or location information. Orientation is applied to the pixels first, so rotated photos still come out the right way up."},
+  {"q": "Are my images uploaded to a server?", "a": "No. Compression happens entirely in your browser and no file leaves your device."}
+] %}
