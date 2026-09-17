@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}About {{ site_brand }} | Free Browser-Based GIF & Image Tools{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="{{ site_brand }} is a set of free GIF and image tools that run in your browser instead of on a server. No signup, no upload, no mandatory watermark." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#6366f1" />
+  <link rel="canonical" href="{{ site_url }}/about/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="About {{ site_brand }}" />
+  <meta property="og:url" content="{{ site_url }}/about/" />
+{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+  {% include 'partials/nav.html' %}
+  <header class="tool-hero">
+    <h1>About {{ site_brand }}</h1>
+    <p class="tool-hero-tagline">Free GIF and image tools that run in your browser instead of on someone else's server.</p>
+  </header>
+  <main class="tool-content legal-prose">
+
+    <section class="tool-section">
+      <h2>What this is</h2>
+      <p>{{ site_brand }} is a small collection of tools for editing GIFs and images: adding captions, cropping, resizing, converting between formats, and turning video clips into GIFs. Everything is free, nothing requires an account, and exports carry no watermark unless you choose to add one.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Why it works in the browser</h2>
+      <p>Most online media tools work by uploading your file to a server, processing it there, and sending the result back. That approach is simple to build, but it means every file you touch is copied to someone else's computer, and it puts a hard ceiling on file size because somebody has to pay for the bandwidth.</p>
+      <p>Modern browsers can do this work themselves. So on {{ site_brand }}, the editing happens on your own device — your file is read locally, processed locally, and saved locally. It is faster for small files because nothing has to be uploaded, and it means we never hold a copy of your work.</p>
+      <p>The honest trade-off: because the work runs on your device, a very large GIF is limited by your available memory rather than by an upload cap, and a slow device will encode more slowly than a server would. We would rather be straightforward about that than claim the approach has no downsides.</p>
+      <p>Two features do use a server, because they cannot work any other way, and both are opt-in: <a href="/gif-editor/">AI motion tracking</a> and sharing a GIF by link. The <a href="/privacy/">privacy policy</a> sets out exactly what each one sends.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>The tools</h2>
+      <ul>
+        <li><a href="/gif-editor/">GIF Editor</a> — captions, motion keyframes, object tracking, crop and compression</li>
+        <li><a href="/video-to-gif/">Video to GIF</a> — trim a clip and convert it</li>
+        <li><a href="/gif-maker/">GIF Maker</a> — build an animation from still images</li>
+        <li><a href="/gif-resizer/">GIF Resizer</a> and <a href="/crop-gif/">GIF Cropper</a></li>
+        <li><a href="/image-editor/">Image Editor</a> — captions, title bars, filters, crop and resize</li>
+        <li><a href="/photo-converter/">Photo Converters</a> — JPG, PNG, WebP, HEIC and SVG</li>
+      </ul>
+    </section>
+
+    <section class="tool-section">
+      <h2>Who makes it</h2>
+      <p>{{ site_brand }} is built and maintained by one person as an independent side project. It is funded by the ads shown on some pages, which is what keeps it free to use and free of signup walls.</p>
+      <p>Being a one-person project also sets expectations honestly: fixes and new tools arrive when time allows, and the best way to get a bug looked at is to report it.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Found a problem?</h2>
+      <p>Bug reports are genuinely useful — a broken tool is invisible to us until someone says so. The <strong>Report an issue</strong> button in the site header sends a report directly, or see the <a href="/contact/">contact page</a>.</p>
+    </section>
+
+  </main>
+  {% include 'partials/footer.html' %}
+</div>
+{% endblock %}

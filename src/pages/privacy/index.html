@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy | {{ site_brand }}{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="What {{ site_brand }} does and does not collect. Most tools run entirely in your browser; this page explains the few features that send data to a server." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#6366f1" />
+  <link rel="canonical" href="{{ site_url }}/privacy/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Privacy Policy | {{ site_brand }}" />
+  <meta property="og:url" content="{{ site_url }}/privacy/" />
+{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+  {% include 'partials/nav.html' %}
+  <header class="tool-hero">
+    <h1>Privacy Policy</h1>
+    <p class="tool-hero-tagline">Last updated {{ current_year }}. Most of what this site does never leaves your device — this page is mainly about the few things that do.</p>
+  </header>
+  <main class="tool-content legal-prose">
+
+    <section class="tool-section">
+      <h2>The short version</h2>
+      <p>Editing happens in your browser. When you resize, crop, caption, convert or build a GIF or image, the file is read by your own browser and the result is written back by your own browser. It is never uploaded, and we never receive it.</p>
+      <p>Three features are different, and each one is listed below: <strong>AI motion tracking</strong>, <strong>sharing a GIF</strong>, and <strong>reporting a problem</strong>. All three only run when you choose them.</p>
+      <p>We do not ask you to create an account, and we have no way to identify you personally.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Tools that run entirely on your device</h2>
+      <p>These never transmit your files anywhere:</p>
+      <ul>
+        <li>All photo format converters — JPG, PNG, WebP, HEIC, SVG and GIF</li>
+        <li>GIF resizer, GIF cropper and GIF maker</li>
+        <li>Video to GIF conversion</li>
+        <li>The image editor</li>
+        <li>Captions, text, timing and export in the GIF editor</li>
+      </ul>
+      <p>Your file is held in your browser's memory while you work and discarded when you close or reload the page. Because the processing is local, large files are limited by your device's memory rather than by an upload cap.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>AI motion tracking</h2>
+      <p>This is the one editing feature that sends part of your file to a server, and it runs only when you start a tracking run.</p>
+      <p>When you do, sampled frames from your GIF are uploaded to our storage, passed to a GPU service that computes where the object you selected moves, and the result is returned to your browser. <strong>The uploaded frames are deleted once the run completes</strong>, and the working storage they pass through expires automatically within one day regardless.</p>
+      <p>The frames are used only to produce your tracking result. They are not kept, reviewed, or used to train anything.</p>
+      <p>If you would rather not upload anything at all, the editor's manual keyframes produce the same kind of moving caption without a tracking run.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Sharing a GIF</h2>
+      <p>If you use the share feature, the GIF you chose to share is uploaded and published at a public web address so that anyone with the link can view it. Along with it we store the title you enter and the file type.</p>
+      <p><strong>A shared GIF is public.</strong> The link is not guessable, but it is not protected either — treat sharing as publishing. Do not share anything you would not want a stranger to open.</p>
+      <p>Nothing is shared unless you use that feature. Exporting and downloading a GIF does not share it.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Reporting a problem</h2>
+      <p>The "Report an issue" button sends what you type, along with the page path you were on, your browser's user-agent string, the time, and the IDs of any recent processing jobs so the report can be matched to server logs. Reports are filed in our issue tracker.</p>
+      <p>The site also reports uncaught JavaScript errors automatically so that broken tools can be found and fixed. Those reports contain the error message, the page path, your browser's user-agent and the time. <strong>They do not contain your IP address, your files, or any text you have typed into the editor.</strong> Page addresses are reduced to the path, so anything identifying in a link is not included.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Analytics</h2>
+      <p>We use Google Analytics to understand which tools people use and where they fail. <strong>It does not run at all unless you press Accept</strong> on the banner shown on your first visit. If you press Reject, or ignore the banner, no analytics is loaded.</p>
+      <p>If you accept, we record which tool you used, how long an operation took, whether it succeeded or failed, and a coarse size band for the file (for example "1–10 MB"). We deliberately do not send:</p>
+      <ul>
+        <li>filenames</li>
+        <li>any part of the file itself</li>
+        <li>caption or other text you type</li>
+        <li>exact file sizes</li>
+        <li>the query string of the page address</li>
+      </ul>
+      <p>You can change your mind at any time using the <strong>Analytics choices</strong> button in the site footer area.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Advertising</h2>
+      <p>Pages on this site may display ads served by Google AdSense. Google and its partners may use cookies to serve ads based on your prior visits to this or other websites, and you can opt out of personalised advertising in <a href="https://adssettings.google.com" rel="nofollow noopener" target="_blank">Google Ads Settings</a>. More detail is in <a href="https://policies.google.com/technologies/partner-sites" rel="nofollow noopener" target="_blank">Google's policy on how it uses data from partner sites</a>.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>What is stored on your device</h2>
+      <ul>
+        <li><strong>Your analytics choice</strong> and your light/dark theme preference, so they persist between visits.</li>
+        <li><strong>A temporary copy of the file you are editing</strong>, used to hand it between the upload page and the editor, and to recover your work if the page reloads unexpectedly.</li>
+      </ul>
+      <p>All of this stays in your own browser and is never transmitted. Clearing your browser's site data for this site removes it.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Server logs and rate limiting</h2>
+      <p>To stop automated abuse of the features that cost us money to run, we store a short hash of your IP address together with a count of recent requests. These records expire automatically within a few hours.</p>
+      <p>We should be precise rather than reassuring here: a hash of an IP address is not truly anonymous, because the range of possible addresses is small enough to search. We treat these records as personal data, keep them only for as long as rate limiting needs them, and do not use them for anything else.</p>
+      <p>Our hosting and content delivery providers (Amazon Web Services) also keep their own operational request logs, as any web host does.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Your rights</h2>
+      <p>Because there are no accounts, we hold no profile that could be looked up, exported or deleted on request. In practice:</p>
+      <ul>
+        <li>Analytics — controlled entirely by your Accept/Reject choice, changeable at any time.</li>
+        <li>Device storage — cleared by clearing site data in your browser.</li>
+        <li>A shared GIF — <a href="/contact/">contact us</a> with the link and we will remove it.</li>
+        <li>Rate-limiting records — expire on their own within hours.</li>
+      </ul>
+      <p>If you are in the UK, EU, or a jurisdiction with comparable rules and you want to exercise a right that is not covered above, <a href="/contact/">get in touch</a>.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Children</h2>
+      <p>This site is not directed at children under 13, and we do not knowingly collect information from them.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Changes</h2>
+      <p>If this policy changes in a way that affects what we collect, the updated date at the top of the page will change. Because we keep no contact details, we cannot notify you directly.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Contact</h2>
+      <p>Questions about this policy can go through the <a href="/contact/">contact page</a>.</p>
+    </section>
+
+  </main>
+  {% include 'partials/footer.html' %}
+</div>
+{% endblock %}

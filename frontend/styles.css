@@ -1382,3 +1382,13 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 520px) {
   .cookie-consent { flex-direction: column; text-align: center; gap: .5rem; }
 }
+
+/* ── Long-form pages (about, privacy, contact) ──────────── */
+.legal-prose { max-width: 760px; }
+.legal-prose .tool-section { margin-bottom: 2.25rem; }
+.legal-prose p { line-height: 1.7; margin-bottom: 0.9rem; color: var(--text-secondary, inherit); }
+.legal-prose ul { margin: 0 0 0.9rem 1.25rem; padding-left: 0.5rem; }
+.legal-prose li { line-height: 1.7; margin-bottom: 0.4rem; color: var(--text-secondary, inherit); }
+.legal-prose strong { color: var(--text-primary, inherit); font-weight: 650; }
+.legal-prose a { color: var(--cat-gif, currentColor); text-decoration: underline; text-underline-offset: 2px; }
+.site-footer-legal { margin-top: 0.5rem; opacity: 0.8; font-size: 0.85em; }

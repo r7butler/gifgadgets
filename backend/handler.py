@@ -593,14 +593,12 @@ def handle_report_issue(event):
         return _cors_response(400, {"error": "Missing 'title' field"})
 
     # Enrich issue body with server-side context
-    client_ip = _get_client_ip(event)
+    # Never put the client IP — or its hash — in the issue body. Issue trackers are
+    # long-lived and may be public, and ip_hash is an unsalted SHA-256 of an IPv4
+    # address, so it is brute-forceable and not a pseudonym. Recent job IDs are
+    # enough to correlate a report with server-side logs.
     recent_jobs = _get_recent_jobs(ip_hash)
-    context_lines = [
-        "",
-        "---",
-        f"**Client IP:** `{client_ip}`",
-        f"**IP Hash:** `{ip_hash}`",
-    ]
+    context_lines = ["", "---"]
     if recent_jobs:
         context_lines.append(f"**Recent Job IDs:** {', '.join(f'`{j}`' for j in recent_jobs)}")
     body_text += "\n".join(context_lines)

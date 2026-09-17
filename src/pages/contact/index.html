@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Contact | {{ site_brand }}{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Report a bug, request a tool, or ask about privacy and content removal on {{ site_brand }}." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#6366f1" />
+  <link rel="canonical" href="{{ site_url }}/contact/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Contact {{ site_brand }}" />
+  <meta property="og:url" content="{{ site_url }}/contact/" />
+{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+  {% include 'partials/nav.html' %}
+  <header class="tool-hero">
+    <h1>Contact</h1>
+    <p class="tool-hero-tagline">Bug reports are the most useful thing you can send. A broken tool stays broken until somebody mentions it.</p>
+  </header>
+  <main class="tool-content legal-prose">
+
+    <section class="tool-section">
+      <h2>Report a bug or request a tool</h2>
+      <p>Use the <strong>Report an issue</strong> button in the site header on any page. It opens a short form and sends the report straight to our issue tracker — no account needed.</p>
+      <p>What helps most:</p>
+      <ul>
+        <li>Which tool you were using, and what you were trying to do</li>
+        <li>What happened instead</li>
+        <li>Roughly how big the file was, and its format</li>
+        <li>Your browser and whether you were on a phone or a computer</li>
+      </ul>
+      <p>Please do not paste personal information into the form. It sends the page path, your browser's user-agent and the time so the problem can be located — see the <a href="/privacy/">privacy policy</a> for the full list.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Removing a shared GIF</h2>
+      <p>If you shared a GIF and want it taken down, send the link using the same <strong>Report an issue</strong> form with "removal request" in the subject, and it will be deleted.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Privacy questions</h2>
+      <p>Questions about what the site collects, or a request relating to data protection rights, can go through the same form. The <a href="/privacy/">privacy policy</a> answers most of them already — in particular, files you edit are not uploaded, so there is usually nothing held to request.</p>
+    </section>
+
+    <section class="tool-section">
+      <h2>Response times</h2>
+      <p>{{ site_brand }} is maintained by one person alongside a full-time job. Reports are read, but a reply is not guaranteed and fixes arrive when time allows. Reports that identify a reproducible bug get priority, because those are the ones that can actually be acted on.</p>
+    </section>
+
+  </main>
+  {% include 'partials/footer.html' %}
+</div>
+{% endblock %}

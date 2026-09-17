@@ -513,9 +513,11 @@
     if (reportedErrors[key] && now - reportedErrors[key] < ERROR_COOLDOWN) return;
     reportedErrors[key] = now;
 
+    // location.href can carry share IDs (e.g. editor.html?id=...), so report the
+    // path only — enough to locate the bug, nothing that identifies the visitor.
     var fullBody = body +
       '\n\n---\n' +
-      '**Page:** ' + location.href + '\n' +
+      '**Page:** ' + location.origin + location.pathname + '\n' +
       '**UA:** ' + navigator.userAgent + '\n' +
       '**Time:** ' + new Date().toISOString();
 
