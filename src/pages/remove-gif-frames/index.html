@@ -3,3 +3,10 @@
 {% set utility_title = "Remove GIF Frames" %}
 {% set utility_description = "Delete selected frames while preserving the animation or shortening its duration." %}
 {% set utility_help = "Enter frame numbers or ranges to remove, then choose whether to keep the total duration." %}
+{% set utility_faq = [
+  {"q": "What is the difference between preserving and shortening the duration?", "a": "Preserve adds each removed frame's time to the frame before it, so the animation still runs for the same length. Shorten simply drops that time, so the animation finishes sooner."},
+  {"q": "What happens if I remove the first frame?", "a": "In preserve mode its time moves forward onto the first frame you keep, because there is no earlier frame to hold it. In shorten mode the time is discarded."},
+  {"q": "Why was I told a frame exceeds the delay limit?", "a": "A single GIF frame cannot wait longer than 65535 hundredths of a second, about eleven minutes. Preserving the duration can push a frame past that, so remove fewer frames at once or choose Shorten."},
+  {"q": "Can I remove every frame?", "a": "No. At least one frame has to remain, otherwise there would be no image left to write."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Frames are removed in your browser."}
+] %}

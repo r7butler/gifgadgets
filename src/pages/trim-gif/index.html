@@ -3,3 +3,10 @@
 {% set utility_title = "Trim GIF" %}
 {% set utility_description = "Keep an inclusive range of frames from an animated GIF." %}
 {% set utility_help = "Frame numbers start at 1. Choose the first and last frames to keep. The first retained frame includes the image built up by earlier frames." %}
+{% set utility_faq = [
+  {"q": "How do I choose which part to keep?", "a": "Enter the first and last frame to keep. Both ends are included, and the total frame count is shown once the GIF has loaded."},
+  {"q": "Can I trim by seconds instead of frames?", "a": "Selection is by frame number, because GIF frames can each have a different delay and a time position would be ambiguous. The frame count appears after loading."},
+  {"q": "Does trimming change the playback speed?", "a": "No. Every kept frame keeps its own delay, so the remaining section plays at its original pace."},
+  {"q": "Why did the file size change more than I expected?", "a": "Kept frames are re-encoded as full canvases so that disposal and transparency stay correct once earlier frames are gone. That can move the size in either direction."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Trimming runs entirely in your browser."}
+] %}

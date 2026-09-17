@@ -3,3 +3,10 @@
 {% set utility_title = "Fit GIF to Canvas" %}
 {% set utility_description = "Add padding, change aspect ratio, or place your GIF on a colored background." %}
 {% set utility_help = "Choose canvas dimensions, fitting mode and background. All frames stay centered and keep their original timing." %}
+{% set utility_faq = [
+  {"q": "What is the difference between the fit options?", "a": "Center without resizing places the original at its own size on the new canvas. Fit inside scales it down until the whole animation is visible. Fill canvas scales it up until the canvas is covered and crops the overflow."},
+  {"q": "Can I keep a transparent background?", "a": "Yes. Transparent is the default and transparency is preserved. Choose Solid color only if you need a background, for example before posting somewhere that renders transparency as black."},
+  {"q": "Why would I pad a GIF instead of resizing it?", "a": "Platforms often expect a particular aspect ratio, such as square or 9:16. Padding reaches that shape without stretching the animation or cropping anything out."},
+  {"q": "Does this change the animation timing?", "a": "No. Frame delays and the loop setting are preserved; only the canvas around each frame changes."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. The canvas is composed in your browser."}
+] %}

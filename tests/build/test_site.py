@@ -59,6 +59,41 @@ class SiteBuildTests(unittest.TestCase):
             self.assertIn('Example<span class="logo-accent">Brand</span>', home)
             self.assertIn('ExampleBrand.test', (root / 'gif-maker/edit/index.html').read_text())
 
+    def test_faq_schema_matches_the_visible_faq(self):
+        """Structured data and page text come from one list, so they cannot drift."""
+        import json, re, html as html_mod
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            checked = 0
+            for file in root.rglob('index.html'):
+                text = file.read_text()
+                faq = next((json.loads(b) for b in re.findall(
+                    r'<script type="application/ld\+json">(.*?)</script>', text, re.S)
+                    if '"FAQPage"' in b), None)
+                if not faq:
+                    continue
+                questions = [q['name'] for q in faq['mainEntity']]
+                # Every question in the schema must actually appear on the page.
+                for question in questions:
+                    self.assertIn(html_mod.escape(question, quote=False).replace('&#39;', "'"),
+                                  text.replace('&#39;', "'"),
+                                  f'{question!r} is in schema but not visible on {file}')
+                    self.assertTrue(question.endswith('?'), f'not a question: {question!r}')
+                self.assertEqual(len(questions), len(set(questions)), f'duplicate questions in {file}')
+                checked += 1
+            # Guard the guard: if the build stops emitting FAQs this must fail loudly.
+            self.assertGreaterEqual(checked, 20, 'expected FAQ schema on far more pages')
+
+    def test_gif_to_png_keeps_its_url_and_faq(self):
+        """It became the frame extractor, but it is the one page already indexed."""
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            page = (Path(output) / 'photo-converter/gif-to-png/index.html').read_text()
+            self.assertIn('canonical" href="https://gifgadgets.com/photo-converter/gif-to-png/"', page)
+            self.assertIn('"FAQPage"', page)
+            self.assertIn('Is GIF transparency preserved in the PNG?', page)
+
     def test_brand_accent_must_be_brand_suffix(self):
         env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Widgets'}
         with patch.dict(os.environ, env), self.assertRaises(ValueError):

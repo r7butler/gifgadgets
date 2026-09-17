@@ -3,3 +3,10 @@
 {% set utility_title = "Rotate GIF" %}
 {% set utility_description = "Rotate every animation frame clockwise by 90°, 180°, or 270°." %}
 {% set utility_help = "Quarter turns swap the width and height. Frame timing and loop settings are retained." %}
+{% set utility_faq = [
+  {"q": "Which rotation angles can I use?", "a": "Quarter turns only: 90, 180 and 270 degrees clockwise. Arbitrary angles would need padding or cropping and would blur pixels, so they are deliberately not offered."},
+  {"q": "Does rotating swap the width and height?", "a": "Yes, for 90 and 270 degrees. A 320x240 GIF becomes 240x320. A 180 degree rotation keeps the original dimensions."},
+  {"q": "Does rotating lose quality?", "a": "Quarter turns map every pixel to an exact new position, so there is no resampling blur. Frames are re-encoded, and colors are only reduced if a composed frame exceeds the GIF palette limit, which the result tells you about."},
+  {"q": "Is the animation timing kept?", "a": "Yes. Frame delays and the loop setting are carried over unchanged."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Rotation runs in your browser."}
+] %}

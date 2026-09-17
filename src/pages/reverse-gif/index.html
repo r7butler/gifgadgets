@@ -3,3 +3,10 @@
 {% set utility_title = "Reverse GIF" %}
 {% set utility_description = "Play a GIF backward or create a forward-and-backward boomerang." %}
 {% set utility_help = "Reverse keeps each frame paired with its original delay. Boomerang plays forward and then backward without duplicating the two endpoint frames." %}
+{% set utility_faq = [
+  {"q": "What does the boomerang option do?", "a": "It plays the animation forward and then backward in one file. The first and last frames are not repeated at the turning points, so the loop reads smoothly instead of stuttering."},
+  {"q": "Is the frame timing preserved when reversing?", "a": "Yes. Each frame keeps its own delay and the frames simply play in the opposite order."},
+  {"q": "Does reversing change the file size?", "a": "Usually a little, in either direction. Frames are re-encoded as full canvases so that disposal methods stay correct in reverse order."},
+  {"q": "Will transparency survive?", "a": "Yes. Transparent areas are preserved, and each frame is composed before reversing so nothing smears."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Reversing happens entirely in your browser."}
+] %}

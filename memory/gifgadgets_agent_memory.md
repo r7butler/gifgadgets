@@ -13,7 +13,74 @@
 -   The domain/site is very new, so meaningful Search Console and
     organic traffic data should not be expected immediately.
 
-## Owner's Goal
+## Confirmed Design and Implementation Preferences
+
+Recorded September 17, 2026, after the owner approved the redesigned batch-one
+utility pages ("that's it right there"). These are explicit owner preferences.
+
+- New utilities must look and feel like the existing GifGadgets site. Do not
+  introduce generic file-picker/form pages or copy EZGif's utilitarian layout.
+- Reuse the site's theme variables, typography, spacing, rounded panels, icons,
+  button classes and light/dark themes. Matching navigation and colors alone is
+  insufficient: the actual tool workspace must also fit the existing design.
+- The approved utility layout uses a themed hero, dashed drag-and-drop upload
+  area, original/result previews, and a settings sidebar. On mobile, the sidebar
+  stacks below the preview. Preserve keyboard access and clear status messages.
+- Put new GIF utilities in the existing homepage **GIF Tools** grid, with matching
+  icons, descriptions and "Open tool" links; do not create a separate competing
+  section for each batch.
+- Include sitemap, navigation, canonical/SEO metadata, consent-based analytics,
+  and appropriate tests as part of implementing each tool.
+- Preserve tested functionality during visual changes. Verify actual downloaded
+  output, not just successful button clicks, and check desktop/mobile layouts.
+- Favor shared processing and local handoffs so users can continue editing a
+  result without downloading and selecting it again.
+
+Approved implementation references:
+`src/templates/gif-utility.html`, `frontend/gif-utilities.css`, and
+`src/templates/partials/gif-utility-cards.html`. Reuse these conventions for
+future utilities, adapting controls to the task instead of inventing a new theme.
+
+## Utility Batch Handoff
+
+Batch one is implemented locally: speed, reverse/boomerang, rotation, flipping,
+loop count and frame-range trimming. The owner approved its revised visual
+design. See `docs/batch-one-utilities.md` for implementation details and limits.
+At this handoff these changes have not been deployed; do not infer deployment
+from the fact that the main site is live.
+
+The owner identified batch two as the next implementation work after saving
+these preferences. Its proposed scope is:
+
+1. Extract GIF frames individually or as a ZIP; integrate with the existing
+   GIF-to-PNG utility rather than creating a redundant converter.
+2. Remove selected frames, with explicit options to shorten the animation or
+   preserve overall duration.
+3. Compress GIFs with measured size/quality comparisons. Benchmark before choosing
+   an optimizer; do not claim lossless output or guaranteed sizes without evidence.
+4. Fit GIFs to a canvas with padding, background and aspect-ratio controls.
+5. Combine GIFs sequentially with dimension and timing controls.
+
+Keep the approved visual style, shared implementation and correctness checks
+throughout this batch.
+
+**Batch two is now implemented and tested (2026-09-17).** Routes:
+`/photo-converter/gif-to-png/` (frame extraction, URL deliberately unchanged),
+`/remove-gif-frames/`, `/compress-gif/`, `/gif-canvas/`, `/combine-gifs/`. All
+five are wired end to end, in the sitemap and on the homepage grid, with unit
+and e2e coverage passing in Chromium, Firefox and WebKit. See
+`docs/batch-two-utilities.md`.
+
+Every utility page now carries a FAQ and `FAQPage` structured data, generated
+from a single `utility_faq` list per page.
+
+**Before starting batch three, read `memory/utility-page-conventions.md`.** It
+records the five steps a tool needs to be considered finished — batch two was
+initially missing step 4 (front-end wiring in `gif-utilities.js`) and step 5
+(sitemap and homepage card), which left all five tools broken in a browser and
+undiscoverable.
+
+## Owner's Operating Goal
 
 The owner wants GIF Gadgets to be a low-maintenance/"set it and let it
 cook" project.

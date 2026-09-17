@@ -21,6 +21,14 @@
   <link rel="stylesheet" href="/gif-utilities.css" />
   
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "applicationCategory": "MultimediaApplication", "description": "Extract the first frame, selected frames, or all GIF frames as PNG images. Download individually or together as a ZIP.", "name": "GIF to PNG \u0026 Frame Extractor", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "operatingSystem": "Web browser", "url": "https://gifgadgets.com/photo-converter/gif-to-png/"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Which frame does this convert by default?","acceptedAnswer":{"@type":"Answer","text":"Frame 1, which is the classic GIF to PNG behaviour. You can also enter a range such as 2-8 or choose All frames to export the whole animation."}},
+{"@type":"Question","name":"Is GIF transparency preserved in the PNG?","acceptedAnswer":{"@type":"Answer","text":"Yes. PNG supports alpha transparency, so transparent areas in the GIF are preserved in the exported PNG."}},
+{"@type":"Question","name":"Can I extract every frame from an animated GIF?","acceptedAnswer":{"@type":"Answer","text":"Yes. Choose All frames, up to 500 at a time. A single frame downloads as a PNG; several frames download as a ZIP, with each frame also listed individually below the tool."}},
+{"@type":"Question","name":"Do exported frames include content from earlier frames?","acceptedAnswer":{"@type":"Answer","text":"Yes. Each PNG is the fully composed canvas at that point in the animation, not just the small region that changed, so every frame looks the way it does during playback."}},
+{"@type":"Question","name":"Why use PNG instead of JPG?","acceptedAnswer":{"@type":"Answer","text":"PNG preserves GIF transparency, which JPG cannot, and it is lossless, so no quality is lost beyond the GIF\u0027s own fidelity."}},
+{"@type":"Question","name":"Is my GIF uploaded to a server?","acceptedAnswer":{"@type":"Answer","text":"No. Frames are decoded and written to PNG entirely in your browser."}}
+]}</script>
 
   <script src="/cookie-consent.js" defer></script>
 
@@ -101,6 +109,20 @@
   <p>PNG frames include the complete composed image, including content retained from earlier frames. PNG exports preserve transparency.</p>
   
   </section>
+  
+  <section class="utility-help utility-faq">
+  <h2>Frequently asked questions</h2>
+  <dl class="tool-faq">
+    <div class="tool-faq-item"><dt>Which frame does this convert by default?</dt><dd>Frame 1, which is the classic GIF to PNG behaviour. You can also enter a range such as 2-8 or choose All frames to export the whole animation.</dd></div>
+    <div class="tool-faq-item"><dt>Is GIF transparency preserved in the PNG?</dt><dd>Yes. PNG supports alpha transparency, so transparent areas in the GIF are preserved in the exported PNG.</dd></div>
+    <div class="tool-faq-item"><dt>Can I extract every frame from an animated GIF?</dt><dd>Yes. Choose All frames, up to 500 at a time. A single frame downloads as a PNG; several frames download as a ZIP, with each frame also listed individually below the tool.</dd></div>
+    <div class="tool-faq-item"><dt>Do exported frames include content from earlier frames?</dt><dd>Yes. Each PNG is the fully composed canvas at that point in the animation, not just the small region that changed, so every frame looks the way it does during playback.</dd></div>
+    <div class="tool-faq-item"><dt>Why use PNG instead of JPG?</dt><dd>PNG preserves GIF transparency, which JPG cannot, and it is lossless, so no quality is lost beyond the GIF's own fidelity.</dd></div>
+    <div class="tool-faq-item"><dt>Is my GIF uploaded to a server?</dt><dd>No. Frames are decoded and written to PNG entirely in your browser.</dd></div>
+    
+  </dl>
+  </section>
+  
   <h2>More GIF tools</h2>
   <nav class="tool-grid" aria-label="GIF animation tools">
   <a href="/gif-speed/" class="tool-card gif">

@@ -4,3 +4,11 @@
 {% set utility_title = "GIF to PNG & Frame Extractor" %}
 {% set utility_description = "Extract the first frame, selected frames, or all GIF frames as PNG images. Download individually or together as a ZIP." %}
 {% set utility_help = "Keep frame 1 for the first-frame converter, enter a range such as 2-8, or choose all frames. Export up to 500 frames at a time." %}
+{% set utility_faq = [
+  {"q": "Which frame does this convert by default?", "a": "Frame 1, which is the classic GIF to PNG behaviour. You can also enter a range such as 2-8 or choose All frames to export the whole animation."},
+  {"q": "Is GIF transparency preserved in the PNG?", "a": "Yes. PNG supports alpha transparency, so transparent areas in the GIF are preserved in the exported PNG."},
+  {"q": "Can I extract every frame from an animated GIF?", "a": "Yes. Choose All frames, up to 500 at a time. A single frame downloads as a PNG; several frames download as a ZIP, with each frame also listed individually below the tool."},
+  {"q": "Do exported frames include content from earlier frames?", "a": "Yes. Each PNG is the fully composed canvas at that point in the animation, not just the small region that changed, so every frame looks the way it does during playback."},
+  {"q": "Why use PNG instead of JPG?", "a": "PNG preserves GIF transparency, which JPG cannot, and it is lossless, so no quality is lost beyond the GIF's own fidelity."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Frames are decoded and written to PNG entirely in your browser."}
+] %}

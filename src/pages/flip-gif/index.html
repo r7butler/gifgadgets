@@ -3,3 +3,9 @@
 {% set utility_title = "Flip GIF" %}
 {% set utility_description = "Mirror an animated GIF horizontally or vertically." %}
 {% set utility_help = "Choose horizontal for a mirror image or vertical to turn the animation upside down. The whole animation is transformed." %}
+{% set utility_faq = [
+  {"q": "What is the difference between horizontal and vertical?", "a": "Horizontal mirrors the image left to right, like a reflection. Vertical mirrors it top to bottom, which turns it upside down without rotating it."},
+  {"q": "Does flipping reverse the playback order?", "a": "No. Flipping changes the picture, not the timing. Use the Reverse GIF tool to play the frames backward."},
+  {"q": "Does flipping lose quality?", "a": "No resampling happens, because each pixel moves to an exact mirrored position. Frames are re-encoded, so the file size may change slightly."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Flipping runs entirely in your browser."}
+] %}

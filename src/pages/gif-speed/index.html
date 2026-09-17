@@ -3,3 +3,10 @@
 {% set utility_title = "Change GIF Speed" %}
 {% set utility_description = "Speed up or slow down an animated GIF. The exported file uses your chosen speed." %}
 {% set utility_help = "Choose a speed multiplier. 2× halves frame delays; 0.5× doubles them. GIF timing is rounded to hundredths of a second. Frames with zero or missing delay keep their original timing; browsers may impose a minimum playback delay." %}
+{% set utility_faq = [
+  {"q": "Does changing the speed reduce quality?", "a": "No. Speed only rewrites each frame's delay value. The compressed image data is copied through untouched, so nothing is re-encoded and no quality is lost."},
+  {"q": "Why doesn't my GIF play exactly at the speed I chose?", "a": "GIF stores delays in hundredths of a second, so the new timing is rounded to the nearest hundredth. Browsers also enforce a minimum frame delay, so very high multipliers play slower than requested."},
+  {"q": "What happens to frames that have no delay?", "a": "Frames with a zero or missing delay keep their original timing rather than being given an invented one, so a static or badly authored GIF is not silently changed."},
+  {"q": "What speed range is available?", "a": "0.1x to 10x. A 2x multiplier halves every delay, and 0.5x doubles them."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. The whole operation runs in your browser and the file never leaves your device."}
+] %}

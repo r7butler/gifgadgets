@@ -3,3 +3,10 @@
 {% set utility_title = "Combine GIFs" %}
 {% set utility_description = "Join animated GIFs in sequence with a shared canvas and playback controls." %}
 {% set utility_help = "Choose 2–20 GIFs, use the order buttons, then set the canvas, playback speed and loop behavior." %}
+{% set utility_faq = [
+  {"q": "How many GIFs can I join at once?", "a": "Between 2 and 20 files, up to 40 MB in total rather than 40 MB each. Very large dimensions or frame counts can still exceed the browser memory budget, and the tool says so instead of failing silently."},
+  {"q": "What order do they play in?", "a": "The order you selected them, which is listed in the settings panel so you can confirm it before applying."},
+  {"q": "What if my GIFs are different sizes?", "a": "Each one is fitted to the canvas dimensions you choose using the fit option, so mismatched inputs still line up instead of jumping between sizes."},
+  {"q": "Can each GIF keep its own speed?", "a": "No. One speed multiplier applies to the whole combined animation. Adjust an individual GIF with the Change GIF Speed tool first, then combine."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. All of the GIFs are combined in your browser."}
+] %}

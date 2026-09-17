@@ -12,6 +12,14 @@
 {% block head_extra %}<link rel="stylesheet" href="/gif-utilities.css" />{% endblock %}
 {% block structured_data %}
 <script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":utility_title, "url":site_url + '/' + (utility_path | default(utility_slug)) + '/', "description":utility_description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}} | tojson }}</script>
+{%- set faq = utility_faq | default([], true) %}
+{%- if faq %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{%- for item in faq %}
+{"@type":"Question","name":{{ item.q | tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ item.a | tojson }}}}{{ "," if not loop.last }}
+{%- endfor %}
+]}</script>
+{%- endif %}
 {% endblock %}
 {% block body_attrs %} style="--hero-color:var(--cat-gif);--hero-icon-bg:var(--cat-gif-dim);--hero-glow:rgba(99,102,241,.12)"{% endblock %}
 {% block content %}
@@ -112,6 +120,16 @@
   {% elif utility_slug in ['gif-speed', 'gif-loop'] %}<p>This tool edits animation metadata while preserving the original compressed image data.</p>
   {% else %}<p>Frames are re-encoded. File size may change. If a composed frame exceeds the GIF color limit, its colors are reduced; the result reports when that happens.</p>{% endif %}
   </section>
+  {%- set faq = utility_faq | default([], true) %}
+  {% if faq %}
+  <section class="utility-help utility-faq">
+  <h2>Frequently asked questions</h2>
+  <dl class="tool-faq">
+    {% for item in faq %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>
+    {% endfor %}
+  </dl>
+  </section>
+  {% endif %}
   <h2>More GIF tools</h2>
   {% include 'partials/gif-utility-links.html' %}
   <p><a href="/gif-resizer/">Resize a GIF</a> · <a href="/crop-gif/">Crop a GIF</a> · <a href="/gif-editor/">Add captions</a></p>

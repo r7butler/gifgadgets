@@ -3,3 +3,10 @@
 {% set utility_title = "Compress GIF" %}
 {% set utility_description = "Compare GIF file sizes with optional color reduction and comment removal." %}
 {% set utility_help = "Choose a color limit or remove comments without changing the image data. Compare the before and after preview; download the smaller result." %}
+{% set utility_faq = [
+  {"q": "Is the compression lossless?", "a": "It depends on the method. Remove comments only rebuilds the file without comment blocks and leaves the image data identical, so it is genuinely lossless. Reduce colors re-encodes with a smaller palette and is not lossless."},
+  {"q": "How much smaller will my GIF get?", "a": "There is no guaranteed reduction, and any tool promising a specific size is guessing. Already optimised GIFs may barely shrink. The result shows the original and new sizes so you can judge before downloading."},
+  {"q": "Which color count should I choose?", "a": "64 is a reasonable starting point. Flat graphics and screen recordings survive aggressive reduction well; photographs and smooth gradients show banding much sooner. Compare the previews before downloading."},
+  {"q": "Why did the tool say re-encoding did not improve the size?", "a": "GIF already compresses its palette data, so a re-encode can come out larger than the original. When that happens the smaller original image data is kept instead, so you never end up with a bigger file."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Compression runs entirely in your browser."}
+] %}
