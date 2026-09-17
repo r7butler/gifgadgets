@@ -1,0 +1,6 @@
+{% extends 'video-utility.html' %}
+{% set utility_slug = "video-frame-extractor" %}
+{% set utility_title = "Video Frame Extractor" %}
+{% set utility_description = "Save a selected moment from your video as a full-resolution PNG." %}
+{% set utility_help = "Enter a timestamp in seconds. Export the first decoded frame at or after that time." %}
+{% set utility_faq = [{"q": "What image format can I download?", "a": "Frames are saved as lossless PNG images at the decoded video resolution."}, {"q": "How do I choose a frame?", "a": "Play or scrub the preview, then use its current time or enter a timestamp in seconds. The export uses the first decoded frame at or after that timestamp."}, {"q": "Are my files uploaded?", "a": "No. Processing happens on your device. A roughly 31 MB processing engine downloads on first use and can be cached by your browser."}, {"q": "What are the size and browser limits?", "a": "Use a recent browser with WebAssembly and a file up to 100 MB. Large or long videos may exceed device memory; shorter clips work best. MP4, MOV and WebM codec support varies, and some sources cannot play in the preview even when they can be processed."}] %}

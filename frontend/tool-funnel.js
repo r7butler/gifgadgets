@@ -5,7 +5,7 @@
     'crop-gif', 'gif-maker', 'video-to-gif', 'gif-speed', 'reverse-gif',
     'rotate-gif', 'flip-gif', 'gif-loop', 'trim-gif', 'compress-gif',
     'remove-gif-frames', 'gif-canvas', 'combine-gifs', 'bulk-resize-images',
-    'bulk-compress-images', 'bulk-convert-images', 'image-contact-sheet'];
+    'bulk-compress-images', 'bulk-convert-images', 'image-contact-sheet', 'gif-to-mp4', 'video-frame-extractor', 'trim-video', 'mute-video'];
   var converters = ['jpg-to-png', 'png-to-jpg', 'jpg-to-webp', 'png-to-webp',
     'webp-to-jpg', 'gif-to-png', 'svg-to-png', 'heic-to-jpg'];
   var parts = location.pathname.split('/').filter(Boolean);

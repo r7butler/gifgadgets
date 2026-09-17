@@ -1,0 +1,6 @@
+{% extends 'video-utility.html' %}
+{% set utility_slug = "mute-video" %}
+{% set utility_title = "Mute Video" %}
+{% set utility_description = "Remove every audio track from a video and download a silent copy." %}
+{% set utility_help = "MP4, MOV and WebM are accepted. Video is copied without re-encoding into MP4 or WebM; incompatible codecs produce a clear error." %}
+{% set utility_faq = [{"q": "Is the audio really removed?", "a": "Yes. Every audio track is excluded from the exported file, rather than just turning down playback volume."}, {"q": "Will muting change video quality?", "a": "No. The video stream is copied without re-encoding. MP4 and MOV inputs export as MP4; WebM inputs export as WebM. Codecs that cannot be copied to those containers are not supported."}, {"q": "Are my files uploaded?", "a": "No. Processing happens on your device. A roughly 31 MB processing engine downloads on first use and can be cached by your browser."}, {"q": "What are the size and browser limits?", "a": "Use a recent browser with WebAssembly and a file up to 100 MB. Large or long videos may exceed device memory; shorter clips work best. MP4, MOV and WebM codec support varies, and some sources cannot play in the preview even when they can be processed."}] %}

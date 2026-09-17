@@ -26,3 +26,6 @@ If the encoder is ever replaced, replace these files and re-run the checksum.
 **Note:** `heic2any.min.js` is 1.3 MB and is currently loaded synchronously on six
 pages, though it is only needed when a HEIC file is selected. Loading it on demand
 would remove that from the critical path.
+
+Video tools additionally use the pinned single-thread FFmpeg core in `ffmpeg/`.
+See `ffmpeg/README.md` for source, license, loading behavior and version details.

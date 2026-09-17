@@ -82,10 +82,9 @@ the GIF template and engine. The nav entry that read "Image Editor" now reads
 "Image Tools" and points at the homepage `#image-tools` section. See
 `docs/batch-three-utilities.md`.
 
-Batch four remains: GIF to MP4, video frame extractor, trim video, mute video.
-All four need real video encoding, which is a materially bigger problem than
-anything in batches one to three — expect WebCodecs or a WASM build of FFmpeg,
-and check bundle size and browser support before committing to an approach.
+Batch four is now implemented locally: GIF to MP4, video frame extractor, trim
+video and mute video. It uses a lazily loaded, single-thread FFmpeg WASM engine.
+See the batch-four implementation notes below and `docs/batch-four-utilities.md`.
 
 **Before starting batch four, read `memory/utility-page-conventions.md`.** It
 records the five steps a tool needs to be considered finished — batch two was
@@ -198,3 +197,13 @@ worthwhile.
 GIF Gadgets should grow primarily by having many genuinely useful,
 focused web utilities that answer specific search intents --- not by
 producing large amounts of generic AI-written SEO content.
+
+## Batch four implementation (September 17, 2026)
+
+Batch four is implemented locally as a new **Video Tools** homepage group:
+`/gif-to-mp4/`, `/video-frame-extractor/`, `/trim-video/`, `/mute-video/`.
+It uses `src/templates/video-utility.html`, `frontend/video-utilities.js` and
+`frontend/video-utilities-worker.js`. A pinned, self-hosted single-thread FFmpeg
+WASM engine loads after file selection (~31 MB), keeping media local without
+server conversion or new isolation headers. See `docs/batch-four-utilities.md`
+for supported formats, limits, behavior and tests. This work is not deployed.

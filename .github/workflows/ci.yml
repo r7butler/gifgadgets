@@ -64,6 +64,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install video output verification tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 

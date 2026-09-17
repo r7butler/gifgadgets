@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% set active_nav = 'video-tools' %}
+{% block title %}{{ utility_title }} Online, Free & Local | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ utility_description }} Free, private processing in your browser. No signup." />
+<link rel="canonical" href="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:title" content="{{ utility_title }} | {{ site_brand }}" />
+<meta property="og:description" content="{{ utility_description }}" />
+<meta property="og:url" content="{{ site_url }}/{{ utility_path | default(utility_slug) }}/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/utilities.css" />{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":utility_title, "url":site_url + '/' + (utility_path | default(utility_slug)) + '/', "description":utility_description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}} | tojson }}</script>
+{%- set faq = utility_faq | default([], true) %}
+{%- if faq %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{%- for item in faq %}
+{"@type":"Question","name":{{ item.q | tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ item.a | tojson }}}}{{ "," if not loop.last }}
+{%- endfor %}
+]}</script>
+{%- endif %}
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-video);--hero-icon-bg:var(--cat-video-dim)"{% endblock %}
+{% block content %}
+{% include 'partials/nav.html' %}
+<main class="tool-utility video-utility" data-tool="{{ utility_slug }}">
+<header class="tool-hero utility-hero">
+<div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-4v12l-6-4"/></svg></div>
+<h1>{{ utility_title }}</h1><p class="tool-hero-tagline">{{ utility_description }}</p><p class="utility-private">Free · No signup · Your files stay on your device</p></header>
+<div class="utility-workspace">
+<section class="utility-stage" aria-label="Media previews">
+<button id="utility-upload" class="utility-drop-zone" type="button"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg><strong>Drop your {{ 'GIF' if utility_slug == 'gif-to-mp4' else 'video' }} here</strong><span>or click to browse</span><small>{{ 'GIF' if utility_slug == 'gif-to-mp4' else 'MP4 · MOV · WebM' }} — up to 100 MB</small></button>
+<input id="utility-file" type="file" accept="{{ 'image/gif,.gif' if utility_slug == 'gif-to-mp4' else 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm' }}" aria-label="Choose media file" hidden />
+<div class="utility-previews"><figure id="utility-original-wrap" hidden><figcaption>Original</figcaption><div class="utility-preview-image">{% if utility_slug == 'gif-to-mp4' %}<img id="utility-original" alt="Original GIF" />{% else %}<video id="utility-original" controls playsinline preload="metadata"></video>{% endif %}</div><p id="utility-preview-note" class="utility-hint" hidden>This source cannot play in your browser. You can still try exporting it.</p></figure>
+<figure id="utility-result-wrap" hidden><figcaption>Result</figcaption><div class="utility-preview-image">{% if utility_slug == 'video-frame-extractor' %}<img id="utility-result" alt="Extracted video frame" />{% else %}<video id="utility-result" controls playsinline></video>{% endif %}</div></figure></div>
+<button id="utility-new" class="btn btn-ghost" type="button" hidden>Choose another file</button>
+</section>
+<aside class="utility-sidebar" aria-label="Video settings"><div class="utility-panel-heading">Settings</div><p id="utility-info"></p>
+<fieldset id="utility-options" disabled><legend class="utility-sr-only">Video settings</legend>
+{% if utility_slug in ['trim-video','video-frame-extractor'] %}
+<label for="utility-start">{{ 'Start time' if utility_slug == 'trim-video' else 'Frame time' }} (seconds)</label><input id="utility-start" type="number" min="0" step="0.001" value="0" />
+<button id="utility-use-time" class="btn btn-ghost" type="button">Use preview time</button>
+{% endif %}
+{% if utility_slug == 'trim-video' %}<label for="utility-end">End time (seconds)</label><input id="utility-end" type="number" min="0" step="0.001" />{% endif %}
+<p class="utility-hint">{{ utility_help }}</p><button id="utility-apply" class="btn btn-accent utility-primary" type="button">{{ 'Extract frame' if utility_slug == 'video-frame-extractor' else 'Export video' }}</button></fieldset>
+<button id="utility-cancel" class="btn btn-ghost" type="button" hidden>Cancel processing</button><p id="utility-status" role="status" aria-live="polite"></p><progress id="utility-progress" hidden aria-label="Processing"></progress><a id="utility-download" class="btn btn-accent utility-primary" hidden download>Download</a>
+</aside></div>
+<section class="utility-help"><h2>How to use {{ utility_title }}</h2><ol><li>Choose a file from your device or drag it onto the upload area.</li><li>{{ utility_help }}</li><li>Export, preview the result, and download your file.</li></ol><p>Files stay on your device. The processing engine downloads on first use (about 31 MB). Processing speed and available memory depend on your device. Keep this tab open while exporting; cancel at any time to stop processing.</p></section>
+<section class="utility-help utility-faq"><h2>Frequently asked questions</h2><dl class="tool-faq">{% for item in utility_faq %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>{% endfor %}</dl></section>
+<h2>More video tools</h2><div class="tool-grid">{% include 'partials/video-utility-cards.html' %}</div><p><a href="/video-to-gif/">Video to GIF</a> · <a href="/#image-tools">Image tools</a> · <a href="/#gif-utilities">GIF tools</a></p>
+</main>{% include 'partials/footer.html' %}{% endblock %}
+{% block scripts %}<script src="/video-utilities.js"></script>{% endblock %}

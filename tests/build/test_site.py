@@ -66,6 +66,21 @@ class SiteBuildTests(unittest.TestCase):
             self.assertIn('href="/#image-tools"', home)
             self.assertIn('>Image Tools<', home)
 
+    def test_video_utilities_are_discoverable(self):
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            self.assertIn('id="video-tools"', (root / 'index.html').read_text())
+            for slug in ['gif-to-mp4', 'video-frame-extractor', 'trim-video', 'mute-video']:
+                self.assertIn('/' + slug + '/', (root / 'sitemap.xml').read_text())
+                self.assertIn('/' + slug + '/', (root / 'index.html').read_text())
+                page = (root / slug / 'index.html').read_text()
+                self.assertIn('rel="canonical"', page)
+                self.assertNotIn('noindex', page)
+                self.assertIn('"FAQPage"', page)
+                self.assertIn('/video-utilities.js', page)
+                self.assertIn('id="utility-file"', page)
+
     def test_brand_is_templated(self):
         """No page may hardcode a brand name; the split logo must reassemble."""
         env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Brand',

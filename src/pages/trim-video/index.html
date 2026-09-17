@@ -1,0 +1,6 @@
+{% extends 'video-utility.html' %}
+{% set utility_slug = "trim-video" %}
+{% set utility_title = "Trim Video" %}
+{% set utility_description = "Keep the part you need and export a shorter MP4 video." %}
+{% set utility_help = "Set start and end times in seconds. The clip is re-encoded to H.264 with AAC audio when present." %}
+{% set utility_faq = [{"q": "Will my trimmed video keep its sound?", "a": "Yes. The first audio track is kept and converted to AAC when present."}, {"q": "Are cuts limited to keyframes?", "a": "No. The clip is decoded and re-encoded for cuts at the selected times, subject to frame timing. Re-encoding can slightly change quality."}, {"q": "Are my files uploaded?", "a": "No. Processing happens on your device. A roughly 31 MB processing engine downloads on first use and can be cached by your browser."}, {"q": "What are the size and browser limits?", "a": "Use a recent browser with WebAssembly and a file up to 100 MB. Large or long videos may exceed device memory; shorter clips work best. MP4, MOV and WebM codec support varies, and some sources cannot play in the preview even when they can be processed."}] %}

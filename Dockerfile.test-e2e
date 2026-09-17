@@ -1,5 +1,7 @@
 FROM mcr.microsoft.com/playwright:v1.58.2-noble
 
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files and install
