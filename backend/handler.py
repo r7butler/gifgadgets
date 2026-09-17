@@ -25,6 +25,15 @@ GITHUB_SECRET_ARN = os.environ.get("GITHUB_SECRET_ARN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
 JOBS_TABLE = os.environ.get("JOBS_TABLE", "")
 FEATURES_DISABLED = set(filter(None, os.environ.get("FEATURES_DISABLED", "").split(",")))
+IP_HASH_SALT = os.environ.get("IP_HASH_SALT", "")
+SITE_BRAND = os.environ.get("SITE_BRAND", "GifGadgets")
+
+# Shown when AI tracking cannot run at all — no credit, endpoint down, throttled.
+# Names the manual alternative so the editor stays usable instead of dead-ending.
+TRACKER_UNAVAILABLE_MESSAGE = (
+    "AI tracking is temporarily unavailable. You can still add moving captions "
+    "using manual keyframes."
+)
 MODAL_API_KEY = os.environ.get("MODAL_API_KEY", "")
 MODAL_TRACKER_URL = os.environ.get("MODAL_TRACKER_URL", "")
 MODAL_CONVERTER_URL = os.environ.get("MODAL_CONVERTER_URL", "")
@@ -74,6 +83,7 @@ def _build_share_page(title, gif_url, slug, content_type="image/gif"):
     slug = html.escape(slug, quote=True)
     content_type = html.escape(content_type, quote=True)
     site_root = html.escape(SITE_CDN_URL or "", quote=True)
+    brand = html.escape(SITE_BRAND, quote=True)
     is_video = content_type.startswith("video/")
 
     if is_video:
@@ -98,11 +108,11 @@ def _build_share_page(title, gif_url, slug, content_type="image/gif"):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{safe_title} — GifWidgets</title>
-<meta name="description" content="{safe_title} — made with GifWidgets, free online media tools.">
+<title>{safe_title} — {brand}</title>
+<meta name="description" content="{safe_title} — made with {brand}, free online media tools.">
 {og_meta}
 <meta property="og:title" content="{safe_title}">
-<meta property="og:description" content="Made with GifWidgets — free online media tools">
+<meta property="og:description" content="Made with {brand} — free online media tools">
 <meta property="og:url" content="{site_root}/g/{slug}.html">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{safe_title}">
@@ -132,7 +142,7 @@ border:none;font-size:.95rem;font-weight:600;cursor:pointer;text-decoration:none
 <a class="btn btn-primary" href="{site_root}/editor.html">Make Your Own</a>
 <a class="btn btn-outline" href="{gif_url}" download>Download</a>
 </div>
-<p class="brand">Made with <a href="{site_root}/">GifWidgets</a></p>
+<p class="brand">Made with <a href="{site_root}/">{brand}</a></p>
 </body>
 </html>"""
 
@@ -148,12 +158,26 @@ def _get_client_ip(event):
     return event.get("requestContext", {}).get("http", {}).get("sourceIp", "unknown")
 
 
+def _hash_ip(ip):
+    """Salted hash of a client IP for rate-limit keys.
+
+    IPv4 has only ~4.3 billion values, so an unsalted digest can be reversed by
+    exhausting the space. The salt is a secret held in the Lambda environment and
+    never stored alongside the hash, which makes that table impossible to build.
+    The same IP still maps to the same key, so quota counting is unaffected.
+    """
+    if not IP_HASH_SALT:
+        # Fail closed: a missing salt would silently restore reversible hashes.
+        raise RuntimeError("IP_HASH_SALT is not configured")
+    return hashlib.sha256(IP_HASH_SALT.encode() + b"|" + ip.encode()).hexdigest()[:16]
+
+
 def _check_quota(event, limit=20, window=3600, operation="compute"):
     """Atomically reserve a request; reporting does not consume compute quota."""
     table = _get_jobs_table()
     if not table:
         return False, ""
-    ip_hash = hashlib.sha256(_get_client_ip(event).encode()).hexdigest()[:16]
+    ip_hash = _hash_ip(_get_client_ip(event))
     now = int(time.time())
     bucket = now // window
     try:
@@ -798,7 +822,9 @@ def _track_submit(event):
         return _cors_response(400, {"error": "Missing or invalid s3_key"})
 
     if not MODAL_TRACKER_URL:
-        return _cors_response(503, {"error": "Tracker not configured"})
+        return _cors_response(503, {
+            "error": TRACKER_UNAVAILABLE_MESSAGE, "unavailable": True,
+        })
 
     job_id = s3_key.split("/")[-1].replace(".json", "")
 
@@ -852,12 +878,25 @@ def _track_submit(event):
             "event": "track_error", "job_id": job_id,
             "status": e.code, "detail": detail,
         }))
-        return _cors_response(502, {"error": "Tracker processing failed"})
+        # Distinguish "the service cannot run right now" from "this job failed".
+        # Exhausted Modal credit, a suspended app, throttling or an upstream
+        # outage are all service-level and say nothing about the user's file, so
+        # they get a 503 and a message that points at the manual alternative.
+        if e.code in (401, 402, 403, 404, 429) or e.code >= 500:
+            return _cors_response(503, {
+                "error": TRACKER_UNAVAILABLE_MESSAGE,
+                "unavailable": True,
+            })
+        return _cors_response(502, {"error": "Tracking could not process this GIF."})
     except Exception as e:
+        # Timeouts, DNS failures, a torn-down endpoint — also service-level.
         logger.error(json.dumps({
             "event": "track_error", "job_id": job_id, "error": str(e),
         }))
-        return _cors_response(502, {"error": "Tracker unavailable"})
+        return _cors_response(503, {
+            "error": TRACKER_UNAVAILABLE_MESSAGE,
+            "unavailable": True,
+        })
     finally:
         # The tracker used to delete this itself. Best-effort: the bucket
         # lifecycle rule expires track/* after a day regardless.

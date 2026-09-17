@@ -283,6 +283,8 @@ resource "aws_lambda_function" "api" {
       GITHUB_REPO         = var.github_repo
       JOBS_TABLE          = aws_dynamodb_table.jobs.name
       FEATURES_DISABLED   = ""
+      IP_HASH_SALT        = var.ip_hash_salt
+      SITE_BRAND          = var.site_brand_name
       MODAL_API_KEY       = var.modal_api_key
       MODAL_TRACKER_URL   = var.modal_tracker_url
       MODAL_CONVERTER_URL = var.modal_converter_url
@@ -976,4 +978,45 @@ resource "aws_cloudwatch_dashboard" "main" {
       },
     ]
   })
+}
+
+# ── Cost alerting ─────────────────────────────────────────
+# The site is deliberately low-maintenance, so the operator is not watching the
+# dashboard. These alarms exist so an unexpected bill is noticed in a day rather
+# than at the end of the month. They notify only — nothing is shut off
+# automatically. The hard ceiling on GPU spend is Modal's prepaid credit balance.
+
+resource "aws_budgets_budget" "monthly_cost" {
+  name         = "${var.project_slug}-monthly"
+  budget_type  = "COST"
+  limit_amount = var.monthly_budget_usd
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  # Fires once actual spend crosses the threshold.
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.budget_alert_email]
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.budget_alert_email]
+  }
+
+  # Catches a runaway early: AWS projects month-end spend from the current run
+  # rate, so a sudden spike alerts before the money is actually spent.
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.budget_alert_email]
+  }
 }

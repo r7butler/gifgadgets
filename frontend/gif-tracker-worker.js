@@ -31,6 +31,19 @@ async function apiFetch(url, options) {
   return fetch(url, options);
 }
 
+// The API returns a readable message for service-level failures (no GPU credit,
+// endpoint down, throttled, rate limited). Prefer it over a raw status dump.
+function apiError(status, text) {
+  var friendly = null;
+  try {
+    var parsed = JSON.parse(text);
+    if (parsed && typeof parsed.error === 'string') friendly = parsed.error;
+  } catch (_) {}
+  var err = new Error(friendly || ('Tracker API ' + status + ': ' + text));
+  err.unavailable = status === 503 || status === 429;
+  return err;
+}
+
 async function frameToJpegB64(frame) {
   var canvas = new OffscreenCanvas(frame.width, frame.height);
   var ctx    = canvas.getContext('2d');
@@ -70,7 +83,7 @@ async function doTracking(msg) {
 
   if (!presignResp.ok) {
     var presignText = await presignResp.text();
-    throw new Error('Tracker API ' + presignResp.status + ': ' + presignText);
+    throw apiError(presignResp.status, presignText);
   }
 
   var presign = await presignResp.json();
@@ -102,7 +115,7 @@ async function doTracking(msg) {
 
   if (!resp.ok) {
     var text = await resp.text();
-    throw new Error('Tracker API ' + resp.status + ': ' + text);
+    throw apiError(resp.status, text);
   }
 
   var result = await resp.json();
@@ -130,7 +143,7 @@ self.onmessage = function (e) {
     });
   } else if (e.data.type === 'track') {
     doTracking(e.data).catch(function (err) {
-      post({ type: 'error', message: err.message });
+      post({ type: 'error', message: err.message, unavailable: !!err.unavailable });
     });
   }
 };

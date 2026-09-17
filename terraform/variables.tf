@@ -95,6 +95,24 @@ variable "github_issue_poster_pat" {
   sensitive   = true
 }
 
+variable "monthly_budget_usd" {
+  description = "Monthly AWS spend that triggers budget alerts. Alerts notify only; nothing is disabled automatically."
+  type        = string
+  default     = "25"
+}
+
+variable "budget_alert_email" {
+  description = "Address that receives AWS budget alerts."
+  type        = string
+  default     = "r7butler.freelance@gmail.com"
+}
+
+variable "ip_hash_salt" {
+  description = "Secret salt for hashing client IPs in rate-limit records. Without it an unsalted IPv4 hash is brute-forceable. Generate with: openssl rand -hex 32"
+  type        = string
+  sensitive   = true
+}
+
 variable "modal_api_key" {
   description = "Shared secret used by Lambda to authenticate requests to Modal endpoints"
   type        = string

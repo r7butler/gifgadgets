@@ -442,7 +442,7 @@ class TestTrackSubmit:
         event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
         assert resp["statusCode"] == 503
-        assert "not configured" in json.loads(resp["body"])["error"]
+        assert json.loads(resp["body"])["unavailable"] is True
 
     @patch("backend.handler.urllib.request.urlopen")
     def test_successful_proxy(self, mock_urlopen):
@@ -573,15 +573,19 @@ class TestTrackSubmit:
         )
         event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
-        assert resp["statusCode"] == 502
-        assert "failed" in json.loads(resp["body"])["error"].lower()
+        assert resp["statusCode"] == 503
+        # A 5xx from Modal is a service problem, not a problem with the user's
+        # GIF, so the message points at the manual-keyframe alternative.
+        body = json.loads(resp["body"])
+        assert body["unavailable"] is True
+        assert "manual keyframes" in body["error"]
 
     @patch("backend.handler.urllib.request.urlopen")
     def test_modal_connection_error(self, mock_urlopen):
         mock_urlopen.side_effect = ConnectionError("Connection refused")
         event = make_event("/api/track/submit", {"s3_key": "track/abc123abc123.json"})
         resp = h.handler(event, None)
-        assert resp["statusCode"] == 502
+        assert resp["statusCode"] == 503
         assert "unavailable" in json.loads(resp["body"])["error"].lower()
 
 

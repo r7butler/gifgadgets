@@ -26,7 +26,7 @@
   // encoder can use it later without a cross-origin request.
 
   GC.preloadGifWorker = function () {
-    fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+    fetch('/vendor/gif.worker.js')
       .then(function (r) { return r.blob(); })
       .then(function (blob) {
         state._workerBlobUrl = URL.createObjectURL(blob);

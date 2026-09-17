@@ -35,7 +35,7 @@
   if (typeof document === 'undefined') {
     self.onmessage = async function (event) {
       try {
-        importScripts('https://unpkg.com/omggif@1.0.10/omggif.js');
+        importScripts('/vendor/omggif.js');
         await scope.GWDecodeGif(event.data, function (frame) {
           self.postMessage({ frame: frame }, [frame.pixels.buffer]);
         }, function (done, total) { self.postMessage({ done: done, total: total }); });

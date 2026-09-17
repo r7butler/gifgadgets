@@ -196,3 +196,29 @@ def test_kill_switches_and_warmup_coalescing(storage, monkeypatch):
     assert h.handle_track_warmup(event)["statusCode"] == 200
     assert h.handle_convert_to_mp4(make_event("/convert-to-mp4", {}))["statusCode"] == 503
     remote.assert_called_once()
+
+
+def test_ip_hash_is_salted_and_fails_closed(monkeypatch):
+    """An unsalted IPv4 digest is reversible by exhausting the address space."""
+    ip = "203.0.113.42"
+
+    monkeypatch.setattr(h, "IP_HASH_SALT", "salt-one")
+    first = h._hash_ip(ip)
+    monkeypatch.setattr(h, "IP_HASH_SALT", "salt-two")
+    second = h._hash_ip(ip)
+
+    # Same IP, different salts -> different keys, so a precomputed table built
+    # for one deployment is useless against another.
+    assert first != second
+
+    # Stable within a deployment, or quota counting would stop working.
+    assert h._hash_ip(ip) == second
+
+    # The bare digest must never be the stored value.
+    import hashlib
+    assert second != hashlib.sha256(ip.encode()).hexdigest()[:16]
+
+    # Missing salt must raise rather than silently revert to a reversible hash.
+    monkeypatch.setattr(h, "IP_HASH_SALT", "")
+    with pytest.raises(RuntimeError):
+        h._hash_ip(ip)

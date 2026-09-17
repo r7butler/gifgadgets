@@ -81,7 +81,9 @@
     } else if (msg.type === 'error') {
       if (_trackingMetric) _trackingMetric.fail();
       _hideTrackingProgress();
-      GC.showError('Tracking failed: ' + msg.message);
+      // A service-level outage is not a failure of the user's GIF, and the
+      // message already explains the manual alternative.
+      GC.showError(msg.unavailable ? msg.message : 'Tracking failed: ' + msg.message);
       _trackingCap = null;
     }
   }
