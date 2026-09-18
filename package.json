@@ -2,6 +2,8 @@
   "name": "gifwidgets",
   "private": true,
   "scripts": {
+    "test:background-utilities": "node --test tests/background-core.test.cjs && playwright test --config=tests/e2e/playwright.config.js background-utilities.spec.js --workers=3",
+    "test:unit": "node --test tests/*.test.cjs",
     "test:gif-utilities": "node --test tests/gif-utilities.test.cjs && playwright test --config=tests/e2e/playwright.config.js gif-utilities.spec.js",
     "test:image-utilities": "node --test tests/image-geometry.test.cjs && playwright test --config=tests/e2e/playwright.config.js image-utilities.spec.js",
     "build": "docker build -f Dockerfile.build -t gifwidgets-build . && docker run --rm -v \"$PWD:/app\" gifwidgets-build",

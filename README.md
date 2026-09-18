@@ -147,8 +147,7 @@ modal_api_key           = "..."   # shared secret, openssl rand -hex 32
 `gifwidgets-modal-api-key`. Lambda sends it as `X-Modal-Api-Key`; the Modal apps
 reject requests that do not match.
 
-> The Modal apps skip the auth check entirely when `MODAL_API_KEY` is unset, which
-> would leave the GPU endpoints open to the internet. Never deploy them without it.
+The Modal apps refuse startup when `MODAL_API_KEY` is missing or empty.
 
 ## Deploying
 
@@ -190,8 +189,15 @@ export MODAL_PROFILE=r7butler
 ```
 
 The endpoint URLs are derived from the workspace name. If they change, update
-`modal_tracker_url` / `modal_converter_url` in `variables.tf` and re-apply so Lambda
+`modal_tracker_url` / `modal_segmenter_url` / `modal_converter_url` in `variables.tf` and re-apply so Lambda
 points at the new endpoints. Nothing in the frontend references Modal URLs.
+
+The tracker deployment also includes the asynchronous background segmentation
+service used by `/remove-image-background/`, `/change-image-background/`,
+`/remove-gif-background/` and `/swap-gif-background/`. See
+[background tools](docs/background-utilities.md) for deployment order, validation,
+limits and GPU cost monitoring. Run `npm run test:background-utilities` after a
+template build to verify exports in Chromium, Firefox and WebKit.
 
 ### 4. Frontend
 

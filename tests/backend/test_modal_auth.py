@@ -64,3 +64,18 @@ def test_segmentation_broker_authenticates_all_routes(apps):
                            ('/status', {'call_id':'fc-test'}), ('/cancel', {'call_id':'fc-test'})]:
         for headers in ({}, {'X-Modal-Api-Key':'wrong'}):
             assert client.post(route, json=payload, headers=headers).status_code == 401
+
+
+def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, monkeypatch):
+    import json
+    monkeypatch.setitem(sys.modules, 'segmentation', SimpleNamespace(segment_file=Mock()))
+    apps[1].side_effect = RuntimeError('model loading failed')
+    with pytest.raises(RuntimeError, match='model loading'):
+        apps[0]['tracker'].segment_media('https://private-source', 'https://private-output', [], 'test-job')
+    lines = capsys.readouterr().out.splitlines()
+    failed = json.loads(lines[-1])
+    assert failed['event'] == 'segmentation_failed'
+    assert failed['job_id'] == 'test-job'
+    assert failed['total_seconds'] >= 0
+    assert failed['error_type'] == 'RuntimeError'
+    assert 'private-source' not in ''.join(lines)

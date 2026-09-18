@@ -70,7 +70,9 @@
 
 .tool-utility.video-utility { --utility-accent: var(--cat-video); --utility-accent-dim: var(--cat-video-dim); }
 
-#utility-canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; }
+#utility-canvas { display: block; max-width: 100%; max-height: 400px; width: auto; height: auto; cursor: crosshair; }
+.background-utility .utility-stage:has(#utility-original-wrap:not([hidden])) { justify-content: flex-start; }
+.background-utility .utility-previews:has(figure:not([hidden])) { flex: 0 0 auto; }
 #utility-points { font-size: .8rem; margin: .75rem 0; color: var(--text-secondary); }
 .tool-utility input[type=file] { max-width: 100%; font-size: .8rem; }
 .tool-utility summary { cursor: pointer; font-size: .8rem; margin-top: 1rem; }

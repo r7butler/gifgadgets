@@ -25,7 +25,7 @@
 {% block body_attrs %} style="--hero-color:var(--cat-{{ 'gif' if is_gif else 'image' }});--hero-icon-bg:var(--cat-{{ 'gif' if is_gif else 'image' }}-dim)"{% endblock %}
 {% block content %}
 {% include 'partials/nav.html' %}
-<main class="tool-utility {{ 'image-utility' if not is_gif }}" data-tool="{{ utility_slug }}" data-gif="{{ 'yes' if is_gif else 'no' }}" data-replace="{{ 'yes' if replace_background else 'no' }}">
+<main class="tool-utility background-utility {{ 'image-utility' if not is_gif }}" data-tool="{{ utility_slug }}" data-gif="{{ 'yes' if is_gif else 'no' }}" data-replace="{{ 'yes' if replace_background else 'no' }}">
 <header class="tool-hero utility-hero"><div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="4"/></svg></div><h1>{{ utility_title }}</h1><p class="tool-hero-tagline">{{ utility_description }}</p><p class="utility-private">Free · No signup · AI selection uploads your source for processing</p></header>
 <div class="utility-workspace"><section class="utility-stage" aria-label="Object selection and result">
 <button id="utility-upload" class="utility-drop-zone" type="button"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg><strong>Drop your {{ 'GIF' if is_gif else 'image' }} here</strong><span>or click to browse</span><small>{{ 'GIF' if is_gif else 'PNG · JPG · WebP' }} — up to 100 MB</small></button>

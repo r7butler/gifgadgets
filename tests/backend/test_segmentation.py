@@ -107,3 +107,23 @@ def test_cancel_while_submit_is_pending_does_not_claim_success(issued):
     job,remote,_=issued
     assert h.handler(make_event('/api/segment/cancel',{'job_id':job}),None)['statusCode']==409
     remote.assert_not_called()
+
+@pytest.mark.parametrize('size', [0, 100 * 1024 * 1024 + 1])
+def test_invalid_upload_size_never_launches_compute(issued, size):
+    job, remote, aws = issued
+    aws['s3'].head_object.return_value = {'ContentLength': size}
+    response = h.handler(make_event('/api/segment/submit', {'job_id': job, 'objects': POINTS}), None)
+    assert response['statusCode'] == 400
+    remote.assert_not_called()
+
+
+def test_kill_switch_still_permits_cancellation(issued, monkeypatch):
+    job, remote, aws = issued
+    item = aws['table'].get_item(Key={'job_id': job})['Item']
+    item['call_id'] = 'fc-test'
+    monkeypatch.setattr(h, 'FEATURES_DISABLED', {'segment'})
+    assert h.handler(make_event('/api/segment/submit', {'job_id': job, 'objects': POINTS}), None)['statusCode'] == 503
+    remote.return_value = {'state': 'cancelled'}
+    response = h.handler(make_event('/api/segment/cancel', {'job_id': job}), None)
+    assert json.loads(response['body'])['state'] == 'cancelled'
+    remote.assert_called_once_with('/cancel', {'call_id': 'fc-test'})

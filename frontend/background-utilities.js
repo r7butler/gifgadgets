@@ -14,9 +14,10 @@
   function setBusy(value) {
     busy = value;
     $('options').disabled = $('background-options').disabled = value || !original;
-    $('apply').disabled = !maskBuffer;
+    $('apply').disabled = value || !maskBuffer;
     $('upload').disabled = $('new').disabled = value;
     $('cancel').hidden = $('progress').hidden = !value;
+    if (value) $('progress').removeAttribute('value');
   }
   function killWorker() {
     worker?.terminate(); worker = null;
@@ -30,12 +31,16 @@
     const ticket = generation;
     const activeWorker = worker = new Worker('/background-worker.js');
     activeWorker.onmessage = ({data}) => {
-      if (data.progress !== undefined) return;
+      if (worker !== activeWorker) return;
+      if (data.progress !== undefined) {
+        $('progress').max = 100; $('progress').value = data.progress;
+        return;
+      }
       if (!pending) return;
       const call = pending; pending = null;
       if (data.type === 'error') call.reject(Error(data.message)); else call.resolve(data);
     };
-    activeWorker.onerror = () => { if (pending) { pending.reject(Error('Image processing failed. Try a smaller file.')); pending = null; } killWorker(); };
+    activeWorker.onerror = () => { if (worker !== activeWorker) return; if (pending) { pending.reject(Error('Image processing failed. Try a smaller file.')); pending = null; } killWorker(); };
     const bytes = await source.arrayBuffer();
     if (ticket !== generation) throw Error('Processing cancelled.');
     original = await request({type:'load',buffer:bytes,mime:mime(source)},[bytes]);
@@ -122,10 +127,14 @@
     }
   }
   async function exportResult() {
-    await ensureWorker(); status('Building your result on this device…');
+    const ticket = generation;
+    await ensureWorker();
+    if (ticket !== generation) throw Error('Processing cancelled.');
+    status('Building your result on this device…');
     const span=window.GWFunnel?.exportStarted();
     try {
       const result=await request({type:'export',gif,replace,mode:$('background-mode')?.value || 'color',fit:$('fit')?.value || 'cover',color:$('color')?.value || '#ffffff'});
+      if (ticket !== generation) throw Error('Processing cancelled.');
       clearResult(); const blob=new Blob([result.bytes],{type:result.mime}); outputURL=URL.createObjectURL(blob);
       $('result').src=$('download').href=outputURL; $('download').download=source.name.replace(/\.[^.]+$/,'')+'-'+root.dataset.tool+(gif?'.gif':'.png');
       $('download').textContent='Download '+(gif?'GIF':'PNG'); $('download').hidden=$('result-wrap').hidden=false;
@@ -135,28 +144,39 @@
   $('segment').onclick=async()=>{
     const selected=objects.filter(o=>o.points.length);
     if(!selected.length || selected.some(o=>!o.points.some(p=>p.label===1))) { status('Add at least one keep point for each selected object.'); return; }
-    const run=task={cancelled:false}, ticket=generation;
+    const run=task={cancelled:false,controller:new AbortController()}, ticket=generation;
     clearResult(); maskBuffer=null; setBusy(true); const span=window.GWFunnel?.trackingStarted();
     try {
       status('Uploading source for AI object selection…');
       const issued=await api('presign',{content_type:mime(source)}); run.job=issued.job_id;
       if(run.cancelled) return;
-      const upload=await fetch(issued.upload_url,{method:'PUT',headers:{'Content-Type':mime(source)},body:source,signal:AbortSignal.timeout(300000)});
+      const upload=await fetch(issued.upload_url,{method:'PUT',headers:{'Content-Type':mime(source)},body:source,signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(300000)])});
       if(!upload.ok) throw Error('Source upload failed. Try again.');
       if(run.cancelled) return;
       run.submission=api('submit',{job_id:run.job,objects:selected}); await run.submission;
       const started=Date.now();
+      $('progress').removeAttribute('value');
       let result;
+      let pollFailures=0;
       while(!run.cancelled) {
-        result=await api('status',{job_id:run.job});
+        if(Date.now()-started>3700000) throw Error('This job exceeded its processing time. Try a smaller file.');
+        try {
+          result=await api('status',{job_id:run.job}); pollFailures=0;
+        } catch(error) {
+          // A transient polling failure must not discard a paid job already running.
+          if(run.cancelled) return;
+          if((error.status && error.status<500 && error.status!==429) || ++pollFailures>3) throw error;
+          status('Connection interrupted. Checking your existing job again…');
+          await new Promise(r=>setTimeout(r,2000*pollFailures)); continue;
+        }
+        if(run.cancelled || ticket!==generation) return;
         if(result.state==='complete') break;
         if(result.state!=='running') throw Error(result.error || 'Segmentation was cancelled.');
         status(`Finding objects in ${original.count} frame${original.count===1?'':'s'}… ${Math.round((Date.now()-started)/1000)}s. You can cancel this job.`);
-        if(Date.now()-started>3700000) throw Error('This job exceeded its processing time. Try a smaller file.');
         await new Promise(r=>setTimeout(r,2000));
       }
       if(run.cancelled || ticket!==generation) return;
-      const response=await fetch(result.mask_url,{signal:AbortSignal.timeout(120000)});
+      const response=await fetch(result.mask_url,{signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(120000)])});
       if(!response.ok) throw Error('Could not download the masks. Please try again.');
       const compressed=await response.blob();
       const buffer=await new Response(compressed.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
@@ -192,7 +212,7 @@
     };
   }
   $('cancel').onclick=async()=>{
-    const run=task; if(run) run.cancelled=true;
+    const run=task; if(run) { run.cancelled=true; run.controller.abort(); }
     generation++; killWorker(); $('cancel').disabled=true; status('Cancelling…');
     try { if(run) await cancelRemote(run); status('Processing cancelled.'); }
     catch(_) { status('Local processing stopped, but server cancellation could not be confirmed. The server job stops after one hour.'); }

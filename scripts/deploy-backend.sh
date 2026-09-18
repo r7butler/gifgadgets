@@ -42,6 +42,7 @@ aws lambda update-function-code \
   --region us-east-1 \
   --function-name gifwidgets-api \
   --zip-file "fileb://$OUTPUT_ZIP" \
+  --query '{FunctionName:FunctionName,LastUpdateStatus:LastUpdateStatus,CodeSha256:CodeSha256}' \
   --no-cli-pager
 
 echo "==> Lambda function updated!"

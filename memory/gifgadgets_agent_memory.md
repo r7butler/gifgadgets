@@ -207,3 +207,29 @@ It uses `src/templates/video-utility.html`, `frontend/video-utilities.js` and
 WASM engine loads after file selection (~31 MB), keeping media local without
 server conversion or new isolation headers. See `docs/batch-four-utilities.md`
 for supported formats, limits, behavior and tests. This work is not deployed.
+
+## Background tools completion (September 17, 2026)
+
+Continued the partial work in `9d37295` for all four tools from
+`new_feature_ideas.md`: image background removal/replacement and GIF background
+removal/replacement (including animated backgrounds). They are implemented locally
+with click/keyboard point selection, multiple objects, asynchronous SAM2 processing,
+local background changes and PNG/GIF exports. No frame cap or sampling was added.
+
+The finishing pass adds transient polling recovery, abortable file transfers,
+export cancellation guards, bounded preview height, compatible pinned SAM2/PyTorch
+dependencies, failed-job runtime logging, expanded browser/API/build tests and CI
+coverage. See `docs/background-utilities.md` for architecture, cost observations,
+remaining resource limits and deployment steps. Not deployed; real GPU inference
+and production configuration still need the documented smoke test. Automated tests
+mock the remote model and validate actual downloaded media locally.
+
+## Background tools live repair (September 18, 2026)
+
+Modal tracking/segmentation app deployed successfully. User then reported Find
+objects failing: live Lambda was older than the published frontend and lacked
+MODAL_SEGMENTER_URL and IP_HASH_SALT. Deployed backend and applied those two settings,
+preserving existing environment values. Real browser PNG and GIF tests with two
+clicked objects now pass through the production GPU pipeline. Full details and
+resume instructions: `memory/background-debug-progress.md`. Latest local frontend
+cancellation-race refinements have not been published by this agent.

@@ -9,4 +9,20 @@
 
 Comments/concerns
 - GPU runtime cost for gifs with many frames? should we set a frame limit?
-  For now, no. But I'd like whichever model works on this task to give their insight/input on this matter. I just want to implement like this for now and monitor behavior and cost. 
+  For now, no. But I'd like whichever model works on this task to give their insight/input on this matter. I just want to implement like this for now and monitor behavior and cost.
+
+## Implementation status — September 17, 2026
+
+All four tools are implemented locally, continuing the previously started work:
+
+- `/remove-image-background/`
+- `/change-image-background/`
+- `/remove-gif-background/`
+- `/swap-gif-background/`
+
+Multiple-object selection, keep/exclude points, PNG/GIF export and animated GIF
+replacement backgrounds are supported. No fixed frame cap or frame sampling was
+added. Background changes reuse the masks without another GPU run.
+
+See [implementation, GPU cost input and deployment notes](docs/background-utilities.md).
+This work has not been deployed; the live SAM2 smoke test remains a deployment check.

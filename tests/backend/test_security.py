@@ -222,3 +222,28 @@ def test_ip_hash_is_salted_and_fails_closed(monkeypatch):
     monkeypatch.setattr(h, "IP_HASH_SALT", "")
     with pytest.raises(RuntimeError):
         h._hash_ip(ip)
+
+
+def test_segmentation_submission_retries_do_not_duplicate_gpu_work(storage, monkeypatch):
+    monkeypatch.setattr(h, 'MODAL_SEGMENTER_URL', 'https://segment.test')
+    remote = Mock(return_value={'call_id': 'fc-segmentation'})
+    monkeypatch.setattr(h, '_segment_remote', remote)
+    issued = h.handler(make_event('/api/segment/presign', {'content_type': 'image/gif'}), None)
+    job = json.loads(issued['body'])['job_id']
+    prefix = f'track/segment-{job}'
+    storage[0].put_object(Bucket=h.ASSETS_BUCKET, Key=prefix + '.input', Body=MINIMAL_GIF)
+    submit = make_event('/api/segment/submit', {'job_id': job,
+        'objects': [{'points': [{'x': .5, 'y': .5, 'label': 1}]}]})
+    first = h.handler(submit, None)
+    assert first['statusCode'] == 202
+    assert h.handler(submit, None) == first
+    remote.assert_called_once()
+    assert storage[0].get_object(Bucket=h.ASSETS_BUCKET, Key=prefix + '.source')['Body'].read() == MINIMAL_GIF
+    remote.return_value = {'state': 'cancelled'}
+    cancelled = h.handler(make_event('/api/segment/cancel', {'job_id': job}), None)
+    assert json.loads(cancelled['body'])['state'] == 'cancelled'
+    # A repeated cancellation uses its durable record and does not call Modal again.
+    h.handler(make_event('/api/segment/cancel', {'job_id': job}), None)
+    assert remote.call_count == 2
+    objects = storage[0].list_objects_v2(Bucket=h.ASSETS_BUCKET, Prefix=prefix)['Contents']
+    assert [obj['Key'] for obj in objects] == [prefix + '.submitted.json']

@@ -25,6 +25,7 @@ jobs:
         run: |
           docker build -f Dockerfile.build -t gifwidgets-build .
           docker run --rm -v "$PWD:/app" gifwidgets-build
+          docker run --rm -v "$PWD:/app" --entrypoint python3 gifwidgets-build -m unittest discover -s tests/build
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
@@ -66,6 +67,9 @@ jobs:
 
       - name: Install video output verification tools
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Run media processing unit tests
+        run: npm run test:unit
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

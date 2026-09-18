@@ -3,9 +3,8 @@ set -euo pipefail
 
 # Smoke test — quick health checks against a live environment.
 # Tests that pages are served correctly through CloudFront.
-# API endpoints use IAM-signed requests via CloudFront OAC,
-# so they can't be tested directly with curl — those are covered
-# by the backend pytest suite instead.
+# API requests go through CloudFront OAC with an explicit body hash.
+# Invalid background requests check route availability without launching GPU work.
 #
 # Usage:
 #   ./scripts/smoke-test.sh                                        # tests prod
@@ -45,7 +44,7 @@ BODY=$(curl -s "$BASE_URL/")
 check "Homepage contains $SITE_BRAND" "$([[ "$BODY" == *"$SITE_BRAND"* ]] && echo true || echo false)"
 
 # Tool pages
-for TOOL in gif-editor gif-maker video-to-gif image-editor gif-resizer crop-gif photo-converter gif-speed reverse-gif rotate-gif flip-gif gif-loop trim-gif; do
+for TOOL in gif-editor gif-maker video-to-gif image-editor gif-resizer crop-gif photo-converter gif-speed reverse-gif rotate-gif flip-gif gif-loop trim-gif remove-image-background change-image-background remove-gif-background swap-gif-background; do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/$TOOL/")
   check "$TOOL page returns 200" "$([[ "$STATUS" == "200" ]] && echo true || echo false)"
 done
@@ -60,6 +59,17 @@ done
 for CONV in jpg-to-png png-to-jpg jpg-to-webp png-to-webp webp-to-jpg gif-to-png svg-to-png heic-to-jpg; do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/photo-converter/$CONV/")
   check "photo-converter/$CONV returns 200" "$([[ "$STATUS" == "200" ]] && echo true || echo false)"
+done
+
+# A page can be published while its API is still running an older deployment.
+# These malformed requests must reach validation (400), not a missing route (404).
+# They do not reserve a quota slot, upload media or start paid work.
+BODY_HASH=$(python3 -c "import hashlib; print(hashlib.sha256(b'{}').hexdigest())")
+for ACTION in presign submit status cancel; do
+  STATUS=$(curl -s --max-time 45 -o /dev/null -w "%{http_code}" \
+    -H 'Content-Type: application/json' -H "x-amz-content-sha256: $BODY_HASH" \
+    --data '{}' "$BASE_URL/api/segment/$ACTION")
+  check "segment/$ACTION reaches API validation" "$([[ "$STATUS" == "400" ]] && echo true || echo false)"
 done
 
 # Key static assets load

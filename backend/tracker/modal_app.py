@@ -21,12 +21,12 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("wget", "git")
     .pip_install(
-        "torch==2.3.1",
-        "torchvision==0.18.1",
-        extra_index_url="https://download.pytorch.org/whl/cu121",
+        "torch==2.5.1",
+        "torchvision==0.20.1",
+        extra_index_url="https://download.pytorch.org/whl/cu124",
     )
     .pip_install(
-        "git+https://github.com/facebookresearch/segment-anything-2.git",
+        "git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4",
         "Pillow",
         "numpy",
         "fastapi[standard]",
@@ -215,31 +215,37 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
     from sam2.build_sam import build_sam2_video_predictor
     started = time.monotonic()
     print(json.dumps({"event": "segmentation_started", "job_id": job_id}))
-    global _segment_model
-    if _segment_model is None:
-        _segment_model = build_sam2_video_predictor(
-            "configs/sam2.1/sam2.1_hiera_t.yaml", "/root/sam2_tiny.pt", device="cuda")
-    with tempfile.TemporaryDirectory() as work:
-        source, output = work + '/source', work + '/masks.gz'
-        # Payload limit protects memory/disk; there is deliberately no frame limit.
-        with urllib.request.urlopen(input_url, timeout=60) as response, open(source, 'wb') as f:
-            total = 0
-            while chunk := response.read(1024 * 1024):
-                total += len(chunk)
-                if total > 100 * 1024 * 1024:
-                    raise ValueError('Choose a file up to 100 MB.')
-                f.write(chunk)
-        with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
-            stats = segment_file(source, output, objects, _segment_model)
-        with open(output, 'rb') as f:
-            request = urllib.request.Request(output_url, data=f.read(), method='PUT',
-                                             headers={'Content-Type': 'application/gzip'})
-        with urllib.request.urlopen(request, timeout=120) as response:
-            response.read()
-        stats['total_seconds'] = round(time.monotonic() - started, 3)
-        print(json.dumps({'event': 'segmentation_complete', 'job_id': job_id,
-                          'input_bytes': total, **stats}))
-        return stats
+    try:
+        global _segment_model
+        if _segment_model is None:
+            _segment_model = build_sam2_video_predictor(
+                "configs/sam2.1/sam2.1_hiera_t.yaml", "/root/sam2_tiny.pt", device="cuda")
+        with tempfile.TemporaryDirectory() as work:
+            source, output = work + '/source', work + '/masks.gz'
+            # Payload limit protects memory/disk; there is deliberately no frame limit.
+            with urllib.request.urlopen(input_url, timeout=60) as response, open(source, 'wb') as f:
+                total = 0
+                while chunk := response.read(1024 * 1024):
+                    total += len(chunk)
+                    if total > 100 * 1024 * 1024:
+                        raise ValueError('Choose a file up to 100 MB.')
+                    f.write(chunk)
+            with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
+                stats = segment_file(source, output, objects, _segment_model)
+            with open(output, 'rb') as f:
+                request = urllib.request.Request(output_url, data=f.read(), method='PUT',
+                                                 headers={'Content-Type': 'application/gzip'})
+            with urllib.request.urlopen(request, timeout=120) as response:
+                response.read()
+            stats['total_seconds'] = round(time.monotonic() - started, 3)
+            print(json.dumps({'event': 'segmentation_complete', 'job_id': job_id,
+                              'input_bytes': total, **stats}))
+            return stats
+    except Exception as error:
+        print(json.dumps({"event": "segmentation_failed", "job_id": job_id,
+                          "error_type": type(error).__name__,
+                          "total_seconds": round(time.monotonic() - started, 3)}))
+        raise
 
 
 @app.function(image=modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]"),

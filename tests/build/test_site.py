@@ -13,6 +13,23 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 class SiteBuildTests(unittest.TestCase):
+    def test_background_tools_are_wired_and_discoverable(self):
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            for slug in ['remove-image-background', 'change-image-background',
+                         'remove-gif-background', 'swap-gif-background']:
+                self.assertIn('/' + slug + '/', (root / 'sitemap.xml').read_text())
+                self.assertIn('/' + slug + '/', (root / 'index.html').read_text())
+                page = (root / slug / 'index.html').read_text()
+                self.assertIn('src="/background-utilities.js"', page)
+                self.assertIn('id="utility-segment"', page)
+                self.assertIn('id="utility-apply"', page)
+                self.assertIn('"FAQPage"', page)
+                self.assertIn('rel="canonical"', page)
+                self.assertNotIn('noindex', page)
+                self.assertIn("'" + slug + "'", (ROOT / 'frontend/tool-funnel.js').read_text())
+
     def test_alternate_origin_and_crawler_rules(self):
         with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output), patch.dict(os.environ, {'SITE_URL': 'https://example.test/'}):
             module.build()
