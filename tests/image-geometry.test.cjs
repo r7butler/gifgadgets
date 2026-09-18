@@ -80,3 +80,24 @@ test('ZIP entry names stay unique so nothing overwrites a sibling', () => {
   assert.deepEqual(names, ['photo.jpg', 'photo-2.jpg', 'photo-3.jpg', 'other.png']);
   assert.equal(context.GWZip.crc32(new Uint8Array([1, 2, 3, 4])), 0xb63cfbcd);
 });
+
+test('absurd settings are clamped rather than producing an unusable sheet', () => {
+  // These come from number inputs a determined user can type anything into.
+  const huge = contactSheetPlan(4, {columns: 2, cell: 99999, gap: 9999, padding: 9999, labels: false});
+  assert.equal(huge.cell, 1000, 'cell size is capped');
+  assert.equal(huge.gap, 200, 'gap is capped');
+  assert.equal(huge.padding, 200, 'padding is capped');
+  const tiny = contactSheetPlan(4, {columns: 0, cell: 1, gap: -50, padding: -50, labels: true, labelHeight: 1});
+  assert.equal(tiny.columns, 1, 'there is always at least one column');
+  assert.equal(tiny.cell, 32, 'cells never collapse to nothing');
+  assert.deepEqual([tiny.gap, tiny.padding], [0, 0], 'negative spacing never overlaps cells');
+  assert.equal(tiny.label, 12, 'a label strip is readable or absent, never 1px');
+  // Every cell has to sit inside the sheet it was measured for.
+  for (const sheet of [huge, tiny]) for (const cell of sheet.cells) {
+    assert.ok(cell.x >= 0 && cell.x + cell.width <= sheet.width, 'cell escapes the sheet horizontally');
+    assert.ok(cell.y >= 0 && cell.labelY + cell.labelHeight <= sheet.height, 'cell escapes the sheet vertically');
+  }
+  // Scaling is capped at 400%, so a percentage past it cannot blow up the canvas.
+  assert.deepEqual(size(plan({width: 1000, height: 1000}, {mode: 'percent', percent: 100000})), [4000, 4000]);
+  assert.deepEqual(size(plan({width: 1000, height: 1000}, {mode: 'percent', percent: -50})), [10, 10]);
+});

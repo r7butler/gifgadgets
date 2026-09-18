@@ -98,6 +98,55 @@ class SiteBuildTests(unittest.TestCase):
                 self.assertIn('/video-utilities.js', page)
                 self.assertIn('id="utility-file"', page)
 
+    def _utility_pages(self, root):
+        """Every built page that carries a tool, as (slug, path parts, html)."""
+        import re
+        pages = []
+        for file in sorted(root.rglob('index.html')):
+            text = file.read_text()
+            match = re.search(r'data-tool="([^"]+)"', text)
+            if match:
+                pages.append((match.group(1), file.parent.relative_to(root).parts, text))
+        return pages
+
+    def test_every_utility_control_is_read_by_its_engine(self):
+        """Batch two shipped five tools whose settings the engine never collected.
+        The pages rendered, the controls moved and nothing they said was used.
+        A control the page draws but its script never names is that bug again."""
+        import re
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            pages = self._utility_pages(root)
+            self.assertGreaterEqual(len(pages), 23, 'expected far more tool pages')
+            for slug, _, text in pages:
+                # Scripts are static assets, so they are read from the real frontend.
+                sources = [ROOT / 'frontend' / src for src in re.findall(r'<script[^>]+src="/([^"]+\.js)"', text)]
+                engine = '\n'.join(f.read_text() for f in sources if f.exists())
+                self.assertTrue(engine, f'{slug} loads no script of its own')
+                for control in sorted(set(re.findall(r'id="utility-([a-z-]+)"', text))):
+                    self.assertTrue(f"'{control}'" in engine or f'"{control}"' in engine,
+                                    f'{slug} renders #utility-{control} but no script reads it')
+
+    def test_every_utility_page_reports_its_own_funnel_events(self):
+        """A slug missing from tool-funnel.js raises no error. Its events are filed
+        under legacy-editor instead, which is worse: the analytics still look fine."""
+        import re
+        funnel = (ROOT / 'frontend/tool-funnel.js').read_text()
+        def listed(name):
+            block = re.search(r'var %s = \[(.*?)\];' % name, funnel, re.S).group(1)
+            return set(re.findall(r"'([^']+)'", block))
+        tools, converters = listed('tools'), listed('converters')
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            for slug, parts, _ in self._utility_pages(Path(output)):
+                # tool-funnel.js resolves the tool from the URL, not from data-tool,
+                # which is how the frame extractor keeps its indexed /gif-to-png/ path.
+                resolved = parts[1] if parts[:1] == ('photo-converter',) and parts[1] in converters \
+                    else parts[0] if parts and parts[0] in tools else 'legacy-editor'
+                self.assertNotEqual(resolved, 'legacy-editor',
+                                    f'/{"/".join(parts)}/ ({slug}) is missing from tool-funnel.js')
+
     def test_brand_is_templated(self):
         """No page may hardcode a brand name; the split logo must reassemble."""
         env = {'SITE_BRAND': 'ExampleBrand', 'SITE_BRAND_ACCENT': 'Brand',

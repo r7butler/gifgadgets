@@ -76,3 +76,24 @@
 #utility-points { font-size: .8rem; margin: .75rem 0; color: var(--text-secondary); }
 .tool-utility input[type=file] { max-width: 100%; font-size: .8rem; }
 .tool-utility summary { cursor: pointer; font-size: .8rem; margin-top: 1rem; }
+
+/* Background editing: keep the selection and result aligned for comparison. */
+.background-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: .75rem 1.5rem; list-style: none; padding: 0; margin: 0 0 1.5rem; color: var(--text-secondary); font-size: .85rem; }
+.background-steps b { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; margin-right: .35rem; border-radius: 50%; background: var(--utility-accent-dim); color: var(--utility-accent); }
+.background-point-modes { display: flex; gap: .5rem; margin-top: 1rem; }
+.background-point-modes .btn { flex: 1; padding: .65rem .4rem; font-size: .8rem; }
+.background-point-modes [aria-pressed=true] { border-color: var(--utility-accent); background: var(--utility-accent-dim); color: var(--text-primary); }
+.background-utility .utility-preview-image { flex: none; min-height: 0; }
+.background-utility #utility-overlay-wrap { margin: 0; }
+.background-utility #utility-add-object { margin-top: .5rem; width: 100%; justify-content: center; }
+.background-utility #utility-status { padding: .75rem; border-radius: var(--radius-sm); background: var(--bg-primary); font-size: .85rem; }
+.background-utility #utility-status:empty { display: none; }
+.background-utility #utility-background-options { border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.5rem; }
+.background-utility #utility-background-options legend { font-weight: 600; font-size: .9rem; padding-right: .5rem; }
+.background-utility .utility-stage[aria-busy=true] canvas { cursor: wait; }
+.background-feedback { width: 100%; }
+.background-utility .utility-previews .background-point-modes { margin-top: 0; }
+.background-utility .utility-previews #utility-selection-help { margin-top: 0; }
+.background-utility #utility-download { margin-top: .25rem; }
+.background-utility #utility-selection-warning { padding: .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); }
+.background-utility #utility-exclude[aria-pressed=true] { border-color: #ef4444; background: rgba(239, 68, 68, .12); }

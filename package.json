@@ -16,7 +16,7 @@
     "test:load:homepage": "docker build -f Dockerfile.test-load -t gifwidgets-test-load . && docker run --rm gifwidgets-test-load homepage.js",
     "benchmark": "playwright test --config=tests/benchmarks/playwright.config.js",
     "test:smoke": "./scripts/smoke-test.sh",
-    "test:video-utilities": "playwright test --config=tests/e2e/playwright.config.js video-utilities.spec.js --workers=2"
+    "test:video-utilities": "node --test tests/video-utilities.test.cjs && playwright test --config=tests/e2e/playwright.config.js video-utilities.spec.js --workers=2"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

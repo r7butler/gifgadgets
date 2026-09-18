@@ -187,3 +187,27 @@ test('combine-gifs joins inputs in order and applies speed and loop', () => {
   assert.throws(() => runBatch(opts, fixture(), []), /at least two GIFs/);
   assert.throws(() => runBatch({...opts, rate:99}, fixture(), extra), /between 0.1 and 10/);
 });
+
+test('a corrupt GIF is rejected with a clear reason, never parsed past its end', () => {
+  // gif-codec.js parses every upload for both the GIF tools and the background
+  // tools, so a truncated file — an interrupted download, a partial upload —
+  // has to stop at a guard rather than walk off the buffer or loop forever.
+  const base = fixture();
+  const header = base.slice(0, 13 + ((base[10] & 128) ? 3 * (2 << (base[10] & 7)) : 0));
+  const after = tail => { const b = new Uint8Array(header.length + tail.length); b.set(header); b.set(tail, header.length); return b; };
+  const cases = [
+    [base.slice(0, base.length - 8), /Truncated GIF data/, 'cut off mid-frame'],
+    [base.slice(0, base.length - 1), /missing its end marker/, 'no trailer byte'],
+    [after([0x21]), /Truncated extension/, 'an extension introducer and nothing else'],
+    [after([0x21, 0xF9]), /Truncated GIF data/, 'an extension with no block terminator'],
+    [after([0x2C, 0, 0, 0, 0]), /Truncated image/, 'an image descriptor cut short'],
+    [after([0x07]), /Invalid GIF block/, 'a block marker that means nothing'],
+    [new Uint8Array(0), /valid GIF file/, 'an empty file'],
+    [new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]), /valid GIF file/, 'a signature and no screen descriptor'],
+  ];
+  for (const [bytes, message, what] of cases) {
+    assert.throws(() => context.blocks(bytes), message, what);
+    // The tools reach the parser through transform(), which must fail the same way.
+    assert.throws(() => run({tool: 'reverse-gif'}, bytes), message, what + ' via transform');
+  }
+});

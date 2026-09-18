@@ -12,8 +12,9 @@ The latest cancellation-race frontend refinements remain local until published.
 | Remove GIF background | `/remove-gif-background/` | Transparent animated GIF |
 | Swap GIF background | `/swap-gif-background/` | GIF with a still image, repeating GIF, or solid color |
 
-Select a keep point on each subject, using **Add object** for separate subjects.
-Additional keep/exclude points refine the active object. Coordinate inputs provide
+Select a keep point on each subject, using **Add another subject** for separate subjects.
+Use **Keep area** or **Exclude area** beside the preview to refine the active subject,
+then **Preview cutout**. A switchable green overlay shows the detected selection. Coordinate inputs provide
 a keyboard alternative to clicking. GIF selections start on the first frame.
 Exports retain source dimensions. GIF removal retains frame delays and loop count;
 animated replacements merge foreground/background change times over one source
@@ -23,7 +24,8 @@ frame delays use a 100 ms fallback. GIF edges are binary, not partially transpar
 The tools use the existing themed workspace, responsive previews and settings,
 homepage Image/GIF Tools cards, navigation, canonical metadata, FAQ schema,
 sitemap and consent-based funnel events. Masks are reused for local background
-changes and exports. Selection changes invalidate the masks and require another
+changes and exports; replacement colors, files and fit changes refresh the preview
+automatically. Download sits directly beneath the result. Selection changes invalidate the masks and require another
 AI run. Background files and exported media stay on the device.
 
 ## Processing and limits
@@ -44,11 +46,15 @@ AI run. Background files and exported media stay on the device.
   [upstream setup.py](https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/setup.py).
 
 **There is no frame-count cap or sampling.** Existing safeguards are 100 MB per
-input, a 256 MiB decoded-media working budget in the browser, 32 selectable
+input, a 256 MiB estimated media-working budget in the browser, 32 selectable
 objects, 128 points per object, and a one-hour GPU execution timeout. Encoded output
 also has a 256 MiB check. These checks are not a guarantee against browser/server
 memory exhaustion: canvases, encoders, downloaded masks and model state also use
-memory. Failure is reported rather than silently dropping frames.
+memory. GIF pixels are decoded on demand using reusable buffers, rather than
+storing every expanded frame. The media estimate includes compressed inputs plus
+a fixed number of buffers based on pixel dimensions; masks and encoded output
+still grow with animation length. Failure is reported rather than silently
+dropping frames.
 
 Source uploads are copied to immutable job-specific working keys before compute.
 Successful status checks clean up source files; cancellation also deletes masks.
@@ -158,3 +164,75 @@ routes using invalid requests that reach validation without launching paid work.
 See `memory/background-debug-progress.md` for the latest operational handoff.
 
 Live smoke checks after repair: **39 passed, 0 failed**.
+
+
+## Color corruption and selection UX repair
+
+The bundled `gifenc.quantize` and `applyPalette` functions expect packed 32-bit
+ABGR pixels. `gif-codec.js` passed RGBA bytes, so frames exceeding the palette
+limit were interpreted as individual red-channel pixels and then mapped with
+incorrect spatial positions. This explains the red/striped failure pattern.
+Explicit pixel packing fixes both GIF background tools and other GIF utilities
+that share this encoder. PNG exports do not use this palette path.
+
+Regression coverage now checks decoded colors and positions after quantization,
+transparent pixels, non-aligned typed-array input, colorful image replacements,
+and coalesced GIF frames with different local palettes. The gradient fixture's
+mean absolute channel error fell from 137.6 to 1.875 (on a 0–255 scale).
+
+All four tools now have nearby Keep/Exclude buttons, a selected-subject overlay,
+clearer preview/download actions, automatic local background previews, and guided
+retry messaging for empty masks. Loading another source resets replacement-file
+mode; selecting another subject resets point mode to Keep. Keyboard coordinate
+entry remains available. Selection changes still require an explicit AI run.
+
+These changes are local and have not been deployed. Browser inference is mocked;
+these regressions validate rendering and interaction, not model quality on the
+user's exact GIF.
+
+Validation for this repair: 63 background browser cases and 54 shared GIF browser
+cases passed across Chromium, Firefox and WebKit; 42 JavaScript unit tests and
+12 build tests (plus four subtests) passed. The 52-page build and diff checks passed.
+
+
+## GIF loading below the advertised file-size limit
+
+A 39 MB input was rejected by the previous eager decoder because the admission
+estimate was `width × height × 4 × (frame count + 3) > 256 MiB`. The 100 MB limit
+measured compressed file size; it did not guarantee the decoded frames would fit.
+
+The background worker now retains compressed GIF data and frame timing metadata,
+and decodes source/replacement frames on demand. The shared streaming compositor
+reuses frame buffers, handles GIF disposal, and resets when an animated background
+loops or a user exports again. Existing GIF utilities retain their collecting API.
+Read-only block parsing uses views instead of copying the whole compressed file.
+No frame cap, frame sampling, automatic resize, or raised memory ceiling was added.
+
+Upload copy and memory errors now distinguish file size from editing memory and
+identify oversized dimensions. Large dimensions, masks, GPU resources and output
+size can still limit processing. This is an estimate, not a measurement of free
+browser memory. These changes remain local until deployed.
+
+Validation: 126 browser cases passed across Chromium, Firefox and WebKit,
+including a synthetic 39 MiB/270-frame GIF loaded as both source and replacement,
+complete streaming exports/re-exports under a bounded budget, and informative
+oversized-dimension errors. Also passed: 45 unit tests, 12 build tests plus four
+subtests, the 52-page build, JavaScript syntax checks and `git diff --check`.
+The 39 MiB fixture uses a valid comment block to reach that compressed size; its
+real expanded frames exceed the former cap. It is not the user's original GIF.
+
+
+## Exclude selection guidance
+
+Exclude points refine the currently selected subject and require at least one
+Keep point on that same subject. They are model prompts, not a pixel eraser or
+an independent selection of background to remove. An Exclude-only subject now
+shows a warning beside Preview cutout immediately. Attempting a preview selects
+the subject missing a Keep point and switches to Keep mode without deleting any
+points. Mode guidance also identifies the active subject, and Exclude mode uses
+red styling to match its markers.
+
+Mixed positive/negative labels and coordinates are covered through the predictor
+boundary, including Exclude-before-Keep ordering. These checks use mocked model
+output and do not establish segmentation quality on the user's media. The user's
+specific failure mode has not yet been confirmed. Changes remain local.

@@ -127,3 +127,25 @@ def test_kill_switch_still_permits_cancellation(issued, monkeypatch):
     response = h.handler(make_event('/api/segment/cancel', {'job_id': job}), None)
     assert json.loads(response['body'])['state'] == 'cancelled'
     remote.assert_called_once_with('/cancel', {'call_id': 'fc-test'})
+
+
+def test_keep_and_exclude_points_reach_predictor_for_their_subject(tmp_path):
+    source = tmp_path / 'source.png'
+    Image.new('RGB', (100, 50), 'red').save(source)
+    predictor = Mock()
+    tensor = Mock()
+    tensor.cpu.return_value.numpy.return_value = np.ones((2, 1, 50, 100))
+    predictor.propagate_in_video.return_value = [(0, [1, 2], tensor)]
+    objects = [
+        {'points': [{'x': .2, 'y': .4, 'label': 1}, {'x': .8, 'y': .6, 'label': 0}]},
+        {'points': [{'x': .1, 'y': .2, 'label': 0}, {'x': .5, 'y': .5, 'label': 1}]},
+    ]
+    segment_file(source, tmp_path / 'masks.gz', objects, predictor)
+    for i, (expected_points, expected_labels) in enumerate([
+        ([[20, 20], [80, 30]], [1, 0]),
+        ([[10, 10], [50, 25]], [0, 1]),
+    ]):
+        prompt = predictor.add_new_points_or_box.call_args_list[i].kwargs
+        assert prompt['obj_id'] == i + 1
+        np.testing.assert_array_equal(prompt['points'], expected_points)
+        np.testing.assert_array_equal(prompt['labels'], expected_labels)
