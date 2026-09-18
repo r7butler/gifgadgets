@@ -132,7 +132,7 @@ variable "modal_converter_url" {
 }
 
 variable "modal_segmenter_url" {
-  description = "CPU broker URL for asynchronous SAM2 background segmentation"
+  description = "CPU broker URL for asynchronous SAM 3 background segmentation"
   type        = string
   default     = "https://r7butler--gifwidgets-tracker-segment-api.modal.run"
 }

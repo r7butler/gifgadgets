@@ -837,11 +837,17 @@ def handle_segment_job(event, action):
     def submit(_):
         # Validate before launching paid work. There is no frame-count cap.
         try:
-            from segmentation import validate_objects
+            from segmentation import validate_objects, validate_prompt
         except ImportError:
-            from backend.tracker.segmentation import validate_objects
+            from backend.tracker.segmentation import validate_objects, validate_prompt
         try:
-            objects = validate_objects(body.get("objects"))
+            # A description and a set of clicks are alternative prompts; a job
+            # carries one. Text wins when both arrive so the request is never
+            # ambiguous about which half of the model it is paying for.
+            text = body.get("text")
+            describing = isinstance(text, str) and text.strip()
+            text = validate_prompt(text) if describing else ""
+            objects = [] if describing else validate_objects(body.get("objects"))
             head = s3.head_object(Bucket=ASSETS_BUCKET, Key=input_key)
             if not 0 < head["ContentLength"] <= 100 * 1024 * 1024:
                 raise ValueError("Choose a file up to 100 MB.")
@@ -851,7 +857,7 @@ def handle_segment_job(event, action):
         frozen_key = prefix + ".source"
         s3.copy_object(Bucket=ASSETS_BUCKET, Key=frozen_key,
                        CopySource={"Bucket": ASSETS_BUCKET, "Key": input_key})
-        payload = {"job_id": job_id, "objects": objects,
+        payload = {"job_id": job_id, "objects": objects, "text": text,
             "input_url": s3.generate_presigned_url("get_object", Params={"Bucket": ASSETS_BUCKET, "Key": frozen_key}, ExpiresIn=7200),
             "output_url": s3.generate_presigned_url("put_object", Params={"Bucket": ASSETS_BUCKET, "Key": mask_key, "ContentType": "application/gzip"}, ExpiresIn=7200)}
         result = _segment_remote("/segment", payload)
@@ -861,7 +867,10 @@ def handle_segment_job(event, action):
         table.update_item(Key={"job_id": job_id}, UpdateExpression="SET call_id = :call",
                           ExpressionAttributeValues={":call": call_id})
         cleanup()
-        logger.info(json.dumps({"event": "segment_submitted", "job_id": job_id, "objects": len(objects)}))
+        # The description itself is the user's content and is never logged.
+        logger.info(json.dumps({"event": "segment_submitted", "job_id": job_id,
+                                "objects": len(objects),
+                                "prompt": "text" if text else "points"}))
         return _cors_response(202, {"state": "running", "job_id": job_id})
 
     try:

@@ -9,11 +9,24 @@ from PIL import Image
 import pytest
 
 from backend.tracker.segmentation import (
-    TrackerSegmenter, load_frames, segment_file, validate_objects)
+    ConceptSegmenter, TrackerSegmenter, load_frames, segment_file,
+    validate_objects, validate_prompt)
 import backend.handler as h
 from conftest import make_event
 
 POINTS = [{'points': [{'x': .25, 'y': .5, 'label': 1}]}]
+
+
+def fake_segmenter(masks, stats=None):
+    """A segmenter with the interface segment_file relies on and no model."""
+    segmenter = Mock()
+    segmenter.validate.side_effect = lambda prompt: prompt
+    segmenter.stats.return_value = stats if stats is not None else {'objects': 1}
+    if callable(masks):
+        segmenter.masks.side_effect = masks
+    else:
+        segmenter.masks.return_value = masks
+    return segmenter
 
 @pytest.mark.parametrize('value', [None, [], [{'points': []}], [{'points': [{'x': 0, 'y': 0, 'label': 0}]}],
                          [{'points': [{'x': float('nan'), 'y': .5, 'label': 1}]}]])
@@ -26,7 +39,6 @@ def test_pipeline_unions_objects_and_returns_every_frame(tmp_path):
     source, target = tmp_path / 'input.gif', tmp_path / 'masks.gz'
     images = [Image.new('RGB', (3, 2), color) for color in ('red', 'green', 'blue')]
     images[0].save(source, save_all=True, append_images=images[1:], duration=[70,130,250], loop=2)
-    segmenter = Mock()
     def masks(frames, objects):
         assert [f.size for f in frames] == [(3, 2)] * 3
         for index in range(3):
@@ -35,7 +47,7 @@ def test_pipeline_unions_objects_and_returns_every_frame(tmp_path):
             union[0, index] = True
             union[1, index] = True
             yield index, union
-    segmenter.masks.side_effect = masks
+    segmenter = fake_segmenter(masks, {'objects': 2})
     stats = segment_file(source, target, POINTS + POINTS, segmenter)
     assert stats['frames'] == 3 and stats['objects'] == 2
     raw = gzip.decompress(target.read_bytes())
@@ -48,7 +60,7 @@ def test_pipeline_unions_objects_and_returns_every_frame(tmp_path):
 def test_incomplete_masks_fail_and_release_the_session(tmp_path):
     source = tmp_path / 'image.png'
     Image.new('RGB',(2,2)).save(source)
-    segmenter = Mock(); segmenter.masks.return_value = []
+    segmenter = fake_segmenter([])
     with pytest.raises(ValueError,match='every frame'):
         segment_file(source,tmp_path/'out.gz',POINTS,segmenter)
     segmenter.release.assert_called_once()
@@ -57,9 +69,9 @@ def test_incomplete_masks_fail_and_release_the_session(tmp_path):
 def test_a_wrongly_shaped_or_repeated_mask_is_refused(tmp_path):
     source = tmp_path / 'image.png'
     Image.new('RGB', (4, 3)).save(source)
-    for union, message in [(np.zeros((9, 9), dtype=bool), 'unexpected mask dimensions'),
-                           (np.zeros((3, 4), dtype=bool), None)]:
-        segmenter = Mock(); segmenter.masks.return_value = [(0, union)]
+    for union, message in [(np.ones((9, 9), dtype=bool), 'unexpected mask dimensions'),
+                           (np.ones((3, 4), dtype=bool), None)]:
+        segmenter = fake_segmenter([(0, union)])
         if message:
             with pytest.raises(ValueError, match=message):
                 segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
@@ -67,10 +79,62 @@ def test_a_wrongly_shaped_or_repeated_mask_is_refused(tmp_path):
             assert segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)['frames'] == 1
         segmenter.release.assert_called_once()
     # A frame delivered twice would silently overwrite the first result.
-    segmenter = Mock()
-    segmenter.masks.return_value = [(0, np.zeros((3, 4), dtype=bool))] * 2
+    segmenter = fake_segmenter([(0, np.zeros((3, 4), dtype=bool))] * 2)
     with pytest.raises(ValueError, match='invalid frame sequence'):
         segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+
+
+def test_an_empty_mask_is_an_error_rather_than_a_blank_download(tmp_path):
+    """Every pixel rejected means a fully transparent export. Say so instead."""
+    source = tmp_path / 'image.png'
+    Image.new('RGB', (4, 3)).save(source)
+    segmenter = fake_segmenter([(0, np.zeros((3, 4), dtype=bool))])
+    with pytest.raises(ValueError, match='Nothing matched'):
+        segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+    # One matched pixel anywhere is still a real cutout.
+    partial = np.zeros((3, 4), dtype=bool); partial[1, 1] = True
+    assert segment_file(source, tmp_path / 'out.gz', POINTS, fake_segmenter([(0, partial)]))['frames'] == 1
+
+
+@pytest.mark.parametrize('value,message', [
+    (None, 'Describe what to keep'), ('', 'Describe what to keep'),
+    ('   ', 'Describe what to keep'), (42, 'Describe what to keep'),
+    ('a' * 121, 'under 120 characters'), ('a\u0000b', 'control characters'),
+    ('\u0007', 'control characters'),
+])
+def test_prompt_validation_rejects_what_should_not_reach_a_gpu(value, message):
+    with pytest.raises(ValueError, match=message):
+        validate_prompt(value)
+
+
+def test_prompt_whitespace_is_normalised_so_one_phrase_is_one_prompt():
+    assert validate_prompt('  a   yellow  school bus ') == 'a yellow school bus'
+    assert validate_prompt('person') == 'person'
+    # Line breaks are whitespace like any other, so they normalise rather than fail.
+    assert validate_prompt('line\nbreak\ttab') == 'line break tab'
+    assert len(validate_prompt('a' * 120)) == 120
+
+
+def test_text_prompts_union_every_matching_instance():
+    """A concept prompt returns all matches at once; the mask is their union."""
+    frames = [Image.new('RGB', (4, 2), 'red')]
+    model, processor = Mock(), Mock()
+    frame = Mock(); frame.frame_idx = 0
+    model.propagate_in_video_iterator.return_value = [frame]
+    masks = np.zeros((3, 2, 4), dtype=float)
+    masks[0, 0, 0] = 1; masks[1, 1, 3] = 1  # two instances, one pixel each
+    processor.postprocess_outputs.return_value = {'masks': Mock(**{
+        'cpu.return_value.numpy.return_value': masks})}
+
+    segmenter = ConceptSegmenter(model, processor, device='cpu')
+    (index, union), = list(segmenter.masks(frames, 'school bus'))
+
+    assert processor.add_text_prompt.call_args.kwargs['text'] == 'school bus'
+    assert index == 0 and union.shape == (2, 4)
+    assert [list(row) for row in union] == [[True, False, False, False],
+                                            [False, False, False, True]]
+    # Nothing is clicked, so nothing is numbered; the phrase length is all we keep.
+    assert ConceptSegmenter.stats('school bus') == {'objects': 0, 'prompt_length': 10}
 
 
 def test_frames_are_downscaled_but_reported_at_their_original_size(tmp_path):
@@ -79,8 +143,7 @@ def test_frames_are_downscaled_but_reported_at_their_original_size(tmp_path):
     frames, original = load_frames(source)
     assert original == (2048, 1024), 'stats must describe the file the user gave us'
     assert frames[0].size == (1024, 512), 'the model never sees more than MAX_SIDE'
-    segmenter = Mock()
-    segmenter.masks.return_value = [(0, np.zeros((512, 1024), dtype=bool))]
+    segmenter = fake_segmenter([(0, np.ones((512, 1024), dtype=bool))])
     stats = segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
     assert (stats['width'], stats['height']) == (2048, 1024)
 
@@ -88,7 +151,7 @@ def test_frames_are_downscaled_but_reported_at_their_original_size(tmp_path):
 def test_unsupported_formats_never_reach_the_gpu(tmp_path):
     source = tmp_path / 'clip.bmp'
     Image.new('RGB', (4, 4)).save(source)
-    segmenter = Mock()
+    segmenter = fake_segmenter([])
     with pytest.raises(ValueError, match='GIF, PNG, JPG or WebP'):
         segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
     segmenter.masks.assert_not_called()

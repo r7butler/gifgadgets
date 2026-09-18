@@ -241,24 +241,38 @@ _segment_model = None
 
 
 @app.function(gpu="L4", image=segment_image, timeout=3600, scaledown_window=60)
-def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
+def segment_media(input_url: str, output_url: str, objects: list, job_id: str, text: str = ""):
     import json
     import time
     import tempfile
     import urllib.request
     import torch
-    from segmentation import TrackerSegmenter, segment_file
-    from transformers import Sam3TrackerVideoModel, Sam3TrackerVideoProcessor
+    from segmentation import ConceptSegmenter, TrackerSegmenter, segment_file
     started = time.monotonic()
-    print(json.dumps({"event": "segmentation_started", "job_id": job_id}))
+    # A phrase and a set of clicks are alternative ways to say the same thing, and
+    # they run on different halves of SAM 3, so each job picks exactly one.
+    concept = bool(text)
+    print(json.dumps({"event": "segmentation_started", "job_id": job_id,
+                      "prompt": "text" if concept else "points"}))
     try:
         global _segment_model
         if _segment_model is None:
-            _segment_model = (
-                Sam3TrackerVideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
-                Sam3TrackerVideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
-            )
-        segmenter = TrackerSegmenter(*_segment_model)
+            _segment_model = {}
+        if concept not in _segment_model:
+            if concept:
+                from transformers import Sam3VideoModel, Sam3VideoProcessor
+                _segment_model[concept] = (
+                    Sam3VideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
+                    Sam3VideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
+                )
+            else:
+                from transformers import Sam3TrackerVideoModel, Sam3TrackerVideoProcessor
+                _segment_model[concept] = (
+                    Sam3TrackerVideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
+                    Sam3TrackerVideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
+                )
+        build = ConceptSegmenter if concept else TrackerSegmenter
+        segmenter = build(*_segment_model[concept])
         with tempfile.TemporaryDirectory() as work:
             source, output = work + '/source', work + '/masks.gz'
             # Payload limit protects memory/disk; there is deliberately no frame limit.
@@ -270,7 +284,7 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
                         raise ValueError('Choose a file up to 100 MB.')
                     f.write(chunk)
             with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
-                stats = segment_file(source, output, objects, segmenter)
+                stats = segment_file(source, output, text if concept else objects, segmenter)
             with open(output, 'rb') as f:
                 request = urllib.request.Request(output_url, data=f.read(), method='PUT',
                                                  headers={'Content-Type': 'application/gzip'})
@@ -306,6 +320,7 @@ def segment_api():
         output_url: str
         objects: list
         job_id: str
+        text: str = ""
 
     class Poll(BaseModel):
         call_id: str
@@ -314,7 +329,8 @@ def segment_api():
     async def submit(req: Submit, x_modal_api_key: Optional[str] = Header(None)):
         if x_modal_api_key != expected:
             return JSONResponse({'error': 'Unauthorized'}, status_code=401)
-        call = await segment_media.spawn.aio(req.input_url, req.output_url, req.objects, req.job_id)
+        call = await segment_media.spawn.aio(req.input_url, req.output_url, req.objects,
+                                            req.job_id, req.text)
         return {'call_id': call.object_id}
 
     @api.post('/status')

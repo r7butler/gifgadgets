@@ -72,7 +72,8 @@ def test_segmentation_broker_authenticates_all_routes(apps):
 def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, monkeypatch):
     import json
     monkeypatch.setitem(sys.modules, 'segmentation',
-                        SimpleNamespace(segment_file=Mock(), TrackerSegmenter=Mock()))
+                        SimpleNamespace(segment_file=Mock(), TrackerSegmenter=Mock(),
+                                        ConceptSegmenter=Mock()))
     apps[2].Sam3TrackerVideoModel.from_pretrained.side_effect = RuntimeError('model loading failed')
     with pytest.raises(RuntimeError, match='model loading'):
         apps[0]['tracker'].segment_media('https://private-source', 'https://private-output', [], 'test-job')

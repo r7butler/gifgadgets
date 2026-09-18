@@ -31,7 +31,7 @@ async function service(page,frames=1,{running=false,fail=false,mask=0b11001100}=
 async function load(page,slug,file) {
   await page.goto('/'+slug+'/');
   await page.locator('#utility-file').setInputFiles(file || await pngFile(page));
-  await expect(page.locator('#utility-status')).toContainText('Select the objects');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
   await page.locator('summary').click();
   await page.locator('#utility-x').fill('25');
   await page.locator('#utility-add-point').click();
@@ -176,7 +176,7 @@ test('exclude points and clear selection enforce a fresh segmentation',async({pa
   expect(server.calls.find(c=>c.kind==='submit').body.objects[0].points.map(p=>p.label)).toEqual([1,0]);
   await page.locator('#utility-clear').click();
   await page.locator('#utility-segment').click();
-  await expect(page.locator('#utility-status')).toContainText('Add at least one keep point');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep, or choose Keep area');
   await expect(page.locator('#utility-download')).toBeHidden();
   expect(server.calls.filter(c=>c.kind==='submit')).toHaveLength(1);
 });
@@ -208,12 +208,12 @@ test('late status response cannot overwrite a new selection after cancellation',
   await page.locator('#utility-cancel').click();
   await expect(page.locator('#utility-status')).toHaveText('Processing cancelled.');
   await page.locator('#utility-file').setInputFiles(await pngFile(page,'blue'));
-  await expect(page.locator('#utility-status')).toContainText('Select the objects');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
   release();
   // Allow the delayed response handler to run before checking the newer UI.
   await page.waitForResponse('**/api/segment/status');
   await page.waitForTimeout(100);
-  await expect(page.locator('#utility-status')).toContainText('Select the objects');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
   await expect(page.locator('#utility-cancel')).toBeHidden();
 });
 
@@ -293,7 +293,7 @@ test('color changes refresh automatically and replacing the source resets file b
   await expect(page.locator('#utility-status')).toContainText('Ready to download');
   expect(server.calls.filter(c=>c.kind==='submit')).toHaveLength(1);
   await page.locator('#utility-file').setInputFiles(await pngFile(page));
-  await expect(page.locator('#utility-status')).toContainText('Select the objects');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
   await expect(page.locator('#utility-background-mode')).toHaveValue('color');
   await page.locator('#utility-add-point').click();await segment(page);
 });
@@ -387,7 +387,7 @@ test('dimension limits distinguish editing memory from the file-size limit and a
   await expect(page.locator('#utility-status')).toContainText('65535 × 65535');
   await expect(page.locator('#utility-upload')).toBeEnabled();
   await page.locator('#utility-file').setInputFiles(gifFile());
-  await expect(page.locator('#utility-status')).toContainText('Select the objects');
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
 });
 
 for(const slug of ['remove-image-background','change-image-background','remove-gif-background','swap-gif-background']) {
@@ -422,4 +422,46 @@ test('missing Keep recovery selects the correct subject and preserves other subj
   expect(server.calls).toHaveLength(0);
   await page.locator('#utility-add-point').click();await segment(page);
   expect(server.calls.find(c=>c.kind==='submit').body.objects.map(o=>o.points.map(p=>p.label))).toEqual([[1],[0,1]]);
+});
+
+test('a description replaces clicking, and clearing it hands the clicks back',async({page})=>{
+  const server=await service(page);
+  await page.goto('/remove-image-background/');
+  await page.locator('#utility-file').setInputFiles(await pngFile(page));
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep');
+  await page.locator('#utility-prompt').fill('  a red   square ');
+  // Point controls are off while a description is in play, and clicks do nothing.
+  await expect(page.locator('#utility-add-object')).toBeDisabled();
+  await expect(page.locator('#utility-undo')).toBeDisabled();
+  await page.locator('#utility-canvas').click();
+  await expect(page.locator('#utility-points')).toContainText('description');
+  await segment(page);
+  const submit=server.calls.find(c=>c.kind==='submit').body;
+  // Outer whitespace goes here, inner whitespace is the server's to normalise.
+  expect(submit.text).toBe('a red   square');
+  expect(submit.objects).toBeUndefined();
+  // The cutout is still a real one: the masked pixel is transparent.
+  expect((await pngPixels(page,await download(page)))[11]).toBe(0);
+  // Clearing the description restores the clicking workflow.
+  await page.locator('#utility-prompt').fill('');
+  await expect(page.locator('#utility-download')).toBeHidden();
+  await expect(page.locator('#utility-add-object')).toBeEnabled();
+  await expect(page.locator('#utility-points')).toContainText('Click a subject');
+  await page.locator('summary').click();
+  await page.locator('#utility-x').fill('25');
+  await page.locator('#utility-add-point').click();
+  await segment(page);
+  const points=server.calls.filter(c=>c.kind==='submit').pop().body;
+  expect(points.objects).toHaveLength(1);
+  expect(points.text).toBeUndefined();
+});
+
+test('an empty description is not a prompt and still asks for a selection',async({page})=>{
+  await service(page);
+  await page.goto('/remove-image-background/');
+  await page.locator('#utility-file').setInputFiles(await pngFile(page));
+  await page.locator('#utility-prompt').fill('   ');
+  await page.locator('#utility-segment').click();
+  await expect(page.locator('#utility-status')).toContainText('Describe what to keep, or choose Keep area');
+  await expect(page.locator('#utility-download')).toBeHidden();
 });

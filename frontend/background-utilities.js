@@ -7,6 +7,9 @@
   let objects = [{points:[]}], history = [], task, generation = 0;
   const mime = file => ({gif:'image/gif',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'})[file.name.split('.').pop().toLowerCase()];
   const status = message => { $('status').textContent = message; };
+  // A description and a set of clicks are alternative prompts, and they run on
+  // different halves of the model, so whichever is filled in decides the job.
+  const describing = () => $('prompt').value.trim();
   function clearResult() {
     clearTimeout(previewTimer);
     if (outputURL) URL.revokeObjectURL(outputURL);
@@ -77,16 +80,27 @@
       ctx.fillStyle='#fff'; ctx.font=`bold ${10*scale}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(index+1,p.x*canvas.width,p.y*canvas.height);
     }));
     const count = objects.reduce((sum,o)=>sum+o.points.length,0), subjects = objects.filter(o=>o.points.length).length;
-    $('points').textContent = count ? `${count} point${count===1?'':'s'} · ${subjects} subject${subjects===1?'':'s'}` : 'Click a subject to get started.';
-    $('undo').disabled = $('clear').disabled = !count;
+    $('points').textContent = describing() ? 'Using your description instead of points.'
+      : count ? `${count} point${count===1?'':'s'} · ${subjects} subject${subjects===1?'':'s'}` : 'Click a subject to get started.';
+    $('undo').disabled = $('clear').disabled = !!describing() || !count;
   }
   function changedSelection() {
     maskBuffer = maskPreview = null; $('overlay-wrap').hidden = true;
     clearResult(); $('apply').disabled = true; $('segment').textContent = 'Preview cutout'; draw();
     selectionMode();
-    if (original) status(history.length ? 'Selection changed. Choose Preview cutout to see what will be kept.' : 'Select the objects to keep, then choose Preview cutout.');
+    if (original) status(describing() ? 'Description changed. Choose Preview cutout to see what will be kept.'
+      : history.length ? 'Selection changed. Choose Preview cutout to see what will be kept.'
+      : 'Describe what to keep, or click the objects to keep, then choose Preview cutout.');
   }
   function selectionMode() {
+    const prompt = describing();
+    for (const name of ['object','add-object','add-point','keep','exclude','x','y'])
+      $(name).disabled = !!prompt;
+    if (prompt) {
+      $('selection-help').textContent = 'Using your description. Clear it to pick subjects by clicking instead.';
+      $('selection-warning').hidden = true;
+      return;
+    }
     const keep = $('point-mode').value === '1';
     $('keep').setAttribute('aria-pressed', String(keep));
     $('exclude').setAttribute('aria-pressed', String(!keep));
@@ -99,6 +113,7 @@
     $('selection-warning').hidden = missing < 0;
     $('selection-warning').textContent = missing < 0 ? '' : `Subject ${missing + 1} only has Exclude points. Select that subject, choose Keep area, and click inside what you want to keep. Your Exclude points will be preserved.`;
   }
+  $('prompt').oninput = changedSelection;
   $('keep').onclick = () => { $('point-mode').value = '1'; selectionMode(); };
   $('exclude').onclick = () => { $('point-mode').value = '0'; selectionMode(); };
   $('point-mode').onchange = selectionMode;
@@ -108,7 +123,7 @@
     objects=[{points:[]}]; history=[]; $('point-mode').value='1'; $('object').innerHTML='<option value="0">Subject 1</option>'; changedSelection();
   }
   function addPoint(x,y) {
-    if (busy || !original) return;
+    if (busy || !original || describing()) return;
     if (![x,y].every(v=>Number.isFinite(v)&&v>=0&&v<=1)) { status('Point coordinates must be between 0 and 100 percent.'); return; }
     const index = Number($('object').value);
     if (objects[index].points.length >= 128) { status('Use at most 128 points per object.'); return; }
@@ -138,7 +153,7 @@
       await ensureWorker(); if(ticket!==generation) return;
       $('original-wrap').hidden=false; $('upload').hidden=true; $('new').hidden=false;
       $('info').textContent=`${file.name} · ${original.width} × ${original.height} · ${original.count} frame${original.count===1?'':'s'}`;
-      draw(); status('Select the objects to keep, then choose Preview cutout.'); window.GWFunnel?.ready();
+      draw(); status('Describe what to keep, or click the objects to keep, then choose Preview cutout.'); window.GWFunnel?.ready();
     } catch(error) { if(ticket===generation) { original=null; source=null; killWorker(); $('upload').hidden=false; status(error.message); window.GWFunnel?.failure('decode'); } }
     finally { if(ticket===generation) setBusy(false); }
   }
@@ -178,27 +193,33 @@
       clearResult(); const blob=new Blob([result.bytes],{type:result.mime}); outputURL=URL.createObjectURL(blob);
       $('result').src=$('download').href=outputURL; $('download').download=source.name.replace(/\.[^.]+$/,'')+'-'+root.dataset.tool+(gif?'.gif':'.png');
       $('download').textContent='Download '+(gif?'GIF':'PNG'); $('download').hidden=$('result-wrap').hidden=false;
-      $('segment').textContent='Refine cutout'; status('Ready to download. To refine, add keep or exclude points on the original, then preview again.'); span?.complete();
+      $('segment').textContent='Refine cutout';
+      status(describing() ? 'Ready to download. To refine, reword the description, or clear it and click your subject instead.'
+        : 'Ready to download. To refine, add keep or exclude points on the original, then preview again.');
+      span?.complete();
     } catch(error) { span?.fail('encode'); throw error; }
   }
   $('segment').onclick=async()=>{
-    const selected=objects.filter(o=>o.points.length);
-    if(!selected.length) { status('Add at least one keep point for each selected object. Choose Keep area, then click inside your subject.'); return; }
-    const missing = objects.findIndex(o=>o.points.length && !o.points.some(p=>p.label===1));
-    if(missing >= 0) {
-      $('object').value=String(missing); $('point-mode').value='1'; selectionMode();
-      status($('selection-warning').textContent); $('keep').focus(); return;
+    const prompt=describing(), selected=objects.filter(o=>o.points.length);
+    if(!prompt) {
+      if(!selected.length) { status('Describe what to keep, or choose Keep area and click inside your subject.'); $('prompt').focus(); return; }
+      const missing = objects.findIndex(o=>o.points.length && !o.points.some(p=>p.label===1));
+      if(missing >= 0) {
+        $('object').value=String(missing); $('point-mode').value='1'; selectionMode();
+        status($('selection-warning').textContent); $('keep').focus(); return;
+      }
     }
     const run=task={cancelled:false,controller:new AbortController()}, ticket=generation;
     clearResult(); maskBuffer=maskPreview=null; $('overlay-wrap').hidden=true; draw(); setBusy(true); const span=window.GWFunnel?.trackingStarted();
     try {
-      status('Uploading source for AI object selection…');
+      status(prompt ? 'Uploading source to find what you described…' : 'Uploading source for AI object selection…');
       const issued=await api('presign',{content_type:mime(source)}); run.job=issued.job_id;
       if(run.cancelled) return;
       const upload=await fetch(issued.upload_url,{method:'PUT',headers:{'Content-Type':mime(source)},body:source,signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(300000)])});
       if(!upload.ok) throw Error('Source upload failed. Try again.');
       if(run.cancelled) return;
-      run.submission=api('submit',{job_id:run.job,objects:selected}); await run.submission;
+      run.submission=api('submit', prompt ? {job_id:run.job,text:prompt} : {job_id:run.job,objects:selected});
+      await run.submission;
       const started=Date.now();
       $('progress').removeAttribute('value');
       let result;

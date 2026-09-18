@@ -38,8 +38,13 @@ AI run. Background files and exported media stay on the device.
 - `backend/handler.py`: private upload URLs, quota, durable submission deduplication,
   status and cancellation. Browser-supplied remote URLs and Modal IDs are ignored.
 - `backend/tracker/segmentation.py`: coalesces all source frames with Pillow, applies
-  EXIF orientation, fits inference images to a 1024-pixel side, prompts each object,
+  EXIF orientation, fits inference images to a 1024-pixel side, prompts the model,
   unions masks, and returns gzip-compressed, bit-packed masks for every frame.
+  Two segmenters share that pipeline. `TrackerSegmenter` takes clicks: one selection
+  becomes one tracked object, prompted on frame zero. `ConceptSegmenter` takes a short
+  phrase and keeps every instance that matches it. A job carries one prompt or the
+  other, never both — they run on different halves of SAM 3 — and the broker resolves
+  the ambiguity by preferring text when a caller sends both.
 - `backend/tracker/modal_app.py`: authenticated CPU broker launches a separate L4
   GPU job. Polling never occupies a GPU. Segmentation runs SAM 3.1 through
   `transformers`, on its own image: the motion tracker keeps its pinned SAM 2 stack,
@@ -49,7 +54,11 @@ AI run. Background files and exported media stay on the device.
 
 **There is no frame-count cap or sampling.** Existing safeguards are 100 MB per
 input, a 256 MiB estimated media-working budget in the browser, 32 selectable
-objects, 128 points per object, and a one-hour GPU execution timeout. Encoded output
+objects, 128 points per object, a 120-character description, and a one-hour GPU
+execution timeout. A description is free text from anonymous callers, so it is
+length-capped, whitespace-normalised and rejected if it carries control characters;
+the phrase itself is never logged, only whether the job was prompted by text or
+points and how long the phrase was. Encoded output
 also has a 256 MiB check. These checks are not a guarantee against browser/server
 memory exhaustion: canvases, encoders, downloaded masks and model state also use
 memory. GIF pixels are decoded on demand using reusable buffers, rather than
@@ -154,7 +163,9 @@ secrets into Lambda. Existing environment values were preserved with revision gu
 No secret values were printed. The AWS SSO session was valid by the time of repair.
 
 The real browser tests clicked two separate objects in a 320 × 180 synthetic image
-and a three-frame GIF. Downloaded results retained both subjects (alpha 255), removed
+and a three-frame GIF. A run that produces no foreground at all now fails with a
+message rather than handing back a fully transparent export. Downloaded results
+retained both subjects (alpha 255), removed
 the background between them (alpha 0), and preserved all three GIF frames and loop
 count 2. This validates actual mouse coordinates, upload, API, GPU, mask download and
 export; it is not a broad assessment of segmentation quality on photographs.
