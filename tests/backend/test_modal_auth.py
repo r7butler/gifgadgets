@@ -20,6 +20,9 @@ def apps(monkeypatch):
         monkeypatch.setitem(sys.modules, name, MagicMock())
     build = Mock()
     monkeypatch.setitem(sys.modules, "sam2.build_sam", SimpleNamespace(build_sam2_video_predictor=build))
+    # Background removal runs SAM 3 through transformers; motion tracking still runs SAM 2.
+    segment_build = SimpleNamespace(Sam3TrackerVideoModel=Mock(), Sam3TrackerVideoProcessor=Mock())
+    monkeypatch.setitem(sys.modules, "transformers", segment_build)
     modules = {}
     for name in ("tracker", "converter"):
         path = Path(__file__).parents[2] / "backend" / name / "modal_app.py"
@@ -27,7 +30,7 @@ def apps(monkeypatch):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         modules[name] = module
-    return modules, build
+    return modules, build, segment_build
 
 
 @pytest.mark.parametrize("secret", ["", "   "])
@@ -68,8 +71,9 @@ def test_segmentation_broker_authenticates_all_routes(apps):
 
 def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, monkeypatch):
     import json
-    monkeypatch.setitem(sys.modules, 'segmentation', SimpleNamespace(segment_file=Mock()))
-    apps[1].side_effect = RuntimeError('model loading failed')
+    monkeypatch.setitem(sys.modules, 'segmentation',
+                        SimpleNamespace(segment_file=Mock(), TrackerSegmenter=Mock()))
+    apps[2].Sam3TrackerVideoModel.from_pretrained.side_effect = RuntimeError('model loading failed')
     with pytest.raises(RuntimeError, match='model loading'):
         apps[0]['tracker'].segment_media('https://private-source', 'https://private-output', [], 'test-job')
     lines = capsys.readouterr().out.splitlines()

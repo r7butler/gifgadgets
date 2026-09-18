@@ -10,6 +10,11 @@ This app holds no AWS credentials. Callers presign a GET URL for the frames
 JSON and pass it as frames_url.
 
 Required Modal secret "gifwidgets-modal-api-key" with key MODAL_API_KEY.
+
+Background removal additionally needs "gifwidgets-huggingface-token" with key
+HF_TOKEN. The SAM 3 weights are gated, so that token's account must have been
+granted access at https://huggingface.co/facebook/sam3.1 or the image build
+fails while fetching them.
 """
 
 import modal
@@ -36,6 +41,39 @@ image = (
         "wget -q -O /root/sam2_tiny.pt "
         "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt"
     )
+)
+
+# Background removal runs SAM 3.1, which shares nothing with the motion tracker's
+# SAM 2 stack — different torch, different weights, 848M parameters against 39M.
+# A separate image keeps the tracker's cold start cheap and its pins undisturbed.
+SEGMENT_CHECKPOINT = "facebook/sam3.1"
+
+
+def _fetch_segment_weights():
+    # Baked into the image so a cold container never waits on a 3 GB download.
+    from huggingface_hub import snapshot_download
+    snapshot_download(SEGMENT_CHECKPOINT)
+
+
+segment_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch==2.7.1",
+        "torchvision==0.22.1",
+        extra_index_url="https://download.pytorch.org/whl/cu126",
+    )
+    .pip_install(
+        "transformers>=5.17",
+        "huggingface-hub[hf-transfer]",
+        "Pillow",
+        "numpy",
+    )
+    .env({"HF_HOME": "/models", "HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    # The SAM 3 weights are gated: the token needs access granted on Hugging Face
+    # before this build step can succeed.
+    .run_function(_fetch_segment_weights,
+                  secrets=[modal.Secret.from_name("gifwidgets-huggingface-token")])
+    .add_local_file(str(Path(__file__).with_name("segmentation.py")), "/root/segmentation.py")
 )
 
 
@@ -202,24 +240,25 @@ def fastapi_app():
 _segment_model = None
 
 
-@app.function(gpu="L4", image=image.add_local_file(
-    str(Path(__file__).with_name("segmentation.py")), "/root/segmentation.py"),
-    timeout=3600, scaledown_window=60)
+@app.function(gpu="L4", image=segment_image, timeout=3600, scaledown_window=60)
 def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
     import json
     import time
     import tempfile
     import urllib.request
     import torch
-    from segmentation import segment_file
-    from sam2.build_sam import build_sam2_video_predictor
+    from segmentation import TrackerSegmenter, segment_file
+    from transformers import Sam3TrackerVideoModel, Sam3TrackerVideoProcessor
     started = time.monotonic()
     print(json.dumps({"event": "segmentation_started", "job_id": job_id}))
     try:
         global _segment_model
         if _segment_model is None:
-            _segment_model = build_sam2_video_predictor(
-                "configs/sam2.1/sam2.1_hiera_t.yaml", "/root/sam2_tiny.pt", device="cuda")
+            _segment_model = (
+                Sam3TrackerVideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
+                Sam3TrackerVideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
+            )
+        segmenter = TrackerSegmenter(*_segment_model)
         with tempfile.TemporaryDirectory() as work:
             source, output = work + '/source', work + '/masks.gz'
             # Payload limit protects memory/disk; there is deliberately no frame limit.
@@ -231,7 +270,7 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str):
                         raise ValueError('Choose a file up to 100 MB.')
                     f.write(chunk)
             with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
-                stats = segment_file(source, output, objects, _segment_model)
+                stats = segment_file(source, output, objects, segmenter)
             with open(output, 'rb') as f:
                 request = urllib.request.Request(output_url, data=f.read(), method='PUT',
                                                  headers={'Content-Type': 'application/gzip'})

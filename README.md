@@ -81,7 +81,7 @@ gifwidgets/
   backend/
     handler.py             # Lambda API (upload, share, presign, track broker)
     requirements.txt
-    tracker/modal_app.py   # SAM 2.1 object tracking (L4 GPU)
+    tracker/modal_app.py   # SAM 2.1 object tracking + SAM 3.1 segmentation (L4 GPU)
     converter/modal_app.py # FFmpeg NVENC encoding (T4 GPU) — see note below
   terraform/
     main.tf                # S3, Lambda, CloudFront, WAF, DynamoDB, Route53

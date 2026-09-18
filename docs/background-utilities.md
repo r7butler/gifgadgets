@@ -41,9 +41,11 @@ AI run. Background files and exported media stay on the device.
   EXIF orientation, fits inference images to a 1024-pixel side, prompts each object,
   unions masks, and returns gzip-compressed, bit-packed masks for every frame.
 - `backend/tracker/modal_app.py`: authenticated CPU broker launches a separate L4
-  GPU job. Polling never occupies a GPU. SAM2 is pinned to a commit with compatible
-  PyTorch/torchvision versions; its dependency requirements are recorded in
-  [upstream setup.py](https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/setup.py).
+  GPU job. Polling never occupies a GPU. Segmentation runs SAM 3.1 through
+  `transformers`, on its own image: the motion tracker keeps its pinned SAM 2 stack,
+  so neither feature can break the other's dependencies and the tracker's cold start
+  does not pay for SAM 3 weights. The gated `facebook/sam3.1` checkpoint is baked
+  into the image at build time from the `gifwidgets-huggingface-token` secret.
 
 **There is no frame-count cap or sampling.** Existing safeguards are 100 MB per
 input, a 256 MiB estimated media-working budget in the browser, 32 selectable
@@ -70,7 +72,10 @@ allowing status and cancellation of existing jobs.
 
 Keep the requested no-frame-cap behavior initially and measure real usage. Frame
 count, object count, model startup, retained tracking state and repeated selections
-all affect cost. In particular, SAM2 loads inference frames as 1024 × 1024 tensors:
+all affect cost. SAM 3.1 is roughly 848M parameters against SAM 2.1 Tiny's 39M, so
+per-frame inference is materially more expensive than the figures first measured here
+— re-measure before assuming the old cost envelope holds, particularly for long GIFs,
+where cost scales with frame count. In particular, inference frames load as 1024 × 1024 tensors:
 a small source GIF can still create substantial server RAM pressure over many
 frames. CPU offloading moves memory out of VRAM; it does not make that memory free
 or eliminate growth with animation length. Client composition/encoding also grows
@@ -154,10 +159,17 @@ the background between them (alpha 0), and preserved all three GIF frames and lo
 count 2. This validates actual mouse coordinates, upload, API, GPU, mask download and
 export; it is not a broad assessment of segmentation quality on photographs.
 
-The deployed SAM2 image lacks its optional `_C` hole-filling extension; inference
-works but that optional post-processing is skipped. All three Modal broker routes
-reject unauthenticated requests. The latest local regression run passed 122 backend
-tests and 39 background browser cases across Chromium, Firefox and WebKit.
+All three Modal broker routes reject unauthenticated requests. The latest local
+regression run passed 127 backend tests and 39 background browser cases across
+Chromium, Firefox and WebKit.
+
+The SAM 3.1 swap is verified as far as it can be without a GPU: validation, frame
+extraction, prompt arithmetic and mask packing are covered by
+`tests/backend/test_segmentation.py` against a stubbed model. The model calls
+themselves — `init_video_session`, `add_inputs_to_inference_session`,
+`propagate_in_video_iterator`, `post_process_masks` — are written against the
+documented transformers API and have not been executed against real weights. Deploy
+to Modal and run `scripts/smoke-test.sh` before trusting them.
 
 `scripts/smoke-test.sh` now checks all four pages and all four segmentation API
 routes using invalid requests that reach validation without launching paid work.

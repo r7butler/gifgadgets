@@ -8,7 +8,8 @@ import numpy as np
 from PIL import Image
 import pytest
 
-from backend.tracker.segmentation import validate_objects, segment_file
+from backend.tracker.segmentation import (
+    TrackerSegmenter, load_frames, segment_file, validate_objects)
 import backend.handler as h
 from conftest import make_event
 
@@ -25,34 +26,72 @@ def test_pipeline_unions_objects_and_returns_every_frame(tmp_path):
     source, target = tmp_path / 'input.gif', tmp_path / 'masks.gz'
     images = [Image.new('RGB', (3, 2), color) for color in ('red', 'green', 'blue')]
     images[0].save(source, save_all=True, append_images=images[1:], duration=[70,130,250], loop=2)
-    predictor = Mock()
-    def propagate(state):
+    segmenter = Mock()
+    def masks(frames, objects):
+        assert [f.size for f in frames] == [(3, 2)] * 3
         for index in range(3):
-            logits = np.full((2,1,2,3), -1.)
-            logits[0,0,0,index] = 1
-            logits[1,0,1,index] = 1
-            tensor = Mock(); tensor.cpu.return_value.numpy.return_value = logits
-            yield index, [1,2], tensor
-    predictor.propagate_in_video.side_effect = propagate
-    stats = segment_file(source, target, POINTS + POINTS, predictor)
-    assert stats['frames'] == 3
-    predictor.init_state.assert_called_once()
-    assert predictor.init_state.call_args.kwargs['offload_state_to_cpu'] is True
-    assert predictor.add_new_points_or_box.call_count == 2
+            union = np.zeros((2, 3), dtype=bool)
+            # Two objects, one pixel each, so the packed byte proves the union.
+            union[0, index] = True
+            union[1, index] = True
+            yield index, union
+    segmenter.masks.side_effect = masks
+    stats = segment_file(source, target, POINTS + POINTS, segmenter)
+    assert stats['frames'] == 3 and stats['objects'] == 2
     raw = gzip.decompress(target.read_bytes())
     size = struct.unpack('<I',raw[:4])[0]
     assert json.loads(raw[4:4+size]) == {'version':1,'width':3,'height':2,'frames':3}
     assert list(raw[4+size:]) == [0b10010000,0b01001000,0b00100100]
-    predictor.reset_state.assert_called_once()
+    segmenter.release.assert_called_once()
 
 
-def test_incomplete_masks_fail_and_release_predictor(tmp_path):
+def test_incomplete_masks_fail_and_release_the_session(tmp_path):
     source = tmp_path / 'image.png'
     Image.new('RGB',(2,2)).save(source)
-    predictor = Mock(); predictor.propagate_in_video.return_value=[]
+    segmenter = Mock(); segmenter.masks.return_value = []
     with pytest.raises(ValueError,match='every frame'):
-        segment_file(source,tmp_path/'out.gz',POINTS,predictor)
-    predictor.reset_state.assert_called_once()
+        segment_file(source,tmp_path/'out.gz',POINTS,segmenter)
+    segmenter.release.assert_called_once()
+
+
+def test_a_wrongly_shaped_or_repeated_mask_is_refused(tmp_path):
+    source = tmp_path / 'image.png'
+    Image.new('RGB', (4, 3)).save(source)
+    for union, message in [(np.zeros((9, 9), dtype=bool), 'unexpected mask dimensions'),
+                           (np.zeros((3, 4), dtype=bool), None)]:
+        segmenter = Mock(); segmenter.masks.return_value = [(0, union)]
+        if message:
+            with pytest.raises(ValueError, match=message):
+                segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+        else:
+            assert segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)['frames'] == 1
+        segmenter.release.assert_called_once()
+    # A frame delivered twice would silently overwrite the first result.
+    segmenter = Mock()
+    segmenter.masks.return_value = [(0, np.zeros((3, 4), dtype=bool))] * 2
+    with pytest.raises(ValueError, match='invalid frame sequence'):
+        segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+
+
+def test_frames_are_downscaled_but_reported_at_their_original_size(tmp_path):
+    source = tmp_path / 'big.png'
+    Image.new('RGB', (2048, 1024), 'red').save(source)
+    frames, original = load_frames(source)
+    assert original == (2048, 1024), 'stats must describe the file the user gave us'
+    assert frames[0].size == (1024, 512), 'the model never sees more than MAX_SIDE'
+    segmenter = Mock()
+    segmenter.masks.return_value = [(0, np.zeros((512, 1024), dtype=bool))]
+    stats = segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+    assert (stats['width'], stats['height']) == (2048, 1024)
+
+
+def test_unsupported_formats_never_reach_the_gpu(tmp_path):
+    source = tmp_path / 'clip.bmp'
+    Image.new('RGB', (4, 4)).save(source)
+    segmenter = Mock()
+    with pytest.raises(ValueError, match='GIF, PNG, JPG or WebP'):
+        segment_file(source, tmp_path / 'out.gz', POINTS, segmenter)
+    segmenter.masks.assert_not_called()
 
 
 @pytest.fixture
@@ -129,23 +168,48 @@ def test_kill_switch_still_permits_cancellation(issued, monkeypatch):
     remote.assert_called_once_with('/cancel', {'call_id': 'fc-test'})
 
 
-def test_keep_and_exclude_points_reach_predictor_for_their_subject(tmp_path):
-    source = tmp_path / 'source.png'
-    Image.new('RGB', (100, 50), 'red').save(source)
-    predictor = Mock()
-    tensor = Mock()
-    tensor.cpu.return_value.numpy.return_value = np.ones((2, 1, 50, 100))
-    predictor.propagate_in_video.return_value = [(0, [1, 2], tensor)]
+def test_keep_and_exclude_points_reach_the_model_for_their_subject():
+    """Selections are normalised in the browser and must land on the right pixels.
+
+    This is the arithmetic between a click and the GPU, so it is asserted against
+    the real TrackerSegmenter with the model and processor stubbed out.
+    """
+    frames = [Image.new('RGB', (100, 50), 'red')]
     objects = [
         {'points': [{'x': .2, 'y': .4, 'label': 1}, {'x': .8, 'y': .6, 'label': 0}]},
         {'points': [{'x': .1, 'y': .2, 'label': 0}, {'x': .5, 'y': .5, 'label': 1}]},
     ]
-    segment_file(source, tmp_path / 'masks.gz', objects, predictor)
-    for i, (expected_points, expected_labels) in enumerate([
-        ([[20, 20], [80, 30]], [1, 0]),
-        ([[10, 10], [50, 25]], [0, 1]),
-    ]):
-        prompt = predictor.add_new_points_or_box.call_args_list[i].kwargs
-        assert prompt['obj_id'] == i + 1
-        np.testing.assert_array_equal(prompt['points'], expected_points)
-        np.testing.assert_array_equal(prompt['labels'], expected_labels)
+    model, processor = Mock(), Mock()
+    frame = Mock(); frame.frame_idx = 0
+    model.propagate_in_video_iterator.return_value = [frame]
+    logits = Mock()
+    # Two objects, each covering one half of the frame: the union is everything.
+    stack = np.full((2, 1, 50, 100), -1.)
+    stack[0, 0, :, :50] = 1
+    stack[1, 0, :, 50:] = 1
+    logits.cpu.return_value.numpy.return_value = stack
+    processor.post_process_masks.return_value = [logits]
+
+    segmenter = TrackerSegmenter(model, processor, device='cpu')
+    produced = list(segmenter.masks(frames, objects))
+
+    prompt = processor.add_inputs_to_inference_session.call_args.kwargs
+    assert prompt['frame_idx'] == 0
+    assert prompt['obj_ids'] == [1, 2], 'object ids must be stable and one-based'
+    np.testing.assert_array_equal(prompt['input_points'], [[[[20, 20], [80, 30]], [[10, 10], [50, 25]]]])
+    np.testing.assert_array_equal(prompt['input_labels'], [[[1, 0], [0, 1]]])
+    # Masks come back at the frame's resolution, not the model's working size.
+    assert processor.post_process_masks.call_args.kwargs['original_sizes'] == [[50, 100]]
+    assert processor.post_process_masks.call_args.kwargs['binarize'] is False
+
+    (index, union), = produced
+    assert index == 0 and union.shape == (50, 100)
+    assert union.all(), 'both selections are foreground, so the union covers the frame'
+
+    segmenter.release()
+    processor.init_video_session.return_value.reset_inference_session.assert_called_once()
+
+
+def test_releasing_without_a_session_is_harmless():
+    # A file rejected before segmentation still reaches release() in the finally.
+    TrackerSegmenter(Mock(), Mock()).release()
