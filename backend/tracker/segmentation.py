@@ -21,41 +21,45 @@ MAX_SIDE = 1024
 MAX_PROMPT = 120
 
 
+class SelectionError(ValueError):
+    """A problem with the user's file or selection. Its message is safe to show them."""
+
+
 def validate_objects(objects):
     if not isinstance(objects, list) or not objects:
-        raise ValueError('Select at least one object.')
+        raise SelectionError('Select at least one object.')
     # Bound prompt payload complexity, not media frame count.
     if len(objects) > 32:
-        raise ValueError('Select at most 32 objects.')
+        raise SelectionError('Select at most 32 objects.')
     for obj in objects:
         points = obj.get('points') if isinstance(obj, dict) else None
         if not isinstance(points, list) or not 1 <= len(points) <= 128:
-            raise ValueError('Each object needs between 1 and 128 points.')
+            raise SelectionError('Each object needs between 1 and 128 points.')
         if not any(p.get('label') == 1 for p in points if isinstance(p, dict)):
-            raise ValueError('Each object needs a keep point.')
+            raise SelectionError('Each object needs a keep point.')
         for p in points:
             if not isinstance(p, dict) or p.get('label') not in (0, 1):
-                raise ValueError('Invalid point label.')
+                raise SelectionError('Invalid point label.')
             for key in ('x', 'y'):
                 value = p.get(key)
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
-                    raise ValueError('Point coordinates must be between zero and one.')
+                    raise SelectionError('Point coordinates must be between zero and one.')
     return objects
 
 
 def validate_prompt(text):
     """A concept prompt, normalised. Returned so the caller uses the clean value."""
     if not isinstance(text, str):
-        raise ValueError('Describe what to keep.')
+        raise SelectionError('Describe what to keep.')
     # Collapse whitespace so " a  dog " and "a dog" are one prompt, not two.
     prompt = ' '.join(text.split())
     if not prompt:
-        raise ValueError('Describe what to keep.')
+        raise SelectionError('Describe what to keep.')
     if len(prompt) > MAX_PROMPT:
-        raise ValueError(f'Keep the description under {MAX_PROMPT} characters.')
+        raise SelectionError(f'Keep the description under {MAX_PROMPT} characters.')
     # This string reaches a GPU job and the logs; control characters do neither any good.
     if any(ord(character) < 32 or ord(character) == 127 for character in prompt):
-        raise ValueError('Remove control characters from the description.')
+        raise SelectionError('Remove control characters from the description.')
     return prompt
 
 
@@ -71,7 +75,7 @@ def load_frames(source):
     frames, original = [], None
     with Image.open(source) as media:
         if media.format not in ('GIF', 'PNG', 'JPEG', 'WEBP'):
-            raise ValueError('Choose a GIF, PNG, JPG or WebP file.')
+            raise SelectionError('Choose a GIF, PNG, JPG or WebP file.')
         count = getattr(media, 'n_frames', 1) if media.format == 'GIF' else 1
         for index in range(count):
             media.seek(index)
@@ -93,6 +97,12 @@ class Sam3Segmenter:
 
     def __init__(self, model):
         self.model = model
+        # The pinned builder defaults to 16-frame grounding/postprocessing
+        # batches. Their activations can exhaust an L4 before the first GIF
+        # mask is yielded. Bound temporary GPU work, preserving all frames and
+        # the model's continuous tracking state (including hotstart buffering).
+        self.model.batched_grounding_batch_size = 1
+        self.model.postprocess_batch_size = 1
         self.session = None
         self.work = None
 
@@ -220,10 +230,10 @@ def segment_file(source, output, prompt, segmenter):
                     f.write(packed)
                 seen.add(index)
             if len(seen) != count:
-                raise ValueError('Segmentation did not return every frame. Please try again.')
+                raise SelectionError('Segmentation did not return every frame. Please try again.')
             # An empty mask everywhere exports a blank file. Say so instead.
             if not found:
-                raise ValueError('Nothing matched that selection. Try describing the subject differently, or click it directly.')
+                raise SelectionError('Nothing matched that selection. Try describing the subject differently, or click it directly.')
             header = json.dumps({'version': 1, 'width': width, 'height': height, 'frames': count}).encode()
             with gzip.open(output, 'wb') as f:
                 f.write(struct.pack('<I', len(header)))

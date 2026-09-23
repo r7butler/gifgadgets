@@ -70,7 +70,8 @@ segment_image = (
         "setuptools<81", "huggingface-hub", "Pillow", "numpy<2",
         "einops", "decord", "opencv-python-headless<4.12", "pycocotools", "scipy", "psutil",
     )
-    .env({"HF_HOME": "/models/hf"})
+    .env({"HF_HOME": "/models/hf",
+          "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
     .run_function(_fetch_segment_weights,
                   secrets=[modal.Secret.from_name("gifwidgets-huggingface-token")])
     .add_local_file(str(Path(__file__).with_name("segmentation.py")), "/root/segmentation.py")
@@ -247,7 +248,8 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
     import tempfile
     import urllib.request
     import torch
-    from segmentation import ConceptSegmenter, TrackerSegmenter, segment_file
+    from segmentation import ConceptSegmenter, SelectionError, TrackerSegmenter, segment_file
+    torch.cuda.reset_peak_memory_stats()
     started = time.monotonic()
     # Both prompt types use the same SAM 3.1 detector/tracker weights.
     concept = bool(text)
@@ -275,7 +277,7 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
                 while chunk := response.read(1024 * 1024):
                     total += len(chunk)
                     if total > 100 * 1024 * 1024:
-                        raise ValueError('Choose a file up to 100 MB.')
+                        raise SelectionError('Choose a file up to 100 MB.')
                     f.write(chunk)
             with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
                 stats = segment_file(source, output, text if concept else objects, segmenter)
@@ -285,13 +287,23 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
             with urllib.request.urlopen(request, timeout=120) as response:
                 response.read()
             stats['total_seconds'] = round(time.monotonic() - started, 3)
+            stats['peak_gpu_allocated_mb'] = round(torch.cuda.max_memory_allocated() / 1024**2)
+            stats['peak_gpu_reserved_mb'] = round(torch.cuda.max_memory_reserved() / 1024**2)
             print(json.dumps({'event': 'segmentation_complete', 'job_id': job_id,
                               'input_bytes': total, **stats}))
             return stats
     except Exception as error:
         print(json.dumps({"event": "segmentation_failed", "job_id": job_id,
                           "error_type": type(error).__name__,
+                          # User-facing messages never contain the prompt or URLs.
+                          "message": str(error) if isinstance(error, SelectionError) else None,
+                          "peak_gpu_allocated_mb": round(torch.cuda.max_memory_allocated() / 1024**2),
+                          "peak_gpu_reserved_mb": round(torch.cuda.max_memory_reserved() / 1024**2),
                           "total_seconds": round(time.monotonic() - started, 3)}))
+        # The broker cannot unpickle this module's exception types, so return a
+        # message the user can act on rather than raising it.
+        if isinstance(error, SelectionError):
+            return {'error': str(error)}
         raise
 
 
@@ -333,6 +345,8 @@ def segment_api():
             return JSONResponse({'error': 'Unauthorized'}, status_code=401)
         try:
             result = await modal.FunctionCall.from_id(req.call_id).get.aio(timeout=0)
+            if isinstance(result, dict) and result.get('error'):
+                return {'state': 'failed', 'error': result['error']}
             return {'state': 'complete', 'stats': result}
         except TimeoutError:
             return {'state': 'running'}

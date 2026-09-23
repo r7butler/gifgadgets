@@ -71,9 +71,11 @@ def test_segmentation_broker_authenticates_all_routes(apps):
 
 def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, monkeypatch):
     import json
+    sys.modules['torch'].cuda.max_memory_allocated.return_value = 2 * 1024**2
+    sys.modules['torch'].cuda.max_memory_reserved.return_value = 3 * 1024**2
     monkeypatch.setitem(sys.modules, 'segmentation',
                         SimpleNamespace(segment_file=Mock(), TrackerSegmenter=Mock(),
-                                        ConceptSegmenter=Mock()))
+                                        ConceptSegmenter=Mock(), SelectionError=ValueError))
     apps[2].build_sam3_multiplex_video_predictor.side_effect = RuntimeError('model loading failed')
     with pytest.raises(RuntimeError, match='model loading'):
         apps[0]['tracker'].segment_media('https://private-source', 'https://private-output', [], 'test-job')
@@ -83,4 +85,49 @@ def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, mon
     assert failed['job_id'] == 'test-job'
     assert failed['total_seconds'] >= 0
     assert failed['error_type'] == 'RuntimeError'
+    assert failed['peak_gpu_allocated_mb'] == 2
+    assert failed['peak_gpu_reserved_mb'] == 3
     assert 'private-source' not in ''.join(lines)
+    assert failed['message'] is None
+
+
+def test_segmentation_returns_selection_errors_for_the_user(apps, capsys, monkeypatch):
+    import json
+
+    class SelectionError(ValueError):
+        pass
+    message = 'Nothing matched that selection.'
+    sys.modules['torch'].cuda.max_memory_allocated.return_value = 0
+    sys.modules['torch'].cuda.max_memory_reserved.return_value = 0
+    monkeypatch.setitem(sys.modules, 'segmentation',
+                        SimpleNamespace(segment_file=Mock(side_effect=SelectionError(message)),
+                                        TrackerSegmenter=Mock(), ConceptSegmenter=Mock(),
+                                        SelectionError=SelectionError))
+    import urllib.request
+    monkeypatch.setattr(urllib.request, 'urlopen', MagicMock(**{
+        'return_value.__enter__.return_value.read.side_effect': [b'gif', b'']}))
+    tracker = apps[0]['tracker']
+    monkeypatch.setattr(tracker, '_segment_model', Mock())
+    result = tracker.segment_media('https://private-source', 'https://private-output', [],
+                                   'test-job', 'secret prompt')
+    assert result == {'error': message}
+    out = capsys.readouterr().out
+    assert json.loads(out.splitlines()[-1])['message'] == message
+    assert 'secret prompt' not in out and 'private-source' not in out
+
+
+@pytest.mark.parametrize('result, expected', [
+    ({'error': 'Nothing matched that selection.'},
+     {'state': 'failed', 'error': 'Nothing matched that selection.'}),
+    ({'frames': 2}, {'state': 'complete', 'stats': {'frames': 2}}),
+])
+def test_segmentation_status_relays_user_errors(apps, monkeypatch, result, expected):
+    from unittest.mock import AsyncMock
+    tracker = apps[0]['tracker']
+    call = SimpleNamespace(get=SimpleNamespace(aio=AsyncMock(return_value=result)))
+    monkeypatch.setattr(tracker.modal, 'FunctionCall',
+                        SimpleNamespace(from_id=lambda call_id: call), raising=False)
+    client = TestClient(tracker.segment_api())
+    response = client.post('/status', json={'call_id': 'fc-test'},
+                           headers={'X-Modal-Api-Key': 'test-api-key-12345'})
+    assert response.json() == expected

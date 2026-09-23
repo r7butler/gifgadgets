@@ -17,6 +17,20 @@ from conftest import make_event
 POINTS = [{'points': [{'x': .25, 'y': .5, 'label': 1}]}]
 
 
+@pytest.mark.parametrize('adapter', [ConceptSegmenter, TrackerSegmenter])
+def test_video_batches_fit_worker_without_changing_tracking_settings(adapter):
+    from types import SimpleNamespace
+    model = SimpleNamespace(batched_grounding_batch_size=16,
+                            postprocess_batch_size=16, use_batched_grounding=True,
+                            hotstart_delay=15, max_num_objects=32)
+    adapter(model)
+    assert model.batched_grounding_batch_size == 1
+    assert model.postprocess_batch_size == 1
+    assert model.use_batched_grounding is True
+    assert model.hotstart_delay == 15
+    assert model.max_num_objects == 32
+
+
 def fake_segmenter(masks, stats=None):
     """A segmenter with the interface segment_file relies on and no model."""
     segmenter = Mock()
