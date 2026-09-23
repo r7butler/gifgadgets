@@ -47,30 +47,30 @@ image = (
 # SAM 2 stack — different torch, different weights, 848M parameters against 39M.
 # A separate image keeps the tracker's cold start cheap and its pins undisturbed.
 SEGMENT_CHECKPOINT = "facebook/sam3.1"
+SEGMENT_WEIGHTS = "/models/sam3.1_multiplex.pt"
+SAM3_REVISION = "2345a4ad109ac29c569da749c91d84f10dc08c40"
 
 
 def _fetch_segment_weights():
     # Baked into the image so a cold container never waits on a 3 GB download.
-    from huggingface_hub import snapshot_download
-    snapshot_download(SEGMENT_CHECKPOINT)
+    from huggingface_hub import hf_hub_download
+    hf_hub_download(SEGMENT_CHECKPOINT, "sam3.1_multiplex.pt", local_dir="/models")
 
 
 segment_image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("git")
     .pip_install(
         "torch==2.7.1",
         "torchvision==0.22.1",
         extra_index_url="https://download.pytorch.org/whl/cu126",
     )
     .pip_install(
-        "transformers>=5.17",
-        "huggingface-hub[hf-transfer]",
-        "Pillow",
-        "numpy",
+        f"git+https://github.com/facebookresearch/sam3.git@{SAM3_REVISION}",
+        "setuptools<81", "huggingface-hub", "Pillow", "numpy<2",
+        "einops", "decord", "opencv-python-headless<4.12", "pycocotools", "scipy", "psutil",
     )
-    .env({"HF_HOME": "/models", "HF_HUB_ENABLE_HF_TRANSFER": "1"})
-    # The SAM 3 weights are gated: the token needs access granted on Hugging Face
-    # before this build step can succeed.
+    .env({"HF_HOME": "/models/hf"})
     .run_function(_fetch_segment_weights,
                   secrets=[modal.Secret.from_name("gifwidgets-huggingface-token")])
     .add_local_file(str(Path(__file__).with_name("segmentation.py")), "/root/segmentation.py")
@@ -249,30 +249,24 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
     import torch
     from segmentation import ConceptSegmenter, TrackerSegmenter, segment_file
     started = time.monotonic()
-    # A phrase and a set of clicks are alternative ways to say the same thing, and
-    # they run on different halves of SAM 3, so each job picks exactly one.
+    # Both prompt types use the same SAM 3.1 detector/tracker weights.
     concept = bool(text)
     print(json.dumps({"event": "segmentation_started", "job_id": job_id,
                       "prompt": "text" if concept else "points"}))
     try:
         global _segment_model
         if _segment_model is None:
-            _segment_model = {}
-        if concept not in _segment_model:
-            if concept:
-                from transformers import Sam3VideoModel, Sam3VideoProcessor
-                _segment_model[concept] = (
-                    Sam3VideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
-                    Sam3VideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
-                )
-            else:
-                from transformers import Sam3TrackerVideoModel, Sam3TrackerVideoProcessor
-                _segment_model[concept] = (
-                    Sam3TrackerVideoModel.from_pretrained(SEGMENT_CHECKPOINT).to("cuda").eval(),
-                    Sam3TrackerVideoProcessor.from_pretrained(SEGMENT_CHECKPOINT),
-                )
+            from sam3.model_builder import build_sam3_multiplex_video_predictor
+            predictor = build_sam3_multiplex_video_predictor(
+                checkpoint_path=SEGMENT_WEIGHTS, max_num_objects=32,
+                use_fa3=False, compile=False, warm_up=False,
+                async_loading_frames=False,
+            )
+            # Use the model API to avoid the upstream session-wrapper mismatch
+            # (see segmentation.py). The dedicated worker retains bf16 inference.
+            _segment_model = predictor.model
         build = ConceptSegmenter if concept else TrackerSegmenter
-        segmenter = build(*_segment_model[concept])
+        segmenter = build(_segment_model)
         with tempfile.TemporaryDirectory() as work:
             source, output = work + '/source', work + '/masks.gz'
             # Payload limit protects memory/disk; there is deliberately no frame limit.

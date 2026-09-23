@@ -72,3 +72,4 @@ mobile/ios/build/
 mobile/ios/GifWidgetsMobile/Resources/EdgeTAM/*.mlpackage/
 mobile/ios/GifWidgetsMobile/Resources/EdgeTAM/*.npy
 
+.env

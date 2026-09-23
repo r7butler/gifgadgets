@@ -1,4 +1,4 @@
-"""SAM 3 mask generation. No fixed frame-count limit; frames are never sampled.
+"""SAM 3.1 mask generation. No fixed frame-count limit; frames are never sampled.
 
 The model-facing part is deliberately one small class. Everything else here —
 validation, frame extraction, mask packing — is plain Pillow and numpy so it can
@@ -15,10 +15,6 @@ import time
 # Masks are produced at this resolution at most; the browser scales them back up
 # over the full-size image, so this caps GPU work without capping output quality.
 MAX_SIDE = 1024
-
-# Keeping frames and tracking state off the GPU is what lets a long GIF run on a
-# small card. Named here because it is the first thing to change if memory bites.
-SESSION_OPTIONS = {'video_storage_device': 'cpu', 'inference_state_device': 'cpu'}
 
 # SAM 3 concept prompts are short noun phrases. The cap is generous for that and
 # still bounds what an anonymous caller can push into a GPU job and our logs.
@@ -89,34 +85,66 @@ def load_frames(source):
 
 
 class Sam3Segmenter:
-    """Shared session handling for the two ways of prompting SAM 3.
+    """Adapter for Meta's pinned SAM 3.1 multiplex model.
 
-    Model and processor are injected rather than loaded here, so the prompt
-    arithmetic stays testable without 848M parameters or a GPU.
+    Use the model API directly: the upstream predictor's start_session passes
+    offload_state_to_cpu, which the multiplex model does not accept.
     """
 
-    def __init__(self, model, processor, device='cuda'):
-        self.model, self.processor, self.device = model, processor, device
+    def __init__(self, model):
+        self.model = model
         self.session = None
+        self.work = None
 
     def open(self, frames):
-        self.session = self.processor.init_video_session(
-            video=frames, inference_device=self.device, **SESSION_OPTIONS)
-        return self.session
+        self.work = tempfile.TemporaryDirectory()
+        # A still image must use the image path so short-track filtering does not
+        # discard detections. GIFs use all coalesced frames, in numeric order.
+        if len(frames) == 1:
+            resource = os.path.join(self.work.name, 'image.png')
+            frames[0].save(resource)
+        else:
+            resource = self.work.name
+            for index, frame in enumerate(frames):
+                frame.save(os.path.join(resource, f'{index:08d}.jpg'), quality=100,
+                           subsampling=0)
+        self.session = self.model.init_state(
+            resource_path=resource, offload_video_to_cpu=True,
+            async_loading_frames=False)
+
+    @staticmethod
+    def union(output):
+        import numpy as np
+
+        masks = output['out_binary_masks']
+        if hasattr(masks, 'cpu'):
+            masks = masks.cpu().numpy()
+        masks = np.asarray(masks)
+        if masks.ndim != 3:
+            raise ValueError('The segmenter returned unexpected mask dimensions.')
+        return (masks > 0).any(axis=0)
+
+    def propagate(self):
+        # This is the entire GIF, so flush the model's buffered short tracks.
+        for index, output in self.model.propagate_in_video(
+                self.session, start_frame_idx=0, reverse=False, is_last_batch=True):
+            yield index, self.union(output)
+            self.session.get('cached_frame_outputs', {}).pop(index, None)
 
     def release(self):
-        """Drop tracking state so the next job on this warm container starts clean."""
-        if self.session is not None:
-            self.session.reset_inference_session()
+        """Release state and extracted frames even when inference fails."""
+        try:
+            if self.session is not None:
+                self.model.reset_state(self.session)
+        finally:
             self.session = None
+            if self.work is not None:
+                self.work.cleanup()
+                self.work = None
 
 
 class TrackerSegmenter(Sam3Segmenter):
-    """Point prompts through the SAM 3 tracker — the SAM 2-compatible path.
-
-    One selection becomes one tracked object, prompted on frame zero and carried
-    through the rest by the tracker's memory.
-    """
+    """Keep/exclude clicks select separate objects and track their union."""
 
     validate = staticmethod(validate_objects)
 
@@ -125,52 +153,47 @@ class TrackerSegmenter(Sam3Segmenter):
         return {'objects': len(objects)}
 
     def masks(self, frames, objects):
-        import numpy as np
+        import torch
 
-        width, height = frames[0].size
         self.open(frames)
-        # Selections arrive normalised so they survive the browser's downscaled
-        # preview; the model wants pixels in the frame it is actually given.
-        self.processor.add_inputs_to_inference_session(
-            inference_session=self.session,
-            frame_idx=0,
-            obj_ids=list(range(1, len(objects) + 1)),
-            input_points=[[[[p['x'] * width, p['y'] * height] for p in obj['points']] for obj in objects]],
-            input_labels=[[[p['label'] for p in obj['points']] for obj in objects]],
-        )
-        for output in self.model.propagate_in_video_iterator(self.session):
-            logits = self.processor.post_process_masks(
-                [output.pred_masks], original_sizes=[[height, width]], binarize=False)[0]
-            # Every selected object is foreground, so the frame's mask is their union.
-            yield output.frame_idx, np.any(logits.cpu().numpy() > 0, axis=(0, 1))
+        # Upstream point propagation merges into this per-frame cache and returns
+        # an empty mask if the frame has no entry. Point-only jobs have no prior
+        # text detections, so seed empty entries before adding the selected objects.
+        self.session['cached_frame_outputs'] = {index: {} for index in range(len(frames))}
+        for obj_id, obj in enumerate(objects, 1):
+            index, output = self.model.add_prompt(
+                inference_state=self.session, frame_idx=0, obj_id=obj_id,
+                points=torch.tensor([[p['x'], p['y']] for p in obj['points']],
+                                    dtype=torch.float32),
+                point_labels=torch.tensor([p['label'] for p in obj['points']],
+                                          dtype=torch.int32),
+                rel_coordinates=True,
+            )
+        if len(frames) == 1:
+            yield index, self.union(output)
+        else:
+            yield from self.propagate()
 
 
 class ConceptSegmenter(Sam3Segmenter):
-    """Text prompts through the SAM 3 concept model.
-
-    A concept prompt matches every instance at once rather than one object per
-    prompt, so there is nothing to click and nothing to number: the frame's mask
-    is the union of whatever the phrase found, and keeping those instances
-    together across frames is the model's job rather than ours.
-    """
+    """A short text prompt selects every matching instance."""
 
     validate = staticmethod(validate_prompt)
 
     @staticmethod
     def stats(prompt):
-        # The phrase itself is the user's content and never leaves this process.
         return {'objects': 0, 'prompt_length': len(prompt)}
 
     def masks(self, frames, prompt):
-        import numpy as np
-
         self.open(frames)
-        self.processor.add_text_prompt(inference_session=self.session, text=prompt)
-        for output in self.model.propagate_in_video_iterator(inference_session=self.session):
-            processed = self.processor.postprocess_outputs(self.session, output)
-            masks = processed['masks']
-            # Already binary and at frame resolution; every match is foreground.
-            yield output.frame_idx, np.asarray(masks.cpu().numpy() > 0).any(axis=0)
+        index, output = self.model.add_prompt(inference_state=self.session, frame_idx=0,
+                                              text_str=prompt)
+        if len(frames) == 1:
+            # Video track-confirmation filters can discard a valid still-image
+            # detection. The prompt result is already the final image mask.
+            yield index, self.union(output)
+        else:
+            yield from self.propagate()
 
 
 def segment_file(source, output, prompt, segmenter):

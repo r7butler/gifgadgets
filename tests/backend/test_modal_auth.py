@@ -20,9 +20,9 @@ def apps(monkeypatch):
         monkeypatch.setitem(sys.modules, name, MagicMock())
     build = Mock()
     monkeypatch.setitem(sys.modules, "sam2.build_sam", SimpleNamespace(build_sam2_video_predictor=build))
-    # Background removal runs SAM 3 through transformers; motion tracking still runs SAM 2.
-    segment_build = SimpleNamespace(Sam3TrackerVideoModel=Mock(), Sam3TrackerVideoProcessor=Mock())
-    monkeypatch.setitem(sys.modules, "transformers", segment_build)
+    # Background removal uses Meta SAM 3.1; motion tracking still runs SAM 2.
+    segment_build = SimpleNamespace(build_sam3_multiplex_video_predictor=Mock())
+    monkeypatch.setitem(sys.modules, "sam3.model_builder", segment_build)
     modules = {}
     for name in ("tracker", "converter"):
         path = Path(__file__).parents[2] / "backend" / name / "modal_app.py"
@@ -74,7 +74,7 @@ def test_segmentation_logs_failed_runtime_without_request_urls(apps, capsys, mon
     monkeypatch.setitem(sys.modules, 'segmentation',
                         SimpleNamespace(segment_file=Mock(), TrackerSegmenter=Mock(),
                                         ConceptSegmenter=Mock()))
-    apps[2].Sam3TrackerVideoModel.from_pretrained.side_effect = RuntimeError('model loading failed')
+    apps[2].build_sam3_multiplex_video_predictor.side_effect = RuntimeError('model loading failed')
     with pytest.raises(RuntimeError, match='model loading'):
         apps[0]['tracker'].segment_media('https://private-source', 'https://private-output', [], 'test-job')
     lines = capsys.readouterr().out.splitlines()

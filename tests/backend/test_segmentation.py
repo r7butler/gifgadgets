@@ -116,25 +116,24 @@ def test_prompt_whitespace_is_normalised_so_one_phrase_is_one_prompt():
 
 
 def test_text_prompts_union_every_matching_instance():
-    """A concept prompt returns all matches at once; the mask is their union."""
     frames = [Image.new('RGB', (4, 2), 'red')]
-    model, processor = Mock(), Mock()
-    frame = Mock(); frame.frame_idx = 0
-    model.propagate_in_video_iterator.return_value = [frame]
-    masks = np.zeros((3, 2, 4), dtype=float)
-    masks[0, 0, 0] = 1; masks[1, 1, 3] = 1  # two instances, one pixel each
-    processor.postprocess_outputs.return_value = {'masks': Mock(**{
-        'cpu.return_value.numpy.return_value': masks})}
-
-    segmenter = ConceptSegmenter(model, processor, device='cpu')
-    (index, union), = list(segmenter.masks(frames, 'school bus'))
-
-    assert processor.add_text_prompt.call_args.kwargs['text'] == 'school bus'
-    assert index == 0 and union.shape == (2, 4)
-    assert [list(row) for row in union] == [[True, False, False, False],
-                                            [False, False, False, True]]
-    # Nothing is clicked, so nothing is numbered; the phrase length is all we keep.
-    assert ConceptSegmenter.stats('school bus') == {'objects': 0, 'prompt_length': 10}
+    model = Mock()
+    model.init_state.return_value = {}
+    masks = np.zeros((3, 2, 4), dtype=bool)
+    masks[0, 0, 0] = True; masks[1, 1, 3] = True
+    model.add_prompt.return_value = (0, {'out_binary_masks': masks})
+    segmenter = ConceptSegmenter(model)
+    try:
+        (index, union), = list(segmenter.masks(frames, 'school bus'))
+        assert model.add_prompt.call_args.kwargs['text_str'] == 'school bus'
+        assert model.init_state.call_args.kwargs['resource_path'].endswith('.png')
+        model.propagate_in_video.assert_not_called()
+        assert index == 0 and union.shape == (2, 4)
+        assert union.tolist() == [[True, False, False, False], [False, False, False, True]]
+        assert ConceptSegmenter.stats('school bus') == {'objects': 0, 'prompt_length': 10}
+    finally:
+        segmenter.release()
+    model.reset_state.assert_called_once()
 
 
 def test_frames_are_downscaled_but_reported_at_their_original_size(tmp_path):
@@ -231,48 +230,100 @@ def test_kill_switch_still_permits_cancellation(issued, monkeypatch):
     remote.assert_called_once_with('/cancel', {'call_id': 'fc-test'})
 
 
-def test_keep_and_exclude_points_reach_the_model_for_their_subject():
-    """Selections are normalised in the browser and must land on the right pixels.
-
-    This is the arithmetic between a click and the GPU, so it is asserted against
-    the real TrackerSegmenter with the model and processor stubbed out.
-    """
+def test_keep_and_exclude_points_reach_the_model_for_their_subject(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    monkeypatch.setitem(sys.modules, 'torch', SimpleNamespace(
+        tensor=np.asarray, float32=np.float32, int32=np.int32))
     frames = [Image.new('RGB', (100, 50), 'red')]
     objects = [
         {'points': [{'x': .2, 'y': .4, 'label': 1}, {'x': .8, 'y': .6, 'label': 0}]},
-        {'points': [{'x': .1, 'y': .2, 'label': 0}, {'x': .5, 'y': .5, 'label': 1}]},
+        {'points': [{'x': .5, 'y': .5, 'label': 1}]},
     ]
-    model, processor = Mock(), Mock()
-    frame = Mock(); frame.frame_idx = 0
-    model.propagate_in_video_iterator.return_value = [frame]
-    logits = Mock()
-    # Two objects, each covering one half of the frame: the union is everything.
-    stack = np.full((2, 1, 50, 100), -1.)
-    stack[0, 0, :, :50] = 1
-    stack[1, 0, :, 50:] = 1
-    logits.cpu.return_value.numpy.return_value = stack
-    processor.post_process_masks.return_value = [logits]
-
-    segmenter = TrackerSegmenter(model, processor, device='cpu')
-    produced = list(segmenter.masks(frames, objects))
-
-    prompt = processor.add_inputs_to_inference_session.call_args.kwargs
-    assert prompt['frame_idx'] == 0
-    assert prompt['obj_ids'] == [1, 2], 'object ids must be stable and one-based'
-    np.testing.assert_array_equal(prompt['input_points'], [[[[20, 20], [80, 30]], [[10, 10], [50, 25]]]])
-    np.testing.assert_array_equal(prompt['input_labels'], [[[1, 0], [0, 1]]])
-    # Masks come back at the frame's resolution, not the model's working size.
-    assert processor.post_process_masks.call_args.kwargs['original_sizes'] == [[50, 100]]
-    assert processor.post_process_masks.call_args.kwargs['binarize'] is False
-
-    (index, union), = produced
-    assert index == 0 and union.shape == (50, 100)
-    assert union.all(), 'both selections are foreground, so the union covers the frame'
-
-    segmenter.release()
-    processor.init_video_session.return_value.reset_inference_session.assert_called_once()
+    model = Mock()
+    model.init_state.return_value = {}
+    masks = np.zeros((2, 50, 100), dtype=bool)
+    masks[0, :, :50] = True; masks[1, :, 50:] = True
+    model.add_prompt.return_value = (0, {'out_binary_masks': masks})
+    segmenter = TrackerSegmenter(model)
+    try:
+        (index, union), = list(segmenter.masks(frames, objects))
+        prompts = [call.kwargs for call in model.add_prompt.call_args_list]
+        assert [p['obj_id'] for p in prompts] == [1, 2]
+        assert all(p['frame_idx'] == 0 and p['rel_coordinates'] for p in prompts)
+        np.testing.assert_allclose(prompts[0]['points'], [[.2, .4], [.8, .6]])
+        np.testing.assert_array_equal(prompts[0]['point_labels'], [1, 0])
+        np.testing.assert_allclose(prompts[1]['points'], [[.5, .5]])
+        assert index == 0 and union.shape == (50, 100) and union.all()
+    finally:
+        segmenter.release()
+    model.reset_state.assert_called_once()
 
 
 def test_releasing_without_a_session_is_harmless():
-    # A file rejected before segmentation still reaches release() in the finally.
-    TrackerSegmenter(Mock(), Mock()).release()
+    TrackerSegmenter(Mock()).release()
+
+
+def test_gif_adapter_preserves_all_frames_and_cleans_up_after_failure(tmp_path):
+    from pathlib import Path
+    source = tmp_path / 'input.gif'
+    frames = [Image.new('RGB', (4, 2), color) for color in ('red', 'blue', 'green')]
+    frames[0].save(source, save_all=True, append_images=frames[1:], duration=100)
+    model = Mock()
+    resources = []
+    def init_state(**kwargs):
+        resource = Path(kwargs['resource_path'])
+        resources.append(resource)
+        assert sorted(p.name for p in resource.iterdir()) == [f'{i:08d}.jpg' for i in range(3)]
+        assert kwargs['offload_video_to_cpu'] is True
+        return {'cached_frame_outputs': {}}
+    model.init_state.side_effect = init_state
+    model.add_prompt.side_effect = RuntimeError('inference failed')
+    segmenter = ConceptSegmenter(model)
+    with pytest.raises(RuntimeError, match='inference failed'):
+        segment_file(source, tmp_path / 'out.gz', 'person', segmenter)
+    assert not resources[0].exists()
+    assert segmenter.session is None
+    model.reset_state.assert_called_once()
+
+
+def test_empty_frame_masks_keep_dimensions_and_evict_cached_outputs():
+    model = Mock()
+    state = {'cached_frame_outputs': {0: 'large mask'}}
+    model.init_state.return_value = state
+    model.add_prompt.return_value = (0, {})
+    model.propagate_in_video.return_value = [(0, {'out_binary_masks': np.zeros((0, 2, 4), dtype=bool)})]
+    segmenter = ConceptSegmenter(model)
+    try:
+        (index, mask), = list(segmenter.masks([Image.new('RGB', (4, 2))] * 2, 'person'))
+        assert index == 0 and mask.shape == (2, 4) and not mask.any()
+        assert state['cached_frame_outputs'] == {}
+        assert model.propagate_in_video.call_args.kwargs['is_last_batch'] is True
+    finally:
+        segmenter.release()
+
+
+def test_point_only_video_seeds_cache_for_frames_without_text_detections(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    monkeypatch.setitem(sys.modules, 'torch', SimpleNamespace(
+        tensor=np.asarray, float32=np.float32, int32=np.int32))
+    model = Mock()
+    state = {}
+    model.init_state.return_value = state
+    def prompt(**kwargs):
+        assert state['cached_frame_outputs'] == {0: {}, 1: {}, 2: {}}
+        return 0, {'out_binary_masks': np.ones((1, 2, 4), dtype=bool)}
+    model.add_prompt.side_effect = prompt
+    def propagate(session, **kwargs):
+        for index in range(3):
+            # Mirrors the upstream cache precondition for point-only propagation.
+            count = 1 if index in session['cached_frame_outputs'] else 0
+            yield index, {'out_binary_masks': np.ones((count, 2, 4), dtype=bool)}
+    model.propagate_in_video.side_effect = propagate
+    segmenter = TrackerSegmenter(model)
+    try:
+        outputs = list(segmenter.masks([Image.new('RGB', (4, 2))] * 3, POINTS))
+        assert len(outputs) == 3 and all(mask.all() for _, mask in outputs)
+    finally:
+        segmenter.release()

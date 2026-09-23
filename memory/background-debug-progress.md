@@ -135,3 +135,13 @@ All prior implementation changes are uncommitted in the shared workspace; preser
   three engines; 27 targeted backend/build tests plus four subtests passed.
 - Build/syntax/diff checks passed. Changes remain local and undeployed. Mixed
   prompt forwarding is verified with mocks, not the user's actual media/model.
+
+## September 22 resumed GIF-swap investigation
+- Read newer commits before editing: the packed-pixel encoding fix already exists.
+- Confirmed the production codec includes that fix. Production UI still uses the
+  click-only copy rather than HEAD's newer text-prompt copy.
+- Passed 23 focused unit tests, nine local browser cases across all engines, and
+  one production-served colorful GIF export check with mocked inference.
+- No application-code changes or deployment in this resumed turn.
+- Detailed findings and remaining limits: `memory/gif-background-swap-findings.md`.
+- Exact screenshot source GIF was never supplied; do not claim it was reproduced.

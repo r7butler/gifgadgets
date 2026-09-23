@@ -43,11 +43,11 @@ AI run. Background files and exported media stay on the device.
   Two segmenters share that pipeline. `TrackerSegmenter` takes clicks: one selection
   becomes one tracked object, prompted on frame zero. `ConceptSegmenter` takes a short
   phrase and keeps every instance that matches it. A job carries one prompt or the
-  other, never both — they run on different halves of SAM 3 — and the broker resolves
+  other, never both, and the broker resolves
   the ambiguity by preferring text when a caller sends both.
 - `backend/tracker/modal_app.py`: authenticated CPU broker launches a separate L4
-  GPU job. Polling never occupies a GPU. Segmentation runs SAM 3.1 through
-  `transformers`, on its own image: the motion tracker keeps its pinned SAM 2 stack,
+  GPU job. Polling never occupies a GPU. Segmentation runs Meta's pinned SAM 3.1
+  multiplex implementation on its own Python 3.12 image: the motion tracker keeps its pinned SAM 2 stack,
   so neither feature can break the other's dependencies and the tracker's cold start
   does not pay for SAM 3 weights. The gated `facebook/sam3.1` checkpoint is baked
   into the image at build time from the `gifwidgets-huggingface-token` secret.
@@ -174,13 +174,24 @@ All three Modal broker routes reject unauthenticated requests. The latest local
 regression run passed 127 backend tests and 39 background browser cases across
 Chromium, Firefox and WebKit.
 
-The SAM 3.1 swap is verified as far as it can be without a GPU: validation, frame
-extraction, prompt arithmetic and mask packing are covered by
-`tests/backend/test_segmentation.py` against a stubbed model. The model calls
-themselves — `init_video_session`, `add_inputs_to_inference_session`,
-`propagate_in_video_iterator`, `post_process_masks` — are written against the
-documented transformers API and have not been executed against real weights. Deploy
-to Modal and run `scripts/smoke-test.sh` before trusting them.
+The earlier Transformers integration was only tested with stubs and has been
+replaced by Meta's native SAM 3.1 multiplex implementation (revision
+`2345a4ad109ac29c569da749c91d84f10dc08c40`). It loads
+`facebook/sam3.1/sam3.1_multiplex.pt` for both text and click prompts. The adapter
+calls the model directly because the upstream session wrapper passes an unsupported
+`offload_state_to_cpu` argument. Frames are kept on CPU, while tracking state uses
+the model's default placement; long animations can still exhaust GPU memory.
+FlashAttention 3 and compilation are disabled for L4 compatibility and startup time.
+Still images use an image resource path and return the prompt's masks directly.
+GIFs use every coalesced frame in order and flush the final tracking batch.
+Point-only jobs initialize the per-frame result cache expected by upstream mask
+merging; omitting it silently drops masks after the first frame.
+
+To test actual weights and the upload/broker/download path, use
+`python scripts/smoke-segmentation.py source.png --text person` or
+`python scripts/smoke-segmentation.py source.gif --point .5 .5`.
+These launch paid GPU jobs. The script checks frame count, mask bundle length and
+nontrivial foreground coverage. `scripts/smoke-test.sh` alone does not test inference.
 
 `scripts/smoke-test.sh` now checks all four pages and all four segmentation API
 routes using invalid requests that reach validation without launching paid work.
@@ -259,3 +270,15 @@ Mixed positive/negative labels and coordinates are covered through the predictor
 boundary, including Exclude-before-Keep ordering. These checks use mocked model
 output and do not establish segmentation quality on the user's media. The user's
 specific failure mode has not yet been confirmed. Changes remain local.
+
+### September 23, 2026: native SAM 3.1 deployed and verified
+
+Meta's native multiplex worker and the text/click selection UI are now deployed.
+Real production requests passed for clicked and text-selected images and GIFs.
+Unmocked Chromium downloads from all four tools confirmed PNG transparency or
+replacement color and preserved GIF frame count, delays and loop count. The GIF
+swap check included two subjects and an exclude point. Full local validation:
+140 backend tests, 93 browser cases across three engines, and 8 background-core
+tests. All 39 production health checks passed. See
+`memory/gif-background-swap-findings.md` for fixtures, observed upstream defects,
+and the distinction between real inference and mocked browser regressions.
