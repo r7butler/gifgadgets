@@ -45,8 +45,8 @@ AI run. Background files and exported media stay on the device.
   phrase and keeps every instance that matches it. A job carries one prompt or the
   other, never both, and the broker resolves
   the ambiguity by preferring text when a caller sends both.
-- `backend/tracker/modal_app.py`: authenticated CPU broker launches a separate L4
-  GPU job. Polling never occupies a GPU. Segmentation runs Meta's pinned SAM 3.1
+- `backend/tracker/modal_app.py`: authenticated CPU broker launches a separate
+  H100 GPU job. Polling never occupies a GPU. Segmentation runs Meta's pinned SAM 3.1
   multiplex implementation on its own Python 3.12 image: the motion tracker keeps its pinned SAM 2 stack,
   so neither feature can break the other's dependencies and the tracker's cold start
   does not pay for SAM 3 weights. The gated `facebook/sam3.1` checkpoint is baked

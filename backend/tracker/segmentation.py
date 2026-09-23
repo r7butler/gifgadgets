@@ -97,12 +97,13 @@ class Sam3Segmenter:
 
     def __init__(self, model):
         self.model = model
-        # The pinned builder defaults to 16-frame grounding/postprocessing
-        # batches. Their activations can exhaust an L4 before the first GIF
-        # mask is yielded. Bound temporary GPU work, preserving all frames and
-        # the model's continuous tracking state (including hotstart buffering).
-        self.model.batched_grounding_batch_size = 1
-        self.model.postprocess_batch_size = 1
+        # The pinned builder defaults to 16-frame grounding/postprocess batches,
+        # which exhausted an L4's 24 GB. Segmentation now runs on an H100
+        # (80 GB); 8 leaves headroom for GIFs with many objects, preserving all
+        # frames and the continuous tracking state (hotstart buffering). Peak use is
+        # logged per job (peak_gpu_reserved_mb) -- check before raising further.
+        self.model.batched_grounding_batch_size = 8
+        self.model.postprocess_batch_size = 8
         self.session = None
         self.work = None
 

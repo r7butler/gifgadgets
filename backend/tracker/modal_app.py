@@ -241,7 +241,7 @@ def fastapi_app():
 _segment_model = None
 
 
-@app.function(gpu="L4", image=segment_image, timeout=3600, scaledown_window=60)
+@app.function(gpu="H100", image=segment_image, timeout=3600, scaledown_window=60)
 def segment_media(input_url: str, output_url: str, objects: list, job_id: str, text: str = ""):
     import json
     import time

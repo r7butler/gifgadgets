@@ -24,8 +24,8 @@ def test_video_batches_fit_worker_without_changing_tracking_settings(adapter):
                             postprocess_batch_size=16, use_batched_grounding=True,
                             hotstart_delay=15, max_num_objects=32)
     adapter(model)
-    assert model.batched_grounding_batch_size == 1
-    assert model.postprocess_batch_size == 1
+    assert model.batched_grounding_batch_size == 8
+    assert model.postprocess_batch_size == 8
     assert model.use_batched_grounding is True
     assert model.hotstart_delay == 15
     assert model.max_num_objects == 32
