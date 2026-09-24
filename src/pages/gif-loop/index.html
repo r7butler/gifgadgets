@@ -1,12 +1,15 @@
 {% extends "gif-utility.html" %}
 {% set utility_slug = "gif-loop" %}
-{% set utility_title = "Change GIF Looping" %}
-{% set utility_description = "Make a GIF play once, repeat, or loop forever without re-encoding its images." %}
+{% set utility_title = "Change GIF Loop Count" %}
+{% set utility_description = "Change GIF loop count to play once, repeat a set number of times, or loop forever without losing quality." %}
 {% set utility_help = "Choose repeat forever, play once, or additional repeats after the first play. Some apps override a GIF’s loop setting." %}
 {% set utility_faq = [
+  {"q": "How do I make a GIF loop forever?", "a": "Upload your GIF, choose Repeat forever, and download the result. This updates the loop count without changing the animation frames or image quality."},
   {"q": "How do I make a GIF play only once?", "a": "Choose Play once. The file is written with a loop count that tells viewers to stop after the first pass."},
   {"q": "What does additional repeats mean?", "a": "The number counts repeats after the first play, which is how the GIF format stores it. Setting 1 means the animation plays twice in total."},
   {"q": "Does changing the loop setting re-encode my GIF?", "a": "No. Looping is metadata, so the compressed image data is preserved byte for byte and the visual quality is identical."},
   {"q": "Why does my GIF still loop forever somewhere else?", "a": "Some apps, messaging clients and social platforms ignore the stored loop count and loop everything regardless. The setting is correct in the file even when a viewer overrides it."},
   {"q": "Is my GIF uploaded to a server?", "a": "No. The loop setting is changed in your browser."}
 ] %}
+
+{% block title %}GIF Loop Count Changer Online, Free | {{ site_brand }}{% endblock %}
