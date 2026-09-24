@@ -50,8 +50,10 @@
   settings.id = 'analytics-settings';
   settings.onclick = show;
   function placeSettings() {
-    var target = document.querySelector('.header-actions, .site-footer, .site-nav-links') || document.body;
-    target.appendChild(settings);
+    var navLinks = document.querySelector('.site-nav-links');
+    var target = navLinks || document.querySelector('.header-actions, .site-footer') || document.body;
+    var reportButton = navLinks && navLinks.querySelector('.report-issue-nav-btn');
+    target.insertBefore(settings, reportButton || null);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', placeSettings);
   else placeSettings();

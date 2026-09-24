@@ -439,7 +439,7 @@
     btn.className = className;
     btn.setAttribute('aria-label', 'Report an issue');
     btn.title = 'Report an issue';
-    btn.innerHTML = FLAG_ICON + ' <span>Report Issue</span>';
+    btn.innerHTML = FLAG_ICON + ' <span>Report issue</span>';
     btn.addEventListener('click', openReportIssue);
     return btn;
   }
