@@ -14,7 +14,8 @@ def apps(monkeypatch):
     identity = lambda **kwargs: lambda obj: obj
     monkeypatch.setitem(sys.modules, "modal", SimpleNamespace(
         App=lambda *args: SimpleNamespace(cls=identity, function=identity),
-        Image=MagicMock(), Secret=MagicMock(), asgi_app=identity, enter=identity,
+        Image=MagicMock(), Secret=MagicMock(), Dict=MagicMock(), asgi_app=identity, enter=identity,
+        current_function_call_id=lambda: "fc-test",
     ))
     for name in ("torch", "numpy", "PIL"):
         monkeypatch.setitem(sys.modules, name, MagicMock())
@@ -131,3 +132,57 @@ def test_segmentation_status_relays_user_errors(apps, monkeypatch, result, expec
     response = client.post('/status', json={'call_id': 'fc-test'},
                            headers={'X-Modal-Api-Key': 'test-api-key-12345'})
     assert response.json() == expected
+
+
+class _Progress(dict):
+    """The slice of modal.Dict that /status reads, backed by a plain dict."""
+    def __init__(self, *args, fail=False):
+        super().__init__(*args)
+        self.get = SimpleNamespace(aio=self._get)
+        self.fail = fail
+
+    async def _get(self, key):
+        if self.fail:
+            raise ConnectionError('Dict unavailable')
+        return dict.get(self, key)
+
+
+@pytest.mark.parametrize('progress, expected', [
+    (_Progress(), {'state': 'running', 'phase': 'starting'}),
+    (_Progress({'fc-test': {'frame': 0, 'frames': None}}),
+     {'state': 'running', 'phase': 'processing', 'frame': 0, 'frames': None}),
+    (_Progress({'fc-test': {'frame': 12, 'frames': 40}}),
+     {'state': 'running', 'phase': 'processing', 'frame': 12, 'frames': 40}),
+    # Progress is cosmetic; an unreadable store still reports a live job.
+    (_Progress(fail=True), {'state': 'running'}),
+])
+def test_segmentation_status_reports_cold_start_and_frame_progress(apps, monkeypatch, progress, expected):
+    from unittest.mock import AsyncMock
+    tracker = apps[0]['tracker']
+    call = SimpleNamespace(get=SimpleNamespace(aio=AsyncMock(side_effect=TimeoutError)))
+    monkeypatch.setattr(tracker.modal, 'FunctionCall',
+                        SimpleNamespace(from_id=lambda call_id: call), raising=False)
+    monkeypatch.setattr(tracker, 'segment_progress', progress)
+    client = TestClient(tracker.segment_api())
+    response = client.post('/status', json={'call_id': 'fc-test'},
+                           headers={'X-Modal-Api-Key': 'test-api-key-12345'})
+    assert response.json() == expected
+
+
+def test_progress_writes_are_throttled_and_never_fail_the_job(apps, monkeypatch):
+    tracker = apps[0]['tracker']
+    clock = iter([0.0, 0.1, 0.5, 2.5, 2.6, 5.0])
+    monkeypatch.setattr(tracker, 'time', SimpleNamespace(monotonic=lambda: next(clock)))
+    writes = []
+    store = MagicMock()
+    store.__setitem__.side_effect = lambda key, value: writes.append((key, value))
+    monkeypatch.setattr(tracker, 'segment_progress', store)
+    report = tracker._progress_reporter('fc-test')
+    # Setup milestones (frame 0) always publish; frames publish at most every 2 s.
+    for done, total in [(0, None), (0, 3), (1, 3), (2, 3), (3, 3)]:
+        report(done, total)
+    assert [value for _, value in writes] == [
+        {'frame': 0, 'frames': None}, {'frame': 0, 'frames': 3}, {'frame': 2, 'frames': 3}]
+    assert {key for key, _ in writes} == {'fc-test'}
+    store.__setitem__.side_effect = ConnectionError('Dict unavailable')
+    report(0, 3)

@@ -71,6 +71,18 @@ def test_pipeline_unions_objects_and_returns_every_frame(tmp_path):
     segmenter.release.assert_called_once()
 
 
+def test_progress_counts_every_frame_after_decoding(tmp_path):
+    source = tmp_path / 'input.gif'
+    images = [Image.new('RGB', (3, 2), color) for color in ('red', 'green', 'blue')]
+    images[0].save(source, save_all=True, append_images=images[1:])
+    union = np.ones((2, 3), dtype=bool)
+    calls = []
+    segment_file(source, tmp_path / 'masks.gz', POINTS,
+                 fake_segmenter([(index, union) for index in range(3)]),
+                 progress=lambda done, total: calls.append((done, total)))
+    assert calls == [(0, 3), (1, 3), (2, 3), (3, 3)]
+
+
 def test_incomplete_masks_fail_and_release_the_session(tmp_path):
     source = tmp_path / 'image.png'
     Image.new('RGB',(2,2)).save(source)

@@ -207,7 +207,9 @@ class ConceptSegmenter(Sam3Segmenter):
             yield from self.propagate()
 
 
-def segment_file(source, output, prompt, segmenter):
+def segment_file(source, output, prompt, segmenter, progress=None):
+    """progress, if given, is called as progress(done, total) once frames are
+    decoded and again after each frame's mask."""
     import numpy as np
 
     # Revalidated here because this is the paid path and can be called directly.
@@ -216,6 +218,8 @@ def segment_file(source, output, prompt, segmenter):
     frames, original = load_frames(source)
     count = len(frames)
     width, height = frames[0].size
+    report = progress or (lambda done, total: None)
+    report(0, count)
     with tempfile.TemporaryDirectory() as work:
         seen = set()
         try:
@@ -230,6 +234,7 @@ def segment_file(source, output, prompt, segmenter):
                 with open(os.path.join(work, f'{index}.mask'), 'wb') as f:
                     f.write(packed)
                 seen.add(index)
+                report(len(seen), count)
             if len(seen) != count:
                 raise SelectionError('Segmentation did not return every frame. Please try again.')
             # An empty mask everywhere exports a blank file. Say so instead.

@@ -171,6 +171,15 @@
     let result; try { result=await response.json(); } catch(_) { throw Error('Background removal is unavailable. Please try again later.'); }
     if(!response.ok) { const error=Error(result.error || 'Background processing failed.'); error.status=response.status; throw error; } return result;
   }
+  // The worker reports nothing until it has a GPU and a loaded model. A warm
+  // worker may not have reported by the first poll, so only claim a cold start
+  // from the second poll on.
+  function progressText(result,polls) {
+    if(result.phase==='starting' && polls>1) return 'Starting GPU…';
+    const frames=result.frames||original.count;
+    if(result.frame>0 && frames>1) return `Finding objects: frame ${result.frame} of ${frames}…`;
+    return `Finding objects in ${frames} frame${frames===1?'':'s'}…`;
+  }
   async function cancelRemote(run) {
     if(run.submission) { try { await run.submission; } catch(_) {} }
     // Even an interrupted submit may have started compute; cancellation checks
@@ -223,11 +232,11 @@
       const started=Date.now();
       $('progress').removeAttribute('value');
       let result;
-      let pollFailures=0;
+      let pollFailures=0, polls=0;
       while(!run.cancelled) {
         if(Date.now()-started>3700000) throw Error('This job exceeded its processing time. Try a smaller file.');
         try {
-          result=await api('status',{job_id:run.job}); pollFailures=0;
+          result=await api('status',{job_id:run.job}); pollFailures=0; polls++;
         } catch(error) {
           // A transient polling failure must not discard a paid job already running.
           if(run.cancelled) return;
@@ -238,10 +247,12 @@
         if(run.cancelled || ticket!==generation) return;
         if(result.state==='complete') break;
         if(result.state!=='running') throw Error(result.error || 'Segmentation was cancelled.');
-        status(`Finding objects in ${original.count} frame${original.count===1?'':'s'}… ${Math.round((Date.now()-started)/1000)}s. You can cancel this job.`);
+        status(`${progressText(result,polls)} ${Math.round((Date.now()-started)/1000)}s. You can cancel this job.`);
+        if(result.frame>0 && result.frames>1) { $('progress').max=result.frames; $('progress').value=result.frame; }
         await new Promise(r=>setTimeout(r,2000));
       }
       if(run.cancelled || ticket!==generation) return;
+      $('progress').removeAttribute('value');
       const response=await fetch(result.mask_url,{signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(120000)])});
       if(!response.ok) throw Error('Could not download the masks. Please try again.');
       const compressed=await response.blob();

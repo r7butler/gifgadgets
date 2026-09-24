@@ -17,8 +17,10 @@ granted access at https://huggingface.co/facebook/sam3.1 or the image build
 fails while fetching them.
 """
 
-import modal
+import time
 from pathlib import Path
+
+import modal
 
 app = modal.App("gifwidgets-tracker")
 
@@ -240,11 +242,33 @@ def fastapi_app():
 # and write masks directly to private S3, avoiding Lambda response-size/time limits.
 _segment_model = None
 
+# Progress for /status, keyed by Modal call ID. A call with no entry is still
+# waiting for a GPU container and model load. Modal drops entries after 7 days
+# without reads or writes, which is all the cleanup this needs.
+segment_progress = modal.Dict.from_name("gifwidgets-segment-progress", create_if_missing=True)
+
+
+def _progress_reporter(call_id):
+    """Publish progress at most every 2 s, the browser's polling interval.
+    Progress is cosmetic, so a failed write never fails the paid job."""
+    last = float('-inf')
+
+    def report(done, total):
+        nonlocal last
+        now = time.monotonic()
+        if done and now - last < 2:
+            return
+        last = now
+        try:
+            segment_progress[call_id] = {'frame': done, 'frames': total}
+        except Exception:
+            pass
+    return report
+
 
 @app.function(gpu="H100", image=segment_image, timeout=3600, scaledown_window=120)
 def segment_media(input_url: str, output_url: str, objects: list, job_id: str, text: str = ""):
     import json
-    import time
     import tempfile
     import urllib.request
     import torch
@@ -269,6 +293,8 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
             _segment_model = predictor.model
         build = ConceptSegmenter if concept else TrackerSegmenter
         segmenter = build(_segment_model)
+        report = _progress_reporter(modal.current_function_call_id())
+        report(0, None)
         with tempfile.TemporaryDirectory() as work:
             source, output = work + '/source', work + '/masks.gz'
             # Payload limit protects memory/disk; there is deliberately no frame limit.
@@ -280,7 +306,8 @@ def segment_media(input_url: str, output_url: str, objects: list, job_id: str, t
                         raise SelectionError('Choose a file up to 100 MB.')
                     f.write(chunk)
             with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
-                stats = segment_file(source, output, text if concept else objects, segmenter)
+                stats = segment_file(source, output, text if concept else objects, segmenter,
+                                     progress=report)
             with open(output, 'rb') as f:
                 request = urllib.request.Request(output_url, data=f.read(), method='PUT',
                                                  headers={'Content-Type': 'application/gzip'})
@@ -349,7 +376,13 @@ def segment_api():
                 return {'state': 'failed', 'error': result['error']}
             return {'state': 'complete', 'stats': result}
         except TimeoutError:
-            return {'state': 'running'}
+            try:
+                progress = await segment_progress.get.aio(req.call_id)
+            except Exception:
+                return {'state': 'running'}
+            if progress is None:
+                return {'state': 'running', 'phase': 'starting'}
+            return {'state': 'running', 'phase': 'processing', **progress}
         except Exception:
             return {'state': 'failed', 'error': 'Segmentation failed. Try a smaller file or different selection.'}
 

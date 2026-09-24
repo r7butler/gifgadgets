@@ -51,6 +51,11 @@ AI run. Background files and exported media stay on the device.
   so neither feature can break the other's dependencies and the tracker's cold start
   does not pay for SAM 3 weights. The gated `facebook/sam3.1` checkpoint is baked
   into the image at build time from the `gifwidgets-huggingface-token` secret.
+  The GPU job publishes progress to the `gifwidgets-segment-progress` Modal Dict,
+  keyed by call ID. While a job runs, `/status` adds `phase: "starting"` until the
+  model is loaded, then `phase: "processing"` with `frame` and `frames`. The browser
+  shows "Starting GPU…" and then "frame n of N". Progress is cosmetic: a failed
+  write never fails the job, and an unreadable Dict falls back to a bare `running`.
 
 **There is no frame-count cap or sampling.** Existing safeguards are 100 MB per
 input, a 256 MiB estimated media-working budget in the browser, 32 selectable

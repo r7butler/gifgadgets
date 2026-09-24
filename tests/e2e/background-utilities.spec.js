@@ -126,6 +126,25 @@ test('transient polling failure recovers without starting another GPU job',async
   expect((await pngPixels(page,await download(page)))[11]).toBe(0);
 });
 
+test('status shows a cold GPU start and then frame progress',async({page})=>{
+  await service(page,2);
+  const replies=[{state:'running',phase:'starting'},{state:'running',phase:'starting'},
+    {state:'running',phase:'processing',frame:1,frames:2}];
+  await page.route('**/api/segment/status',async route=>{
+    const reply=replies.shift();
+    return reply ? route.fulfill({status:200,json:reply}) : route.fallback();
+  });
+  await load(page,'remove-gif-background',gifFile());
+  await page.locator('#utility-segment').click();
+  const status=page.locator('#utility-status');
+  // A warm worker may not have reported by the first poll, so it never claims a cold start.
+  await expect(status).toContainText('Finding objects in 2 frames');
+  await expect(status).toContainText('Starting GPU');
+  await expect(status).toContainText('Finding objects: frame 1 of 2');
+  await expect(page.locator('#utility-progress')).toHaveAttribute('value','1');
+  await expect(page.locator('#utility-download')).toBeVisible({timeout:20000});
+});
+
 test('incomplete masks fail visibly instead of exporting an unprocessed frame',async({page})=>{
   await service(page,1);await load(page,'remove-gif-background',gifFile());
   await page.locator('#utility-segment').click();
