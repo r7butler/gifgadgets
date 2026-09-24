@@ -41,6 +41,12 @@ variable "root_domain_name" {
   default     = "gifwidgets.com"
 }
 
+variable "canonical_domain_name" {
+  description = "Public site hostname written into new share links and share pages. Must be one of the site distribution's aliases; root_domain_name redirects here."
+  type        = string
+  default     = "gifgadgets.com"
+}
+
 variable "assets_domain_name" {
   description = "Custom domain for the assets CDN"
   type        = string

@@ -278,7 +278,7 @@ resource "aws_lambda_function" "api" {
       ASSETS_BUCKET       = aws_s3_bucket.assets.id
       SITE_BUCKET         = aws_s3_bucket.site.id
       ASSETS_CDN_URL      = "https://${local.assets_domain_name}"
-      SITE_CDN_URL        = "https://${local.root_domain_name}"
+      SITE_CDN_URL        = "https://${var.canonical_domain_name}"
       GITHUB_SECRET_ARN   = aws_secretsmanager_secret.github_pat.arn
       GITHUB_REPO         = var.github_repo
       JOBS_TABLE          = aws_dynamodb_table.jobs.name
