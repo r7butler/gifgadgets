@@ -1,0 +1,30 @@
+const { test, expect } = require('@playwright/test');
+const path = require('path');
+
+test('caption landing page opens its dedicated editor and exports captions', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
+  await page.goto('/add-text-to-gif/');
+  await expect(page).toHaveTitle(/Add Text to GIF.*GIF Caption Maker/);
+  await expect(page.locator('h1')).toHaveText('Add Text to GIF');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/add-text-to-gif\/$/);
+  const schema = await page.locator('script[type="application/ld+json"]').evaluateAll(nodes => nodes.map(n => JSON.parse(n.textContent)));
+  expect(schema.find(s => s['@type'] === 'FAQPage').mainEntity.length).toBe(6);
+  await page.locator('#hero-file-input').setInputFiles(path.join(__dirname, 'fixtures/test.gif'));
+  await expect(page).toHaveURL(/\/add-text-to-gif\/edit\/\?source=local/);
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await expect(page.locator('#adj-section')).toBeHidden();
+  await expect(page.locator('#overlay-section')).toBeHidden();
+  await page.locator('#on-image-caption-toggle').click();
+  await page.locator('#btn-add-caption').click();
+  await page.locator('#cap-text').fill('Caption test');
+  await page.locator('#btn-add-keyframe').click();
+  await expect(page.locator('#editor-timeline')).toBeVisible();
+  expect(await page.evaluate(() => GC.state.captions[0].motion.length)).toBe(1);
+  await page.locator('#btn-download').click();
+  await expect(page.locator('#download-modal')).toBeVisible({ timeout: 20000 });
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#btn-dl-download').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.gif$/);
+  expect(await download.failure()).toBeNull();
+});

@@ -1,0 +1,16 @@
+{% extends "gif-editor/edit/index.html" %}
+{% block title %}Add Text to GIF — Caption Editor | {{ site_brand }}{% endblock %}
+{% block body_attrs %} class="editor-body caption-only-editor"{% endblock %}
+{% block head_extra %}
+{{ super() }}
+<style>
+/* Keep shared controls mounted for the editor engine; expose caption tools only. */
+.caption-only-editor #adj-section,
+.caption-only-editor #overlay-section,
+.caption-only-editor .speed-control,
+.caption-only-editor #btn-save-frame { display: none !important; }
+.caption-editor-label { margin: 0; font-size: 1rem; }
+@media (max-width: 600px) { .caption-editor-label { display: none; } }
+</style>
+{% endblock %}
+{% block editor_label %}<h1 class="caption-editor-label">Add Text to GIF</h1>{% endblock %}

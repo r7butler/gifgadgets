@@ -1,3 +1,6 @@
+{% if 'add-text-to-gif' not in excluded_gif_tools | default([]) -%}
+{% include 'partials/add-text-to-gif-card.html' %}
+{% endif -%}
 <a href="/gif-speed/" class="tool-card gif">
   <div class="tool-card-icon" aria-hidden="true">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17a9 9 0 1116 0"/><path d="M12 13l5-5"/><circle cx="12" cy="13" r="1"/></svg>

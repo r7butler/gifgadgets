@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% set active_nav = "add-text-to-gif" %}
+{% set caption_editor_url = "/add-text-to-gif/edit/" %}
+{% set description = "Add text to a GIF online for free. Caption GIFs with timed text, animated motion captions, custom fonts, and top or bottom caption bars. No signup required." %}
+{% set faqs = [
+  ("How do I add text to a GIF?", "Upload your GIF, click + Add in On-Image Captions, and type your text. Drag the caption into position, choose its font and colors, then download the captioned GIF."),
+  ("Can I show captions at different times?", "Yes. Each on-image caption has its own track in the Caption Timeline. Drag its start and end handles to choose the frames where the text appears. Add multiple captions for dialogue or subtitles."),
+  ("Can I add moving text to a GIF?", "Yes. Pause on a frame, position your caption, and click + Keyframe here. Repeat at another frame with a different position to animate the text between those points. You can also use Follow an Object to create motion with AI tracking."),
+  ("Can I put text above or below a GIF?", "Yes. Add a Top Box Caption or Bottom Box Caption to place text in a separate bar. Customize the bar height, background color, font, and alignment without covering the animation."),
+  ("Is this GIF caption maker free?", "Yes. You can caption and download GIFs without an account or subscription. To export without the optional site watermark, uncheck Include watermark under Other Options."),
+  ("Will my captioned GIF stay animated?", "Yes. Download exports an animated GIF with your captions, including their timing and motion. Preview the animation before exporting to check that the text is readable.")
+] %}
+{% block title %}Add Text to GIF Online — Free GIF Caption Maker | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ description }}" />
+<meta name="robots" content="index, follow" />
+<meta name="theme-color" content="#10b981" />
+<link rel="canonical" href="{{ site_url }}/add-text-to-gif/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Add Text to GIF — Free GIF Caption Maker" />
+<meta property="og:description" content="{{ description }}" />
+<meta property="og:url" content="{{ site_url }}/add-text-to-gif/" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Add Text to GIF — Free GIF Caption Maker" />
+<meta name="twitter:description" content="{{ description }}" />
+{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":{{ (site_brand ~ " GIF Caption Maker") | tojson }},"url":{{ (site_url ~ "/add-text-to-gif/") | tojson }},"description":{{ description | tojson }},"applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Add text to animated GIFs","Frame-precise caption timing","Motion keyframes","AI object tracking","Custom fonts, colors and outlines","Top and bottom caption bars"]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{% for question, answer in faqs %}{"@type":"Question","name":{{ question | tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ answer | tojson }} }}{% if not loop.last %},{% endif %}{% endfor %}]}
+</script>
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-gif);--hero-icon-bg:var(--cat-gif-dim);--hero-glow:rgba(16,185,129,.12)"{% endblock %}
+{% block content %}
+<div class="tool-page">
+{% include 'partials/nav.html' %}
+<header class="tool-hero">
+  <div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M12 4v16M8 20h8"/></svg></div>
+  <h1>Add Text to GIF</h1>
+  <p class="tool-hero-tagline">Caption GIFs with timed text, moving captions, and top or bottom text bars. Free online GIF caption maker — no signup required.</p>
+  <a href="/add-text-to-gif/edit/" class="tool-hero-cta" id="upload-cta">Upload a GIF to add text</a>
+  <input type="file" id="hero-file-input" accept="image/gif,video/mp4,video/webm,video/quicktime,video/x-msvideo" hidden />
+</header>
+<main class="tool-content">
+  <div class="tool-features">
+    <div class="tool-feature"><h3>Style your GIF captions</h3><p>Add multiple text overlays. Choose fonts, sizes, fill colors, and outlines, then drag each caption where you want it.</p></div>
+    <div class="tool-feature"><h3>Timed captions and subtitles</h3><p>Choose exactly when each caption appears and disappears with frame-by-frame timeline handles. Build dialogue, reactions, or step-by-step instructions.</p></div>
+    <div class="tool-feature"><h3>Motion captions</h3><p>Move text across the GIF with position keyframes. Use Follow an Object to make a caption track a subject automatically.</p></div>
+    <div class="tool-feature"><h3>Text above or below your GIF</h3><p>Create meme-style caption bars with custom backgrounds, alignment, and fonts, leaving the picture visible.</p></div>
+  </div>
+  <section class="tool-section" aria-label="How to caption a GIF">
+    <h2>How to add text to a GIF</h2>
+    <ol class="tool-steps">
+      <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Upload your GIF</h3><p>Choose a GIF or drop it onto the upload area. You can also start with a video, which the editor converts to a GIF.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Add and style a caption</h3><p>Open On-Image Captions and click <strong>+ Add</strong>. Type your text, choose its font and outline, and drag it into position. For text outside the image, add a top or bottom box caption.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Set text timing and motion</h3><p>Drag the Caption Timeline handles to set when text is visible. To animate it, pause at different frames, move the caption, and click <strong>+ Keyframe here</strong> at each position.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Preview and download</h3><p>Play your GIF to check the captions. Click <strong>Download</strong> to export the animated GIF with text. The optional watermark can be turned off in Other Options.</p></div></li>
+    </ol>
+  </section>
+  <section class="tool-section" aria-label="GIF caption tips">
+    <h2>Make your GIF captions easy to read</h2>
+    <p>Keep each caption short and give viewers enough time to read it. Use a contrasting outline when the background changes color. For dialogue, use separate timed captions instead of putting every line on screen at once. A caption bar works well when text would cover a face or an important detail.</p>
+  </section>
+  <section class="tool-section" aria-label="Frequently asked questions">
+    <h2>GIF caption maker FAQs</h2>
+    <dl class="tool-faq">{% for question, answer in faqs %}
+      <div class="tool-faq-item"><dt>{{ question }}</dt><dd>{{ answer }}</dd></div>
+    {% endfor %}</dl>
+  </section>
+  <section class="tool-section" aria-label="Related tools"><h2>More GIF tools</h2><div class="related-tools">
+    <a href="/gif-editor/" class="related-tool-link">All-in-one GIF Editor</a>
+    <a href="/gif-resizer/" class="related-tool-link">Resize GIF</a>
+    <a href="/compress-gif/" class="related-tool-link">Compress GIF</a>
+    <a href="/video-to-gif/" class="related-tool-link">Video to GIF</a>
+  </div></section>
+</main>
+{% include 'partials/footer.html' %}
+</div>
+{% endblock %}
+{% block scripts %}{% include 'partials/gif-editor-upload.html' %}{% endblock %}

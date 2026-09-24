@@ -1,0 +1,57 @@
+<script>
+(function () {
+  var cta = document.getElementById('upload-cta');
+  var fileInput = document.getElementById('hero-file-input');
+  function redirectToImageEditor(file) {
+    var msg = document.createElement('div');
+    msg.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#fff;color:#111;padding:12px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:15px;z-index:9999;text-align:center;max-width:90vw;';
+    msg.textContent = 'That\u2019s a photo \u2014 opening in Image Editor\u2026';
+    document.body.appendChild(msg);
+    var req = indexedDB.open('gifwidgets_imgcap', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put(file, 'pending');
+      tx.oncomplete = function () { window.location.href = '/image-editor/edit/?source=imgcap'; };
+      tx.onerror = function () { alert('Could not save file. Please try again.'); };
+    };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
+  }
+  var _storeRetries = 0;
+  async function storeAndGo(file) {
+    if (!file) return;
+    var isStaticImage = file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif');
+    if (isStaticImage) { redirectToImageEditor(file); return; }
+    // Byte buffers also work in browsers that cannot persist File objects.
+    var buffer;
+    try { buffer = await file.arrayBuffer(); }
+    catch (err) { alert('Could not read file. Please try again.'); return; }
+    var req = indexedDB.open('gifwidgets', 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
+    req.onsuccess = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) {
+        if (_storeRetries++ > 2) { alert('Could not prepare file storage. Please reload the page.'); return; }
+        db.close();
+        var delReq = indexedDB.deleteDatabase('gifwidgets');
+        delReq.onsuccess = function () { storeAndGo(file); };
+        delReq.onerror = function () { alert('Could not reset file storage. Please reload the page.'); };
+        return;
+      }
+      var tx = db.transaction('files', 'readwrite');
+      tx.objectStore('files').put({ buffer: buffer, name: file.name, type: file.type }, 'pending');
+      tx.oncomplete = function () { window.location.href = '{{ caption_editor_url | default('/gif-editor/edit/') }}?source=local'; };
+      tx.onerror = function () { alert('Could not save file. Please try again.'); };
+    };
+    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
+  }
+  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
+  fileInput.addEventListener('change', function () { if (fileInput.files[0]) storeAndGo(fileInput.files[0]); });
+  document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.querySelector('.tool-hero').addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) storeAndGo(e.dataTransfer.files[0]);
+  });
+})();
+</script>

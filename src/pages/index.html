@@ -85,6 +85,7 @@
           <div class="tool-card-desc">Add captions, motion keyframes, object tracking, crop, zoom, and compression to any GIF or video.</div>
           <div class="tool-card-arrow">Open tool →</div>
         </a>
+        {% include 'partials/add-text-to-gif-card.html' %}
         <a href="/video-to-gif/" class="tool-card gif">
           <div class="tool-card-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/><path d="M8 12h4m-2-2v4" stroke-width="1.5"/></svg>
@@ -117,7 +118,9 @@
           <div class="tool-card-desc">Crop any region of an animated GIF. Draw a selection and download the cropped result.</div>
           <div class="tool-card-arrow">Open tool →</div>
         </a>
-        {% include 'partials/gif-utility-cards.html' %}
+{% with excluded_gif_tools = ['add-text-to-gif'] %}
+{% include 'partials/gif-utility-cards.html' %}
+{% endwith %}
       </div>
     </section>
 

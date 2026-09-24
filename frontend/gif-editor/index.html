@@ -198,6 +198,7 @@
     <section class="tool-section" aria-label="Related tools">
       <h2>Related Tools</h2>
       <div class="related-tools">
+        <a href="/add-text-to-gif/" class="related-tool-link">Add Text to GIF</a>
         <a href="/video-to-gif/" class="related-tool-link">Video to GIF</a>
         <a href="/image-editor/" class="related-tool-link">Image Editor</a>
         <a href="/photo-converter/" class="related-tool-link">Photo Converters</a>
@@ -212,6 +213,7 @@
     <nav class="site-footer-links" aria-label="Footer navigation">
       <a href="/">All Tools</a>
       <a href="/#gif-utilities">GIF Tools</a>
+      <a href="/add-text-to-gif/">Add Text to GIF</a>
       <a href="/gif-editor/">GIF Editor</a>
       <a href="/#image-tools">Image Tools</a>
       <a href="/#video-tools">Video Tools</a>
@@ -251,10 +253,14 @@
     req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
   }
   var _storeRetries = 0;
-  function storeAndGo(file) {
+  async function storeAndGo(file) {
     if (!file) return;
     var isStaticImage = file.type.startsWith('image/') && file.type !== 'image/gif' && !file.name.toLowerCase().endsWith('.gif');
     if (isStaticImage) { redirectToImageEditor(file); return; }
+    // Byte buffers also work in browsers that cannot persist File objects.
+    var buffer;
+    try { buffer = await file.arrayBuffer(); }
+    catch (err) { alert('Could not read file. Please try again.'); return; }
     var req = indexedDB.open('gifwidgets', 1);
     req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
     req.onsuccess = function (e) {
@@ -268,7 +274,7 @@
         return;
       }
       var tx = db.transaction('files', 'readwrite');
-      tx.objectStore('files').put(file, 'pending');
+      tx.objectStore('files').put({ buffer: buffer, name: file.name, type: file.type }, 'pending');
       tx.oncomplete = function () { window.location.href = '/gif-editor/edit/?source=local'; };
       tx.onerror = function () { alert('Could not save file. Please try again.'); };
     };
@@ -283,6 +289,7 @@
   });
 })();
 </script>
+
 
 </body>
 </html>
