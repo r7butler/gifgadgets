@@ -9,14 +9,9 @@
   <div class="tool-card-desc">Speed up or slow down the exported animation.</div>
   <div class="tool-card-arrow">Open tool →</div>
 </a>
-<a href="/reverse-gif/" class="tool-card gif">
-  <div class="tool-card-icon" aria-hidden="true">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4L3 10l6 6"/><path d="M3 10h11a6 6 0 010 12" transform="translate(0 -2)"/></svg>
-  </div>
-  <div class="tool-card-title">Reverse GIF</div>
-  <div class="tool-card-desc">Play backward or make a forward-and-backward boomerang.</div>
-  <div class="tool-card-arrow">Open tool →</div>
-</a>
+{% if 'reverse-gif' not in excluded_gif_tools | default([]) -%}
+{% include 'partials/reverse-gif-card.html' %}
+{% endif -%}
 <a href="/rotate-gif/" class="tool-card gif">
   <div class="tool-card-icon" aria-hidden="true">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10a9 9 0 111 8"/><path d="M3 4v6h6"/></svg>
@@ -90,6 +85,10 @@
   <div class="tool-card-arrow">Open tool →</div>
 </a>
 
-<a href="/remove-gif-background/" class="tool-card gif"><div class="tool-card-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="4"/></svg></div><div class="tool-card-title">Remove GIF Background</div><div class="tool-card-desc">Select objects in the first frame and remove the background throughout your GIF.</div><div class="tool-card-arrow">Open tool →</div></a>
+{% if 'remove-gif-background' not in excluded_gif_tools | default([]) -%}
+{% include 'partials/remove-gif-background-card.html' %}
+{% endif -%}
 
-<a href="/swap-gif-background/" class="tool-card gif"><div class="tool-card-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="4"/></svg></div><div class="tool-card-title">Swap GIF Background</div><div class="tool-card-desc">Put a new image, animated GIF or color behind the objects you select.</div><div class="tool-card-arrow">Open tool →</div></a>
+{% if 'swap-gif-background' not in excluded_gif_tools | default([]) -%}
+{% include 'partials/swap-gif-background-card.html' %}
+{% endif -%}
