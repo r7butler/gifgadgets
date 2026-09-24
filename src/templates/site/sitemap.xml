@@ -17,6 +17,7 @@
   <url><loc>{{ site_url }}/gif-maker/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/gif-resizer/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/crop-gif/</loc><priority>0.8</priority></url>
+  <url><loc>{{ site_url }}/add-text-to-image/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/image-editor/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/bulk-resize-images/</loc><priority>0.8</priority></url>
   <url><loc>{{ site_url }}/bulk-compress-images/</loc><priority>0.8</priority></url>

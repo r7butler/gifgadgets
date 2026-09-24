@@ -61,6 +61,7 @@
     <section class="tool-section">
       <h2>Related Tools</h2>
       <div class="related-tools">
+        <a href="/add-text-to-image/" class="related-tool-link">Add Text to Image</a>
         <a href="/gif-editor/" class="related-tool-link">GIF Editor</a>
         <a href="/photo-converter/jpg-to-png/" class="related-tool-link">JPG to PNG</a>
         <a href="/photo-converter/png-to-jpg/" class="related-tool-link">PNG to JPG</a>
@@ -74,60 +75,4 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script src="/vendor/heic2any.min.js"></script>
-<script>
-(function () {
-  'use strict';
-
-  var cta = document.getElementById('upload-cta');
-  var fileInput = document.getElementById('hero-file-input');
-
-  function isHeic(file) {
-    return file.type === 'image/heic' || file.type === 'image/heif' ||
-           /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
-  }
-
-  function storeAndRedirect(file) {
-    var req = indexedDB.open('gifwidgets_imgcap', 1);
-    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('files'); };
-    req.onsuccess = function (e) {
-      var db = e.target.result;
-      var tx = db.transaction('files', 'readwrite');
-      tx.objectStore('files').put(file, 'pending');
-      tx.oncomplete = function () {
-        window.location.href = '/image-editor/edit/?source=imgcap';
-      };
-      tx.onerror = function () { alert('Could not save file. Please try again.'); };
-    };
-    req.onerror = function () { alert('Could not open file storage. Try reloading or using a different browser.'); };
-  }
-
-  var MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-  function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > MAX_FILE_SIZE) { alert('File is too large. Please use an image under 50 MB.'); return; }
-    if (isHeic(file)) {
-      heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
-        .then(function (result) {
-          var blob = Array.isArray(result) ? result[0] : result;
-          var converted = new File([blob], file.name.replace(/\.heic?$/i, '.jpg'), { type: 'image/jpeg' });
-          storeAndRedirect(converted);
-        })
-        .catch(function () { storeAndRedirect(file); });
-    } else {
-      storeAndRedirect(file);
-    }
-  }
-
-  cta.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
-  fileInput.addEventListener('change', function () { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
-
-  document.querySelector('.tool-hero').addEventListener('dragover', function (e) { e.preventDefault(); });
-  document.querySelector('.tool-hero').addEventListener('drop', function (e) {
-    e.preventDefault();
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  });
-})();
-</script>
-{% endblock %}
+{% block scripts %}{% include 'partials/image-editor-upload.html' %}{% endblock %}

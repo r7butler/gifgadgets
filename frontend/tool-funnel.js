@@ -1,7 +1,7 @@
 /* Fixed-schema, consent-gated task metrics. Never pass media, names or error text. */
 (function () {
   'use strict';
-  var tools = ['add-text-to-gif', 'gif-editor', 'gif-editor-advanced', 'image-editor', 'gif-resizer',
+  var tools = ['add-text-to-image', 'add-text-to-gif', 'gif-editor', 'gif-editor-advanced', 'image-editor', 'gif-resizer',
     'crop-gif', 'gif-maker', 'video-to-gif', 'gif-speed', 'reverse-gif',
     'rotate-gif', 'flip-gif', 'gif-loop', 'trim-gif', 'compress-gif',
     'remove-gif-frames', 'gif-canvas', 'combine-gifs', 'bulk-resize-images',

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% set active_nav = "image-tools" %}
+{% set image_caption_editor_url = "/add-text-to-image/edit/" %}
+{% set description = "Add text to an image online for free. Caption photos with custom fonts, colors, outlines, and top or bottom text bars. No signup required." %}
+{% set faqs = [
+  {"q":"How do I add text to an image?", "a":"Upload your photo, open On-Image Captions, and click + Add. Type your caption, choose a font and colors, and drag the text into position. Click Download to save the image with your text."},
+  {"q":"Can I add more than one caption to a photo?", "a":"Yes. Add separate text captions for titles, labels, or meme text. Each caption has its own position, font, size, fill color, and outline."},
+  {"q":"Can I put a caption above or below my image?", "a":"Yes. Open Box Caption and add a Top Box Caption or Bottom Box Caption. You can change the bar height, border, background color, text color, font, size, and alignment."},
+  {"q":"Which image formats can I use?", "a":"Upload JPG, PNG, WebP, or HEIC photos. Download as JPG or PNG, or WebP in browsers that support WebP export. Choose the export format in Other Options."},
+  {"q":"Can I add text to photos for free without a watermark?", "a":"Yes. No account or subscription is required. Uncheck the optional site watermark in Other Options before downloading your captioned photo."},
+  {"q":"Are my photos uploaded to a server?", "a":"Adding text and downloading run in your browser. If you choose Share and confirm, the finished image is uploaded to create a public link."}
+] %}
+{% block title %}Add Text to Image Online — Free Photo Caption Tool | {{ site_brand }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ description }}" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="{{ site_url }}/add-text-to-image/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Add Text to Image — Free Photo Caption Tool" />
+<meta property="og:description" content="{{ description }}" />
+<meta property="og:url" content="{{ site_url }}/add-text-to-image/" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Add Text to Image — Free Photo Caption Tool" />
+<meta name="twitter:description" content="{{ description }}" />
+{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ {"@context":"https://schema.org", "@type":"SoftwareApplication", "name":site_brand ~ " Photo Caption Tool", "url":site_url ~ "/add-text-to-image/", "description":description, "applicationCategory":"MultimediaApplication", "operatingSystem":"Web browser", "offers":{"@type":"Offer", "price":"0", "priceCurrency":"USD"}, "featureList":["Multiple text captions", "Custom fonts, sizes and colors", "Text outlines", "Drag-and-drop caption positioning", "Top and bottom caption bars", "JPG and PNG export", "WebP export in supported browsers"]} | tojson }}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{% for item in faqs %}
+{{ {"@type":"Question", "name":item.q, "acceptedAnswer":{"@type":"Answer", "text":item.a}} | tojson }}{{ "," if not loop.last }}
+{% endfor %}
+]}</script>
+{% endblock %}
+{% block body_attrs %} style="--hero-color:var(--cat-image);--hero-icon-bg:var(--cat-image-dim);--hero-glow:rgba(14,165,233,.12)"{% endblock %}
+{% block content %}
+<div class="tool-page">
+{% include 'partials/nav.html' %}
+<header class="tool-hero">
+  <div class="tool-hero-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M12 4v16M8 20h8"/></svg></div>
+  <h1>Add Text to Image</h1>
+  <p class="tool-hero-tagline">Add text to a photo, label a screenshot, or make a captioned meme. Style your words with custom fonts, colors, and outlines — free, with no signup.</p>
+  <a href="/add-text-to-image/edit/" class="tool-hero-cta" id="upload-cta">Upload an image to add text</a>
+  <input type="file" id="hero-file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" hidden />
+</header>
+<main class="tool-content">
+  <div class="tool-features">
+    <div class="tool-feature"><h3>Write on your photos</h3><p>Add multiple captions, titles, and labels. Drag each text overlay into position and choose its font, size, and color.</p></div>
+    <div class="tool-feature"><h3>Make text stand out</h3><p>Customize the outline color and width to keep words readable over a busy photo. Use separate captions for different text styles.</p></div>
+    <div class="tool-feature"><h3>Add text above or below an image</h3><p>Use top and bottom caption bars to keep text off the picture. Adjust background colors, borders, height, and text alignment.</p></div>
+    <div class="tool-feature"><h3>Save your captioned image</h3><p>Download as JPG or PNG, with WebP available in supported browsers. Adjust export quality and turn off the optional watermark in Other Options.</p></div>
+  </div>
+  <section class="tool-section" aria-label="How to add text to a photo">
+    <h2>How to add text to a photo online</h2>
+    <ol class="tool-steps">
+      <li class="tool-step"><div class="tool-step-num">1</div><div class="tool-step-body"><h3>Choose your image</h3><p>Upload or drag in a JPG, PNG, WebP, or HEIC photo. You can also use a screenshot or other still image.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">2</div><div class="tool-step-body"><h3>Type your caption</h3><p>Open <strong>On-Image Captions</strong>, click <strong>+ Add</strong>, and enter your text. Add another caption for a separate title or label.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">3</div><div class="tool-step-body"><h3>Style and position your text</h3><p>Choose a font, size, fill color, and outline. Drag the caption onto your photo. To place text outside the picture, open <strong>Box Caption</strong> and add a top or bottom bar.</p></div></li>
+      <li class="tool-step"><div class="tool-step-num">4</div><div class="tool-step-body"><h3>Download the finished image</h3><p>Choose your export format in <strong>Other Options</strong>, then click <strong>Download</strong>. Your text is saved as part of the picture.</p></div></li>
+    </ol>
+  </section>
+  <section class="tool-section" aria-label="Photo caption tips"><h2>Make photo captions easy to read</h2><p>Keep titles short and use a contrasting outline over detailed backgrounds. Leave space around faces and important objects. A top or bottom caption bar gives longer text room without covering the photo. Preview at the size you plan to share so your words remain readable.</p></section>
+  <section class="tool-section" aria-label="Frequently asked questions"><h2>Adding text to images: FAQs</h2><dl class="tool-faq">
+    {% for item in faqs %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>{% endfor %}
+  </dl></section>
+  <section class="tool-section" aria-label="Related tools"><h2>More image and caption tools</h2><div class="related-tools">
+    <a href="/image-editor/" class="related-tool-link">Image Editor</a>
+    <a href="/add-text-to-gif/" class="related-tool-link">Add Text to GIF</a>
+    <a href="/remove-image-background/" class="related-tool-link">Remove Image Background</a>
+    <a href="/change-image-background/" class="related-tool-link">Change Image Background</a>
+  </div></section>
+</main>
+{% include 'partials/footer.html' %}
+</div>
+{% endblock %}
+{% block scripts %}{% include 'partials/image-editor-upload.html' %}{% endblock %}

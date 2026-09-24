@@ -1,0 +1,12 @@
+{% extends "image-editor/edit/index.html" %}
+{% block title %}Add Text to Image — Photo Caption Editor | {{ site_brand }}{% endblock %}
+{% block editor_label %}Add Text to Image{% endblock %}
+{% block body_attrs %} class="editor-body image-caption-only-editor"{% endblock %}
+{% block head_extra %}
+{{ super() }}
+<style>
+/* Shared modules need these controls mounted, even in the caption-only view. */
+.image-caption-only-editor #adj-section,
+.image-caption-only-editor #overlay-section { display: none !important; }
+</style>
+{% endblock %}
