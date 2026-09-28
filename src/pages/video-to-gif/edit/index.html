@@ -185,12 +185,19 @@
       <div class="vtg-section">
         <div class="vtg-section-title">Settings</div>
         <div class="form-group" style="margin-bottom:10px">
-          <label>FPS: <span id="val-fps">10</span> <span id="max-length-hint" style="font-weight:400;color:var(--text-muted)">(Max length: 30s)</span></label>
+          <label>FPS: <span id="val-fps">10</span> <span id="max-length-hint" style="font-weight:400;color:var(--text-muted)">(Max length: 50s)</span></label>
           <input type="range" id="sl-fps" min="1" max="60" step="1" value="10" style="accent-color:var(--cat-gif)" />
         </div>
         <div class="form-group">
           <label>Max width: <span id="val-width">480</span>px</label>
           <input type="range" id="sl-width" min="120" max="960" step="40" value="480" style="accent-color:var(--cat-gif)" />
+        </div>
+      </div>
+      <div class="vtg-section" aria-live="polite">
+        <p id="memory-estimate" style="font-size:12px"></p>
+        <div id="memory-warning" class="hidden">
+          <p style="font-size:12px">This conversion may use a lot of memory and could fail. Reduce output size, FPS, or clip length. Actual memory use will be higher than the estimate.</p>
+          <button type="button" id="btn-reduce-size" class="btn btn-secondary">Reduce output size</button>
         </div>
       </div>
       <div class="vtg-section">
@@ -335,9 +342,42 @@
   var trimDrag = null;
   var suppressTrimTrackClick = false;
   var MIN_CLIP = 0.1;
-  var MAX_FRAMES = 300;
+  var MAX_FRAMES = 500;
   var maxLengthHint = document.getElementById('max-length-hint');
   var detectedFps = null;
+  // Advisory raw-pixel budget, not a browser memory limit. Encoder, decoder,
+  // and worker allocations add overhead. Tune with real-device measurements.
+  var RAW_MEMORY_WARNING = 256 * 1024 * 1024;
+
+  function conversionPlan() {
+    var crop = (chkCrop && chkCrop.checked && cropRect) ? cropRect : null;
+    var w = crop ? crop.w : video.videoWidth;
+    var h = crop ? crop.h : video.videoHeight;
+    var scale = Math.min(1, parseInt(slWidth.value, 10) / w);
+    var width = Math.max(1, Math.round(w * scale));
+    var height = Math.max(1, Math.round(h * scale));
+    var fps = parseInt(slFps.value, 10);
+    // Integer indices avoid accumulating floating-point errors past the cap.
+    var count = Math.min(MAX_FRAMES, Math.max(0, Math.ceil((outTime - inTime) * fps - 1e-7)));
+    return { width: width, height: height, count: count, bytes: width * height * count * 4 };
+  }
+
+  function updateMemoryEstimate() {
+    if (!video.videoWidth) return;
+    var plan = conversionPlan();
+    document.getElementById('memory-estimate').textContent =
+      'Frame memory: ' + (plan.bytes / 1048576).toFixed(1) + ' MiB minimum · ' +
+      plan.count + ' frames · ' + plan.width + '×' + plan.height;
+    document.getElementById('memory-warning').classList.toggle('hidden', plan.bytes < RAW_MEMORY_WARNING);
+    document.getElementById('btn-reduce-size').disabled = Number(slWidth.value) <= Number(slWidth.min);
+  }
+
+  document.getElementById('btn-reduce-size').addEventListener('click', function () {
+    slWidth.value = Math.max(120, 120 + Math.floor((Number(slWidth.value) / 2 - 120) / 40) * 40);
+    slWidth.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  document.addEventListener('input', updateMemoryEstimate);
+  document.addEventListener('change', updateMemoryEstimate);
 
   // ── Detect native video FPS via requestVideoFrameCallback ──
 
@@ -440,6 +480,7 @@
     trimHandleStart.style.left = 'calc(' + leftPct + '% - 10px)';
     trimHandleEnd.style.left = 'calc(' + rightPct + '% - 10px)';
     clipDurationEl.textContent = formatTime(outTime - inTime);
+    updateMemoryEstimate();
   }
 
   function updatePlayhead() {
@@ -673,8 +714,13 @@
   var exportMetric;
   function startConversion() {
     var fps = parseInt(slFps.value);
-    var maxWidth = parseInt(slWidth.value);
     if (outTime <= inTime) { alert('End time must be after start time.'); return; }
+
+    var plan = conversionPlan();
+    if (plan.bytes >= RAW_MEMORY_WARNING && !confirm(
+      'This conversion needs at least ' + (plan.bytes / 1048576).toFixed(1) +
+      ' MiB for frames, plus additional memory for encoding. It may fail. Continue?'
+    )) return;
 
     exportMetric = GWFunnel.exportStarted();
     convertBtn.disabled = true;
@@ -685,7 +731,7 @@
 
     var frameInterval = 1 / fps;
     var times = [];
-    for (var t = inTime; t < outTime; t += frameInterval) times.push(t);
+    for (var i = 0; i < plan.count; i++) times.push(inTime + i * frameInterval);
 
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
@@ -704,14 +750,11 @@
     }
 
     var crop = (chkCrop.checked && cropRect) ? cropRect : null;
-    var srcW = crop ? crop.w : video.videoWidth;
-    var srcH = crop ? crop.h : video.videoHeight;
 
     video.onseeked = function () {
       if (frameIndex === 0) {
-        var scale = Math.min(1, maxWidth / srcW);
-        canvas.width = Math.round(srcW * scale);
-        canvas.height = Math.round(srcH * scale);
+        canvas.width = plan.width;
+        canvas.height = plan.height;
       }
       if (crop) {
         ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
@@ -897,6 +940,7 @@
   }
 
   function drawCropOverlay() {
+    updateMemoryEstimate();
     var r = videoDisplayRect();
     cropCanvas.width = cropCanvas.offsetWidth;
     cropCanvas.height = cropCanvas.offsetHeight;
