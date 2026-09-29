@@ -66,26 +66,50 @@
 
 
   <section class="home-hero" aria-label="GifGadgets — free browser media tools">
-    <h1 class="home-hero-logo">Gif<span class="logo-accent">Gadgets</span></h1>
-    <p class="home-hero-tagline">Mobile-friendly GIF captioning and media editing, right in your browser.</p>
-    <p class="home-hero-sub">Free. No signup. No mandatory watermark. Nothing to install.</p>
-    <div class="home-hero-badges">
-      <span class="home-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-        Timed Captions
-      </span>
-      <span class="home-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-        AI Motion Tracking
-      </span>
-      <span class="home-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-        Works on Mobile
-      </span>
-      <span class="home-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-        Always Free
-      </span>
+    <div class="home-hero-inner">
+      <div class="home-hero-copy">
+        <h1 class="home-hero-logo">Gif<span class="logo-accent">Gadgets</span></h1>
+        <p class="home-hero-tagline">Mobile-friendly GIF captioning and media editing, right in your browser.</p>
+        <p class="home-hero-sub">Free. No signup. No mandatory watermark. Nothing to install.</p>
+        <div class="home-hero-badges">
+          <span class="home-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            Timed Captions
+          </span>
+          <span class="home-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            AI Motion Tracking
+          </span>
+          <span class="home-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            Works on Mobile
+          </span>
+          <span class="home-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            Always Free
+          </span>
+        </div>
+      </div>
+
+      <figure class="home-demo">
+        <div class="home-demo-media">
+          
+          <video id="home-demo-video" width="640" height="360" muted loop playsinline preload="none"
+                 poster="/samples/bee-demo.webp"
+                 aria-label="Example GIF: the caption BZZZ! moves with a bee as it flies over a meadow">
+            <source src="/samples/bee-demo.mp4" type="video/mp4" />
+            <source src="/samples/bee-demo.webm" type="video/webm" />
+          </video>
+          <button type="button" id="home-demo-toggle" class="home-demo-toggle" aria-label="Play animation" hidden>
+            <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6,4 20,12 6,20"/></svg>
+            <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/></svg>
+          </button>
+        </div>
+        <figcaption class="home-demo-caption">
+          <p><strong>Captions that follow the action.</strong> Exported from the GIF editor: the caption rides on motion keyframes, which AI tracking can create for you.</p>
+          <a class="home-demo-cta" href="/gif-editor/edit/?sample=1">Try it on this GIF <span aria-hidden="true">→</span></a>
+        </figcaption>
+      </figure>
     </div>
   </section>
 
@@ -373,6 +397,8 @@
 
 </div>
 
+
+<script src="/home.js"></script>
 
 </body>
 </html>

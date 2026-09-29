@@ -44,3 +44,45 @@ test.describe("Homepage", () => {
     await expect(card).toBeVisible();
   });
 });
+
+test.describe("Homepage demo", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("gc_cookie_consent", "rejected"));
+  });
+
+  test("shows a real export and opens the same sample in the editor", async ({ page }) => {
+    await page.goto("/");
+    const video = page.locator("#home-demo-video");
+    for (const url of [await video.getAttribute("poster"), ...(await video.locator("source").evaluateAll(s => s.map(e => e.getAttribute("src"))))]) {
+      expect((await page.request.get(url)).status(), url).toBe(200);
+    }
+    await page.locator(".home-demo-cta").click();
+    await expect(page).toHaveURL(/\/gif-editor\/edit\/\?sample=1$/);
+    await expect(page.locator("#sample-bar")).toBeVisible();
+  });
+
+  test("plays while visible, and stays paused once the visitor pauses it", async ({ page }) => {
+    await page.goto("/");
+    const video = page.locator("#home-demo-video");
+    const toggle = page.locator("#home-demo-toggle");
+    await expect.poll(() => video.evaluate(v => v.paused)).toBe(false);
+    await expect(toggle).toHaveAttribute("aria-label", "Pause animation");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-label", "Play animation");
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    expect(await video.evaluate(v => v.paused)).toBe(true);
+  });
+
+  test("waits for a press of play when reduced motion is requested", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    const toggle = page.locator("#home-demo-toggle");
+    await expect(toggle).toHaveAttribute("aria-label", "Play animation");
+    await page.waitForTimeout(500);
+    expect(await page.locator("#home-demo-video").evaluate(v => v.paused)).toBe(true);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-label", "Pause animation");
+  });
+});

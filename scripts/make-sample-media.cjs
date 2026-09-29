@@ -1,23 +1,29 @@
 #!/usr/bin/env node
 /*
- * Regenerates the sample GIF that visitors can open in the GIF editor.
+ * Regenerates the sample GIF that visitors can open in the GIF editor, and the
+ * homepage demonstration made from it.
  *
- *   node scripts/make-sample-media.cjs
+ *   npm run build && node scripts/make-sample-media.cjs
  *
  * The animation is drawn here, frame by frame, so the project owns it outright
  * and the caption's motion keyframes come from the same path the bee flies.
  * No tracking model is involved: the sample must never start GPU work.
  *
- * Writes frontend/samples/bee.gif and frontend/samples/bee.json.
+ * The homepage clip is not drawn: it is a real export of the sample session,
+ * made by the GIF editor itself, then re-encoded as MP4 because it is a
+ * fraction of the GIF's size.
+ *
+ * Writes frontend/samples/bee.{gif,json} and bee-demo.{mp4,webm,webp}.
  * Needs ffmpeg on PATH and the Playwright Chromium from `npm ci`.
  */
 'use strict';
 
 const { chromium } = require('@playwright/test');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { GifReader } = require('../frontend/vendor/omggif.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'frontend', 'samples');
@@ -37,7 +43,8 @@ function beeAt(t) {
 // Runs in the browser. Kept free of closures so it can be serialised.
 function drawFrame({ W, H, frame, bee, trail }) {
   const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+  // CPU-backed: a GPU canvas in headless Chromium can lose its context mid-run.
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const ink = '#2d2a26';
 
   const sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
@@ -201,6 +208,7 @@ function drawFrame({ W, H, frame, bee, trail }) {
   if (wingUp) wing(-2, -24, -0.2, 0.85); else wing(0, -12, 0.45, 0.85);
   ctx.restore();
 
+  if (ctx.getImageData(0, 0, 1, 1).data[3] !== 255) throw new Error('Canvas lost frame ' + frame);
   return canvas.toDataURL('image/png');
 }
 
@@ -221,10 +229,10 @@ function captionPreset() {
   };
 }
 
-async function main() {
+async function renderSample() {
   fs.mkdirSync(OUT, { recursive: true });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sample-gif-'));
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: ['--disable-gpu'] });
   try {
     const page = await browser.newPage();
     await page.setContent(`<canvas id="c" width="${W}" height="${H}"></canvas>`);
@@ -259,4 +267,49 @@ async function main() {
   console.log(`bee.gif ${(fs.statSync(gif).size / 1024).toFixed(0)} KB, ${FRAMES} frames`);
 }
 
-main().catch(function (err) { console.error(err); process.exit(1); });
+async function exportDemo() {
+  const port = 3190 + Math.floor(Math.random() * 100);
+  const server = spawn('npx', ['serve', 'frontend', '-l', String(port)], { cwd: ROOT, stdio: 'ignore' });
+  const browser = await chromium.launch({ args: ['--disable-gpu'] });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sample-demo-'));
+  try {
+    const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
+    for (let attempt = 0; ; attempt++) {
+      try { await page.goto(`http://localhost:${port}/gif-editor/edit/?sample=1`); break; }
+      catch (err) { if (attempt > 40) throw err; await page.waitForTimeout(250); }
+    }
+    await page.waitForFunction(() => GC.state.isSample && GC.state._workerBlobUrl);
+    const dataUrl = await page.evaluate(() => new Promise(resolve => {
+      GC.exportGif({ onBlob: blob => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      } });
+    }));
+    const gif = path.join(tmp, 'demo.gif');
+    const bytes = Buffer.from(dataUrl.split(',')[1], 'base64');
+    const exported = new GifReader(new Uint8Array(bytes));
+    if (exported.numFrames() !== FRAMES) throw new Error('Editor exported ' + exported.numFrames() + ' frames');
+    fs.writeFileSync(gif, bytes);
+    const mp4 = path.join(OUT, 'bee-demo.mp4'), webm = path.join(OUT, 'bee-demo.webm');
+    const poster = path.join(OUT, 'bee-demo.webp');
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', gif, '-an', '-c:v', 'libx264',
+      '-preset', 'veryslow', '-tune', 'animation', '-crf', '24', '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart', mp4]);
+    // For browsers built without H.264, such as some Linux Chromium builds.
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', gif, '-an', '-c:v', 'libvpx-vp9',
+      '-b:v', '0', '-crf', '36', '-row-mt', '1', '-pix_fmt', 'yuv420p', webm]);
+    // Frame 3 has the bee low and its caption clear of the sun: a readable still.
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', gif, '-vf', 'select=eq(n\\,3)',
+      '-frames:v', '1', '-c:v', 'libwebp', '-quality', '80', poster]);
+    const kb = file => (fs.statSync(file).size / 1024).toFixed(0) + ' KB';
+    console.log(`bee-demo.mp4 ${kb(mp4)}, .webm ${kb(webm)}, poster ${kb(poster)}`);
+  } finally {
+    await browser.close();
+    server.kill();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+renderSample().then(exportDemo).catch(function (err) { console.error(err); process.exit(1); });
