@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>GifGadgets</title>
+  <!-- Two interlocking G's on the site's indigo. The left G sits in front so the
+       right G keeps the crossbar that makes it read as a G. The right G is cut
+       where it passes behind by a band painted with the tile's own gradient
+       (as if the front G's ring were closed), so no mask is needed and every
+       SVG renderer draws it the same way. -->
+  <defs>
+    <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
+      <stop offset="0" stop-color="#7477f7"/>
+      <stop offset="1" stop-color="#5053e6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M429.0 256.0A90.0 90.0 0 1 1 396.9 187.1 M429.0 256.0H358.8" stroke="#fff" stroke-width="47.0"/>
+    <path d="M263.0 256.0A90.0 90.0 0 1 1 83.0 256.0A90.0 90.0 0 1 1 263.0 256.0 M263.0 256.0H192.8" stroke="url(#tile)" stroke-width="75.0"/>
+    <path d="M263.0 256.0A90.0 90.0 0 1 1 230.9 187.1 M263.0 256.0H192.8" stroke="#fff" stroke-width="47.0"/>
+  </g>
+</svg>
