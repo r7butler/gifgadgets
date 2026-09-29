@@ -18,7 +18,7 @@
 .tool-utility input[type=checkbox] { accent-color: var(--utility-accent); margin-right: .35rem; }
 .tool-utility :is(button, input, select, a):focus-visible { outline: 2px solid var(--utility-accent); outline-offset: 3px; }
 .utility-primary { width: 100%; margin-top: 1rem; justify-content: center; }
-.tool-utility .btn-accent { background: var(--utility-accent); color: #fff; }
+.tool-utility .btn-accent { background: var(--utility-accent); color: var(--on-cat); }
 .tool-utility [hidden] { display: none !important; }
 .utility-previews { display: flex; flex-wrap: wrap; width: 100%; gap: 1rem; }
 .utility-previews:has(figure:not([hidden])) { flex: 1; }
