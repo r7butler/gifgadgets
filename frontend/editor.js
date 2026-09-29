@@ -1494,6 +1494,8 @@
       GC.seekFrame((state.currentFrame + 1) % state.frames.length);
     });
     var frameScrubber = $('#frame-scrubber');
+    // Clicking the current thumb may not emit input; hold it on pointerdown too.
+    if (frameScrubber) frameScrubber.addEventListener('pointerdown', GC.pause);
     if (frameScrubber) frameScrubber.addEventListener('input', function (e) {
       GC.seekFrame(parseInt(e.target.value, 10));
     });

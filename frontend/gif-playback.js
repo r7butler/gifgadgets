@@ -279,8 +279,9 @@
     }, delay);
   }
 
-  /** Jump to a specific frame number (clamped to valid range). */
+  /** Pause and hold a manually selected frame (clamped to valid range). */
   GC.seekFrame = function (n) {
+    GC.pause();
     n = Math.max(0, Math.min(state.frames.length - 1, n));
     state.currentFrame = n;
     GC.renderCurrentFrame();

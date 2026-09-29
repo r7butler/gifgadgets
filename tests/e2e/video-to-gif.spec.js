@@ -101,8 +101,13 @@ test("warns before a large conversion and reduces portrait memory by output size
   await page.locator("#sl-width").fill("480");
   await expect(page.locator("#memory-estimate")).toContainText("780.9 MiB");
   await expect(page.locator("#memory-warning")).toBeVisible();
-  page.once("dialog", dialog => dialog.dismiss());
   await page.locator("#btn-convert").click();
+  const memoryModal = page.locator("#memory-modal");
+  await expect(memoryModal).toBeVisible();
+  await expect(memoryModal).toContainText("Reducing output size is recommended.");
+  await page.keyboard.press("Escape");
+  await expect(memoryModal).toBeHidden();
+  await expect(page.locator("#btn-convert")).toBeFocused();
   await expect(page.locator("#loading-overlay")).toBeHidden();
   await page.locator("#btn-reduce-size").click();
   await expect(page.locator("#sl-width")).toHaveValue("240");
@@ -115,3 +120,46 @@ test("warns before a large conversion and reduces portrait memory by output size
   await page.locator("#crop-h").dispatchEvent("change");
   await expect(page.locator("#memory-estimate")).toContainText("120×80");
 });
+
+for (const reduce of [false, true]) {
+  test(`memory modal continues with ${reduce ? "reduced" : "original"} dimensions`, async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
+    // Lower only the advisory threshold so both real encoding paths can be
+    // exercised with a small fixture instead of allocating hundreds of MiB.
+    await page.route('**/video-to-gif/edit/', async route => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'var RAW_MEMORY_WARNING = 256 * 1024 * 1024;',
+        'var RAW_MEMORY_WARNING = 1 * 1024 * 1024;');
+      await route.fulfill({ response, body });
+    });
+    const nativeDialogs = [];
+    page.on('dialog', async dialog => { nativeDialogs.push(dialog.message()); await dialog.dismiss(); });
+    await page.goto('/video-to-gif/edit/');
+    await page.locator('#file-input').setInputFiles(path.join(FIXTURES, 'video-memory-choice.mp4'));
+    await expect(page.locator('#editor-screen')).toBeVisible();
+    await expect(page.locator('#btn-convert')).toBeEnabled();
+    await page.locator('#sl-fps').fill('10');
+    await page.locator('#btn-convert').click();
+    const modal = page.locator('#memory-modal');
+    await expect(modal).toBeVisible();
+    await expect(page.locator('#loading-overlay')).toBeHidden();
+    // Both long button labels must fit a phone-sized viewport.
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await modal.evaluate(el => el.scrollWidth <= innerWidth)).toBe(true);
+    await modal.getByRole('button', {
+      name: reduce ? 'Continue with reduced output size' : 'Continue as is',
+      exact: true
+    }).click();
+    await expect(modal).toBeHidden();
+    await expect(page.locator('#result-gif')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#sl-width')).toHaveValue(reduce ? '240' : '480');
+    const bytes = await page.locator('#result-gif').evaluate(async img =>
+      Array.from(new Uint8Array(await (await fetch(img.src)).arrayBuffer())));
+    const { GifReader } = require('../../frontend/vendor/omggif.js');
+    const reader = new GifReader(Buffer.from(bytes));
+    expect([reader.width, reader.height]).toEqual(reduce ? [240, 160] : [480, 320]);
+    expect(reader.numFrames()).toBeGreaterThan(0);
+    expect(nativeDialogs).toEqual([]);
+  });
+}

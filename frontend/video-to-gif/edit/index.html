@@ -167,7 +167,7 @@
           <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         </button>
         <button id="btn-next-frame" class="ctrl-btn" title="Next frame" aria-label="Next frame">&raquo;</button>
-        <input type="range" id="frame-scrubber" class="frame-scrubber" min="0" max="0" value="0" step="1" />
+        <input type="range" id="frame-scrubber" aria-label="Frame scrubber" class="frame-scrubber" min="0" max="0" value="0" step="1" />
         <span id="frame-counter" class="frame-counter">0 / 0</span>
       </div>
     </div>
@@ -204,7 +204,7 @@
       <div class="vtg-section" aria-live="polite">
         <p id="memory-estimate" style="font-size:12px"></p>
         <div id="memory-warning" class="hidden">
-          <p style="font-size:12px">This conversion may use a lot of memory and could fail. Reduce output size, FPS, or clip length. Actual memory use will be higher than the estimate.</p>
+          <p style="font-size:12px">Reducing output size is recommended. You can also lower FPS or shorten the clip. Actual memory use will be higher than the estimate.</p>
           <button type="button" id="btn-reduce-size" class="btn btn-secondary">Reduce output size</button>
         </div>
       </div>
@@ -235,6 +235,18 @@
         <p id="convert-status" style="font-size:12px;color:var(--text-muted);margin-bottom:8px"></p>
         <button class="vtg-convert-btn" id="btn-convert">Convert to GIF</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="memory-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="memory-modal-title" aria-describedby="memory-modal-description">
+  <div class="modal vtg-result-modal">
+    <button id="memory-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    <h2 id="memory-modal-title" class="modal-title">Reducing output size is recommended.</h2>
+    <p id="memory-modal-description" class="modal-body-text"></p>
+    <div class="modal-actions" style="flex-direction:column">
+      <button id="memory-continue" class="btn btn-ghost" type="button">Continue as is</button>
+      <button id="memory-reduce" class="btn btn-accent" type="button">Continue with reduced output size</button>
     </div>
   </div>
 </div>
@@ -342,7 +354,6 @@
   var lastGifFilename = 'video.gif';
   var pendingShareAfterConvert = false;
   var workerBlobUrl = null;
-  var wasPlayingBeforeSeek = false;
   var duration = 0;
   var inTime = 0;
   var outTime = 0;
@@ -379,10 +390,11 @@
     document.getElementById('btn-reduce-size').disabled = Number(slWidth.value) <= Number(slWidth.min);
   }
 
-  document.getElementById('btn-reduce-size').addEventListener('click', function () {
+  function reduceOutputSize() {
     slWidth.value = Math.max(120, 120 + Math.floor((Number(slWidth.value) / 2 - 120) / 40) * 40);
     slWidth.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  }
+  document.getElementById('btn-reduce-size').addEventListener('click', reduceOutputSize);
   document.addEventListener('input', updateMemoryEstimate);
   document.addEventListener('change', updateMemoryEstimate);
 
@@ -507,6 +519,7 @@
 
   function beginTrimDrag(mode, clientX) {
     if (!duration) return;
+    video.pause();
     trimDrag = { mode: mode, startX: clientX, startIn: inTime, startOut: outTime, moved: false };
     trimFill.classList.toggle('dragging', mode === 'move');
   }
@@ -550,6 +563,7 @@
     if (suppressTrimTrackClick) { suppressTrimTrackClick = false; return; }
     if (trimDrag || !duration) return;
     var rect = trimTrack.getBoundingClientRect();
+    video.pause();
     video.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
   });
 
@@ -596,7 +610,7 @@
     }
     var fps = getPreviewFps();
     var totalFrames = Math.max(1, Math.ceil(duration * fps));
-    var currentFrame = Math.min(totalFrames, Math.floor(video.currentTime * fps) + 1);
+    var currentFrame = Math.min(totalFrames, Math.floor(video.currentTime * fps + 1e-7) + 1);
     frameCounter.textContent = currentFrame + ' / ' + totalFrames;
     frameScrubber.max = totalFrames - 1;
     frameScrubber.value = Math.max(0, currentFrame - 1);
@@ -614,7 +628,7 @@
     if (!duration) return;
     video.pause();
     var fps = getPreviewFps();
-    seekToFrame(Math.floor(video.currentTime * fps) + direction);
+    seekToFrame(Math.floor(video.currentTime * fps + 1e-7) + direction);
     updatePlayPauseIcon();
   }
 
@@ -639,16 +653,14 @@
   btnPrevFrame.addEventListener('click', function () { stepFrame(-1); });
   btnNextFrame.addEventListener('click', function () { stepFrame(1); });
 
+  // Pause even when clicking the current thumb: that produces no input event.
+  frameScrubber.addEventListener('pointerdown', function () { video.pause(); });
   frameScrubber.addEventListener('input', function () {
     if (!duration) return;
-    wasPlayingBeforeSeek = !video.paused && !video.ended;
+    // Manual seeking holds the selected frame until Play is pressed.
     video.pause();
     seekToFrame(parseInt(frameScrubber.value, 10) || 0);
     updatePlayPauseIcon();
-  });
-  frameScrubber.addEventListener('change', function () {
-    if (wasPlayingBeforeSeek) video.play();
-    wasPlayingBeforeSeek = false;
   });
 
   video.addEventListener('loadedmetadata', updateFrameCounter);
@@ -719,15 +731,40 @@
   // ── Convert ──
 
   var exportMetric;
-  function startConversion() {
+  var memoryModal = document.getElementById('memory-modal');
+  function closeMemoryModal() {
+    memoryModal.classList.add('hidden');
+    pendingShareAfterConvert = false;
+  }
+  document.getElementById('memory-modal-close').addEventListener('click', closeMemoryModal);
+  memoryModal.addEventListener('click', function (event) {
+    if (event.target === memoryModal) closeMemoryModal();
+  });
+  document.getElementById('memory-continue').addEventListener('click', function () {
+    memoryModal.classList.add('hidden');
+    startConversion(true);
+  });
+  document.getElementById('memory-reduce').addEventListener('click', function () {
+    reduceOutputSize();
+    memoryModal.classList.add('hidden');
+    startConversion(true);
+  });
+
+  function startConversion(memoryChoiceAccepted) {
     var fps = parseInt(slFps.value);
     if (outTime <= inTime) { alert('End time must be after start time.'); return; }
 
     var plan = conversionPlan();
-    if (plan.bytes >= RAW_MEMORY_WARNING && !confirm(
-      'This conversion needs at least ' + (plan.bytes / 1048576).toFixed(1) +
-      ' MiB for frames, plus additional memory for encoding. It may fail. Continue?'
-    )) return;
+    // Only an explicit modal choice bypasses this check, not a click Event.
+    if (plan.bytes >= RAW_MEMORY_WARNING && memoryChoiceAccepted !== true) {
+      document.getElementById('memory-modal-description').textContent =
+        'Estimated frame memory: ' + (plan.bytes / 1048576).toFixed(1) +
+        ' MiB, plus encoding memory. Choose how you would like to continue.';
+      document.getElementById('memory-reduce').disabled = Number(slWidth.value) <= Number(slWidth.min);
+      resultModal.classList.add('hidden');
+      memoryModal.classList.remove('hidden');
+      return;
+    }
 
     exportMetric = GWFunnel.exportStarted();
     convertBtn.disabled = true;

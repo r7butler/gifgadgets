@@ -1255,6 +1255,8 @@
     updatePreview();
     updateFrameCounter();
   });
+  // Clicking the current thumb may not emit input.
+  frameScrubber.addEventListener('pointerdown', stopPlayback);
   frameScrubber.addEventListener('input', function () {
     stopPlayback();
     var v = parseInt(frameScrubber.value, 10);
