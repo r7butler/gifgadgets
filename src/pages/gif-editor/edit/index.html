@@ -55,11 +55,19 @@
         <p class="drop-hint">Supports GIF, HEIC, MP4, WebM, MOV, AVI</p>
         <input type="file" id="file-input" accept="image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,video/x-msvideo" hidden />
       </div>
+      <div class="sample-offer">
+        <button type="button" id="btn-try-sample" class="btn btn-ghost">No GIF handy? Try a sample</button>
+        <p id="sample-status" class="sample-status" role="status"></p>
+      </div>
     </div>
 
     <div id="editor-workspace" class="editor-workspace hidden" role="main">
       <div class="editor-main">
         <div class="editor-preview">
+          <div id="sample-bar" class="sample-bar hidden">
+            <p id="sample-bar-text" class="sample-bar-text" role="status"></p>
+            <button type="button" id="btn-sample-own" class="btn btn-accent btn-xs">Use your own GIF</button>
+          </div>
           <div class="canvas-container checkerboard-bg">
             <canvas id="preview-canvas"></canvas>
             <div id="tracking-overlay" class="tracking-overlay hidden"></div>
@@ -323,6 +331,7 @@
   <script src="/gif-export.js"></script>
   <script src="/gif-tracker.js"></script>
   <script src="/editor-drafts.js"></script>
+  <script src="/editor-sample.js"></script>
   <script src="/editor.js"></script>
   <script src="/app.js"></script>
 {% endblock %}

@@ -75,6 +75,8 @@
       GC.loadGifFromIndexedDB();
     } else if (source === 'imgcap' && GC.loadImageFromIndexedDB) {
       GC.loadImageFromIndexedDB();
+    } else if (params.has('sample') && GC.loadSample) {
+      GC.loadSample();
     }
   }
 
@@ -139,6 +141,7 @@
     GC.renderCurrentFrame();
     return cap;
   }
+  GC.addCaption = addCaption;
 
   function removeCaption(id) {
     state.captions = state.captions.filter(function (c) { return c.id !== id; });
@@ -1262,57 +1265,71 @@
     }
 
     // ── "New" button → reset to upload screen ─
-    var btnNew = $('#btn-new');
-    if (btnNew) {
-      btnNew.addEventListener('click', function () {
-        if ($('#editor-workspace').classList.contains('hidden')) return;
-        window.GWConfirmAction({
-          title: 'Start a new file?',
-          message: 'Your current edits will be lost if you continue.',
-          confirmLabel: 'Start New',
-          onConfirm: async function () {
-            GC.pause();
-            if (GC.clearDraft) await GC.clearDraft();
-            state.frames = [];
-            state.captions = [];
-            state.overlays = [];
-            state.selectedCaptionId = null;
-            state.selectedOverlayId = null;
-            state.currentFrame = 0;
-            state.cropActive = false;
-            state.cropRect = null;
-            state.zoom = 1; state.panX = 0; state.panY = 0;
-            _applyZoom();
-            state.compressGif = false;
-            state.gifQuality = 10;
-            state.lossyCompress = false;
-            state.originalFileSize = 0;
-            state.isStillImage = false;
-            GC.nextCaptionId = 1;
-            GC.nextOverlayId = 1;
-            $('#editor-workspace').classList.add('hidden');
-            $('#upload-zone').classList.remove('hidden');
-            var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
-            var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
-            var _btnShare = $('#btn-share'); if (_btnShare) _btnShare.disabled = true;
-            $('#btn-download').disabled = true;
-            if ($('#file-input')) $('#file-input').value = '';
-            // Reset Other Options UI
-            if ($('#chk-crop')) { $('#chk-crop').checked = false; }
-            if ($('#crop-settings')) { $('#crop-settings').classList.add('hidden'); }
-            if ($('#chk-compress')) { $('#chk-compress').checked = false; }
-            if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
-            if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
-            if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
-            // Reset photo adjustments
-            state.adjustments.brightness = 0; state.adjustments.contrast   = 0;
-            state.adjustments.saturation = 0; state.adjustments.hue        = 0;
-            state.adjustments.filter     = 'none';
-            _resetAdjUI();
-          }
-        });
-      });
+    async function resetToUpload() {
+      GC.pause();
+      if (GC.clearDraft) await GC.clearDraft();
+      state.frames = [];
+      state.captions = [];
+      state.overlays = [];
+      state.selectedCaptionId = null;
+      state.selectedOverlayId = null;
+      state.currentFrame = 0;
+      state.cropActive = false;
+      state.cropRect = null;
+      state.zoom = 1; state.panX = 0; state.panY = 0;
+      _applyZoom();
+      state.compressGif = false;
+      state.gifQuality = 10;
+      state.lossyCompress = false;
+      state.originalFileSize = 0;
+      state.isStillImage = false;
+      GC.nextCaptionId = 1;
+      GC.nextOverlayId = 1;
+      $('#editor-workspace').classList.add('hidden');
+      $('#upload-zone').classList.remove('hidden');
+      var adUpload = $('#ad-upload'); if (adUpload) adUpload.classList.remove('hidden');
+      var adBottom = $('#ad-editor-bottom'); if (adBottom) adBottom.classList.add('hidden');
+      var _btnShare = $('#btn-share'); if (_btnShare) _btnShare.disabled = true;
+      $('#btn-download').disabled = true;
+      if ($('#file-input')) $('#file-input').value = '';
+      // Reset Other Options UI
+      if ($('#chk-crop')) { $('#chk-crop').checked = false; }
+      if ($('#crop-settings')) { $('#crop-settings').classList.add('hidden'); }
+      if ($('#chk-compress')) { $('#chk-compress').checked = false; }
+      if ($('#compress-settings')) { $('#compress-settings').classList.add('hidden'); }
+      if ($('#chk-lossy')) { $('#chk-lossy').checked = false; }
+      if ($('#compress-quality')) { $('#compress-quality').value = 10; $('#compress-quality-val').textContent = '10'; }
+      // Reset photo adjustments
+      state.adjustments.brightness = 0; state.adjustments.contrast   = 0;
+      state.adjustments.saturation = 0; state.adjustments.hue        = 0;
+      state.adjustments.filter     = 'none';
+      state.isSample = false;
+      _resetAdjUI();
     }
+
+    /**
+     * Return to the upload screen. The New button always asks first; callers
+     * passing skipConfirmIfUnchanged (the sample bar) only ask once there are
+     * edits. pickFile also opens the file picker.
+     */
+    GC.startNewFile = function (opts) {
+      opts = opts || {};
+      if ($('#editor-workspace').classList.contains('hidden')) return;
+      function go() {
+        // Browsers only open a picker during the click that asked for it.
+        if (opts.pickFile && $('#file-input')) $('#file-input').click();
+        return resetToUpload();
+      }
+      if (opts.skipConfirmIfUnchanged && GC.hasEdits && !GC.hasEdits()) { go(); return; }
+      window.GWConfirmAction({
+        title: 'Start a new file?',
+        message: 'Your current edits will be lost if you continue.',
+        confirmLabel: 'Start New',
+        onConfirm: go
+      });
+    };
+    var btnNew = $('#btn-new');
+    if (btnNew) btnNew.addEventListener('click', function () { GC.startNewFile(); });
 
     // ── Canvas interaction (drag, resize, touch)
     GC.canvas.addEventListener('mousedown', handleCanvasMouseDown);
@@ -1458,6 +1475,7 @@
       btnOvTrackAI.addEventListener('click', function () {
         var ov = GC.findOverlay(state.selectedOverlayId);
         if (!ov || state.frames.length === 0) return;
+        if (state.isSample) { GC.explainSampleTracking(); return; }
         GC.warmUpTracker();
         GC.startTrackingMode(ov, 'overlay');
       });
@@ -1540,6 +1558,8 @@
     if (btnTrackAI) btnTrackAI.addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap || state.frames.length === 0) return;
+      // The sample exists to try the editor, not to spend GPU time.
+      if (state.isSample) { GC.explainSampleTracking(); return; }
       GC.warmUpTracker();
       GC.startTrackingMode(cap);
     });
@@ -2267,6 +2287,7 @@
     _updateAdjResizeInputs();
     var btnSF = $('#btn-save-frame');
     if (btnSF) btnSF.disabled = state.isPlaying || state.frames.length === 0;
+    if (GC.syncSampleBar) GC.syncSampleBar();
   };
 
   // ── Boot ─────────────────────────────────────

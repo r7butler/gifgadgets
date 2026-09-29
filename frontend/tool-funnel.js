@@ -32,8 +32,9 @@
     emit('tool_failure', task, start, allowed.indexOf(category) < 0 ? 'processing' : category);
   }
   window.GWFunnel = {
-    accepted: function (bytes) {
-      current = { bucket: bucket(bytes), started: performance.now(), ready: false };
+    // kind 'sample' marks the bundled sample GIF so it never counts as a real upload.
+    accepted: function (bytes, kind) {
+      current = { bucket: kind === 'sample' ? 'sample' : bucket(bytes), started: performance.now(), ready: false };
       emit('file_accepted', current, current.started);
     },
     ready: function () {

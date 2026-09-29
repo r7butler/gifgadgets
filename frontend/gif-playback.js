@@ -38,31 +38,40 @@
 
   // ── GIF Loading ──────────────────────────────
 
-  /** Load a GIF from a File object (drag-drop or file picker). */
+  /**
+   * Load a GIF from a File object (drag-drop, file picker or the sample).
+   * Resolves true once the editor shows it, false after reporting a failure.
+   * opts.funnelKind labels the analytics task (see GWFunnel.accepted).
+   */
   var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
-  GC.loadGifFromFile = function (file) {
-    if (file.size > MAX_FILE_SIZE) { GC.showError('File is too large. Please use a file under 200 MB.'); return; }
-    GWFunnel.accepted(file.size);
+  GC.loadGifFromFile = function (file, opts) {
+    if (file.size > MAX_FILE_SIZE) { GC.showError('File is too large. Please use a file under 200 MB.'); return Promise.resolve(false); }
+    GWFunnel.accepted(file.size, opts && opts.funnelKind);
     state.gifFilename = file.name || null;
     state.originalFileSize = file.size || 0;
     GC.showLoading('Parsing GIF frames…');
-    var reader = new FileReader();
-    reader.onload = async function () {
-      try {
-        await processGifBuffer(reader.result);
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onload = async function () {
+        try {
+          await processGifBuffer(reader.result);
+          GC.hideLoading();
+          resolve(true);
+        } catch (err) {
+          GC.hideLoading();
+          GWFunnel.failure('decode');
+          GC.showError('Failed to parse GIF: ' + err.message);
+          resolve(false);
+        }
+      };
+      reader.onerror = function () {
         GC.hideLoading();
-      } catch (err) {
-        GC.hideLoading();
-        GWFunnel.failure('decode');
-        GC.showError('Failed to parse GIF: ' + err.message);
-      }
-    };
-    reader.onerror = function () {
-      GC.hideLoading();
-      GWFunnel.failure('read');
-      GC.showError('Could not read file.');
-    };
-    reader.readAsArrayBuffer(file);
+        GWFunnel.failure('read');
+        GC.showError('Could not read file.');
+        resolve(false);
+      };
+      reader.readAsArrayBuffer(file);
+    });
   };
 
   /** Load a GIF by backend ID (via ?id= query parameter). */

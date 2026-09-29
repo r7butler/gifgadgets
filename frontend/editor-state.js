@@ -52,6 +52,7 @@
     gifId: null,            // Backend GIF ID (when loaded via ?id= URL param)
     gifFilename: null,      // Original filename of the uploaded GIF file
     originalFileSize: 0,    // Byte size of the originally-uploaded file (0 = unknown)
+    isSample: false,        // true = the bundled sample GIF, which never starts AI tracking
 
     // Box captions — solid-colour bars above/below the GIF.
     // null = not yet added; object = active (see GC.makeBoxCaption).

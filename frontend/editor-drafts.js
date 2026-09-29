@@ -1,7 +1,7 @@
 /* Local recovery: metadata saves are small; media is written once, frame by frame. */
 (function () {
   'use strict';
-  var fields = ['width', 'height', 'gifFilename', 'originalFileSize', 'captions',
+  var fields = ['width', 'height', 'gifFilename', 'originalFileSize', 'isSample', 'captions',
     'boxCaptionTop', 'boxCaptionBottom', 'cropRect', 'cropActive', 'speed', 'adjustments',
     'hideWatermark', 'compressGif', 'gifQuality', 'lossyCompress', 'isStillImage',
     'exportFormat', 'exportQuality'];
@@ -54,6 +54,10 @@
     if (!GC.state.frames.length) return false;
     var current = signature();
     return current !== baseline && current !== saved;
+  };
+  /** True once the loaded file has been changed, whether or not a draft holds it. */
+  GC.hasEdits = function () {
+    return GC.state.frames.length > 0 && signature() !== baseline;
   };
   GC.clearDraft = async function () {
     epoch++;
@@ -140,8 +144,11 @@
   GC.restoreDraft = async function () {
     try {
       var nav = performance.getEntriesByType('navigation')[0];
-      // Explicit handoffs win; reloads may recover work after the handoff was consumed.
-      if (location.search && (!nav || nav.type !== 'reload')) return false;
+      // Explicit handoffs of the visitor's own file win; reloads may recover work
+      // after the handoff was consumed. The sample is not their work, so a saved
+      // draft is always offered before it.
+      var handoff = location.search && !new URLSearchParams(location.search).has('sample');
+      if (handoff && (!nav || nav.type !== 'reload')) return false;
       var db = await dbPromise;
       if (!db) return false;
       var tx = db.transaction('drafts', 'readonly');
