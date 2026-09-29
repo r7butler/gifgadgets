@@ -86,3 +86,41 @@ test.describe("Homepage demo", () => {
     await expect(toggle).toHaveAttribute("aria-label", "Pause animation");
   });
 });
+
+test.describe("Homepage discovery", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("gc_cookie_consent", "rejected"));
+    await page.goto("/");
+  });
+
+  test("quick start links open real tool pages", async ({ page }) => {
+    const links = page.locator(".home-quick-list a");
+    expect(await links.count()).toBeGreaterThanOrEqual(4);
+    for (const href of await links.evaluateAll(as => as.map(a => a.getAttribute("href")))) {
+      expect((await page.request.get(href)).status(), href).toBe(200);
+    }
+  });
+
+  test("category shortcuts land each section below the sticky nav", async ({ page }) => {
+    const navHeight = await page.locator("nav.site-nav").evaluate(n => n.getBoundingClientRect().height);
+    for (const chip of await page.locator(".home-jump-list a").all()) {
+      const target = (await chip.getAttribute("href")).slice(1);
+      await chip.click();
+      await expect(page).toHaveURL(new RegExp("#" + target + "$"));
+      const heading = page.locator(`#${target} h2`);
+      await expect(heading).toBeInViewport();
+      expect(await heading.evaluate(h => h.getBoundingClientRect().top)).toBeGreaterThanOrEqual(navHeight);
+    }
+  });
+
+  test("the full directory stays under one heading per category", async ({ page }) => {
+    await expect(page.locator("main h2.home-section-title")).toHaveText(["GIF Tools", "Image Tools", "Video Tools", "Photo Format Converters"]);
+    expect(await page.locator("main a.tool-card").count()).toBeGreaterThanOrEqual(30);
+  });
+
+  test("phone layout never scrolls sideways", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.reload();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  });
+});
