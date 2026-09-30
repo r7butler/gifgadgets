@@ -74,17 +74,40 @@ test('the sample edits and exports like any GIF, caption motion included', async
   expect(changedAround(exported.out[10], source.out[10], 640, 360, later)).toBeGreaterThan(150);
 });
 
-/** Enter tracking with a fresh caption parked at `spot` on frame 0, then tap `tap`. */
-async function trackFromFrameZero(page, spot, tap) {
+/** Enter tracking with a fresh caption parked at `spot` on frame 0, pick `placement`, then tap `tap`. */
+async function trackFromFrameZero(page, spot, tap, placement = 'keep') {
   await page.evaluate(() => { GC.pause(); GC.seekFrame(0); });
   await page.locator('#btn-add-caption').click();
   await page.evaluate(spot => Object.assign(GC.state.captions[1], spot), spot);
   await page.locator('#btn-track-with-ai').click();
-  await expect(page.locator('#tracking-bar')).toContainText('keeps its place relative to it');
+  await page.locator(`#track-place-modal [data-placement="${placement}"]`).click();
+  await expect(page.locator('#tracking-bar')).toContainText(
+    placement === 'keep' ? 'keeps its place relative to it' : 'goes on top of it');
   const box = await page.locator('#preview-canvas').boundingBox();
   await page.mouse.click(box.x + tap.x * box.width, box.y + tap.y * box.height);
   await expect.poll(() => page.evaluate(() => GC.state.captions[1].motion.length)).toBe(40);
   return page.evaluate(() => GC.state.captions[1].motion);
+}
+
+/** The middle of the caption's drawn pixels on `frame`, as fractions of the GIF. */
+function drawnMiddle(page, frame) {
+  return page.evaluate(frame => {
+    const canvas = document.createElement('canvas');
+    canvas.width = GC.state.width;
+    canvas.height = GC.state.height;
+    const ctx = canvas.getContext('2d');
+    GC.drawCaption(ctx, GC.state.captions[1], frame);
+    const alpha = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let left = Infinity, right = -1, top = Infinity, bottom = -1;
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        if (alpha[(y * canvas.width + x) * 4 + 3] < 128) continue;
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+    }
+    return { x: (left + right + 1) / 2 / canvas.width, y: (top + bottom + 1) / 2 / canvas.height };
+  }, frame);
 }
 
 test('Follow an Object on the sample tracks the bee without the GPU tracker', async ({ page }) => {
@@ -110,6 +133,108 @@ test('tapping still scenery on the sample leaves the caption where it is', async
   const motion = await trackFromFrameZero(page, { x: 0.3, y: 0.3 }, { x: 0.07, y: 0.78 });
   await expect(page.locator('#sample-bar-text')).toContainText('Try tapping the bee');
   expect(new Set(motion.map(k => k.x + ',' + k.y))).toEqual(new Set(['0.3,0.3']));
+});
+
+test('On top of the object centers the caption on the bee as it flies', async ({ page }) => {
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  const bee = preset.subject.path;
+  // Parked far from the bee, and tapped off its middle: the caption still lands on the bee.
+  await trackFromFrameZero(page, { x: 0.15, y: 0.1, text: 'HELLO' }, { x: bee[0].x + 0.03, y: bee[0].y + 0.03 }, 'center');
+  for (const frame of [0, 10, 25]) {
+    const middle = await drawnMiddle(page, frame);
+    expect(Math.abs(middle.x - bee[frame].x)).toBeLessThan(0.02);
+    expect(Math.abs(middle.y - bee[frame].y)).toBeLessThan(0.02);
+  }
+});
+
+test('a saved choice skips the question until Change asks again', async ({ page }) => {
+  const modal = page.locator('#track-place-modal');
+  const remember = page.locator('#track-place-remember');
+  const bar = page.locator('#tracking-bar');
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await page.locator('.caption-list-item').first().click();
+  await page.locator('#btn-track-with-ai').click();
+  await expect(remember).not.toBeChecked();
+  await remember.check();
+  await modal.locator('[data-placement="center"]').click();
+  await expect(modal).toBeHidden();
+  await expect(bar).toContainText('The caption goes on top of it.');
+  await page.locator('#btn-cancel-tracking').click();
+
+  // Remembered on the next visit.
+  await page.reload();
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await page.locator('.caption-list-item').first().click();
+  await page.locator('#btn-track-with-ai').click();
+  await expect(bar).toContainText('The caption goes on top of it.');
+  await expect(modal).toBeHidden();
+
+  // Change shows the saved choice; unticking the box goes back to asking.
+  await page.locator('#btn-tracking-placement').click();
+  await expect(remember).toBeChecked();
+  await expect(modal.locator('[data-placement="center"] .track-place-current')).toBeVisible();
+  await expect(modal.locator('[data-placement="keep"] .track-place-current')).toBeHidden();
+  await remember.uncheck();
+  await modal.locator('[data-placement="keep"]').click();
+  await expect(bar).toContainText('The caption keeps its place relative to it.');
+  expect(await page.evaluate(() => localStorage.getItem('gc_track_placement'))).toBeNull();
+  await page.locator('#btn-cancel-tracking').click();
+  await page.locator('#btn-track-with-ai').click();
+  await expect(modal).toBeVisible();
+});
+
+test('backing out of the question changes nothing', async ({ page }) => {
+  const modal = page.locator('#track-place-modal');
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await page.locator('.caption-list-item').first().click();
+  const motion = await page.evaluate(() => JSON.stringify(GC.state.captions[0].motion));
+
+  await page.locator('#btn-track-with-ai').click();
+  await expect(modal.locator('.modal-title')).toHaveText('How should the caption follow the object?');
+  await expect(modal.locator('[data-placement="keep"]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden();
+  await expect(page.locator('#tracking-bar')).toBeHidden();
+  await expect(page.locator('#btn-track-with-ai')).toBeFocused();
+  expect(await page.evaluate(() => GC.state._trackingMode)).toBeFalsy();
+
+  // Backing out of Change keeps tracking mode and its choice.
+  await page.locator('#btn-track-with-ai').click();
+  await modal.locator('[data-placement="keep"]').click();
+  await page.locator('#btn-tracking-placement').click();
+  await modal.locator('#track-place-modal-cancel').click();
+  await expect(page.locator('#tracking-bar')).toContainText('keeps its place relative to it');
+  expect(await page.evaluate(() => GC.state._trackingMode.placement)).toBe('keep');
+  await page.locator('#btn-cancel-tracking').click();
+  expect(await page.evaluate(() => JSON.stringify(GC.state.captions[0].motion))).toBe(motion);
+
+  // Image overlays get the same question.
+  await page.evaluate(() => GC.startTrackingMode({ id: 'overlay-test', motion: [] }, 'overlay'));
+  await expect(modal.locator('.modal-title')).toHaveText('How should the image follow the object?');
+});
+
+test('a double-click neither dismisses the question nor taps the GIF behind it', async ({ page }) => {
+  const modal = page.locator('#track-place-modal');
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await page.locator('.caption-list-item').first().click();
+  await page.locator('#btn-track-with-ai').dblclick();
+  await expect(modal).toBeVisible();
+  // The choice sits over the canvas, so the second click lands on the GIF.
+  const choice = await modal.locator('[data-placement="keep"]').boundingBox();
+  const canvas = await page.locator('#preview-canvas').boundingBox();
+  for (const [axis, size] of [['x', 'width'], ['y', 'height']]) {
+    const middle = choice[axis] + choice[size] / 2;
+    expect(middle).toBeGreaterThan(canvas[axis]);
+    expect(middle).toBeLessThan(canvas[axis] + canvas[size]);
+  }
+  await modal.locator('[data-placement="keep"]').dblclick();
+  await expect(modal).toBeHidden();
+  await expect(page.locator('#tracking-bar')).toBeVisible();
+  expect(await page.evaluate(() => GC.state._trackingMode && GC.state._trackingMode.placement)).toBe('keep');
 });
 
 test('the dark theme opens the night sample, unless the link asks for one', async ({ page }) => {

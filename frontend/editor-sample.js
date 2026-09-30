@@ -32,7 +32,7 @@
   var INTRO = 'Sample GIF. To try tracking, select a caption, click Follow an Object, then tap the bee.';
   var FOLLOWING = 'It follows the bee now. The sample\'s path is built in, so this is instant; ' +
     'on your own GIFs, AI tracking takes a little longer.';
-  var STILL = 'That spot doesn\'t move in this GIF, so the caption stays put. Try tapping the bee.';
+  var STILL = 'That spot doesn\'t move in this GIF, so neither does the caption. Try tapping the bee.';
   var loading = false;
   var presetRequest = null;
 

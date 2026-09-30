@@ -1,0 +1,37 @@
+{# Follow an Object asks how the target should follow; gif-tracker.js runs it. #}
+<div id="track-place-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="track-place-title">
+  <div class="modal track-place">
+    <h2 id="track-place-title" class="modal-title">How should the caption follow the object?</h2>
+    <div class="track-place-options">
+      <button type="button" class="track-place-option" data-placement="keep">
+        <svg class="track-place-art" viewBox="0 0 96 60" aria-hidden="true">
+          <path class="track-place-speed" d="M38 40h7M40 47h5"/>
+          <path class="track-place-link" d="M38 23l15 11"/>
+          <circle class="track-place-object" cx="62" cy="43" r="11"/>
+          <rect class="track-place-caption" x="12" y="6" width="38" height="17" rx="4"/>
+          <text class="track-place-text" x="31" y="18.5">Aa</text>
+        </svg>
+        <span class="track-place-copy">
+          <span class="track-place-name">From where it is now</span>
+          <span class="track-place-desc">Moves with the object and keeps its distance.</span>
+          <span class="track-place-current" hidden>Current</span>
+        </span>
+      </button>
+      <button type="button" class="track-place-option" data-placement="center">
+        <svg class="track-place-art" viewBox="0 0 96 60" aria-hidden="true">
+          <path class="track-place-speed" d="M15 26h7M17 34h5"/>
+          <circle class="track-place-object" cx="48" cy="30" r="18"/>
+          <rect class="track-place-caption" x="29" y="21.5" width="38" height="17" rx="4"/>
+          <text class="track-place-text" x="48" y="34">Aa</text>
+        </svg>
+        <span class="track-place-copy">
+          <span class="track-place-name">On top of the object</span>
+          <span class="track-place-desc">Stays centered on it as it moves.</span>
+          <span class="track-place-current" hidden>Current</span>
+        </span>
+      </button>
+    </div>
+    <label class="modal-skip-label"><input type="checkbox" id="track-place-remember"> Save my preference and don't ask me again</label>
+    <div class="modal-actions"><button type="button" id="track-place-modal-cancel" class="btn btn-ghost">Cancel</button></div>
+  </div>
+</div>

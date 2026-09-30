@@ -397,6 +397,8 @@
 
     // 0. AI tracking mode — next canvas click picks the object
     if (state._trackingMode) {
+      // The second click of a double-click on a placement choice isn't aimed at the GIF.
+      if (e.detail > 1) return;
       // Show ripple at click position relative to canvas-container
       var container = GC.canvas.parentElement;
       if (container) {

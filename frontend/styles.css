@@ -1382,14 +1382,21 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── Tracking UI ──────────────────────────── */
+/* The bar sits on the dimmed canvas in either theme, so its colors are fixed. */
 .tracking-bar {
   position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px;
+  width: max-content; max-width: calc(100% - 24px);
   background: rgba(20, 20, 42, 0.92); border: 1px solid var(--accent);
   border-radius: 8px; padding: 8px 14px; z-index: 50;
-  backdrop-filter: blur(4px); white-space: nowrap;
+  backdrop-filter: blur(4px);
 }
-.tracking-bar-text { font-size: 13px; color: var(--text-primary); }
+.tracking-bar-text { font-size: 13px; color: #f1f5f9; text-align: center; }
+.tracking-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.tracking-bar .btn-ghost { color: #cbd5e1; border-color: #4a4a6a; }
+.tracking-bar .btn-ghost:hover { background: #252540; color: #f1f5f9; }
+/* Phones keep the bar to one row over the GIF; the dialog behind Change explains. */
+@media (max-width: 520px) { .tracking-bar-mode { display: none; } }
 .tracking-loading {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
@@ -1415,6 +1422,41 @@ input[type="range"]::-moz-range-thumb {
   position: absolute; width: 28px; height: 28px; border-radius: 50%;
   border: 2px solid #a78bfa; background: rgba(167, 139, 250, 0.25);
   animation: tracking-ripple 1.2s ease-out forwards; pointer-events: none; z-index: 55;
+}
+/* How a tracked caption follows the object (#track-place-modal). */
+.track-place { max-width: 460px; text-align: center; }
+.track-place-options { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.25rem; }
+.track-place-option {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  padding: .9rem .75rem 1rem; border: 1px solid var(--border-light); border-radius: var(--radius-md);
+  background: var(--bg-primary); color: var(--text-primary); font: inherit; cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+.track-place-option.is-current { border-color: var(--accent); }
+@media (hover: hover) {
+  .track-place-option:hover { border-color: var(--accent); background: var(--accent-dim); }
+}
+.track-place-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.track-place-art { width: 96px; height: 60px; flex-shrink: 0; }
+.track-place-copy { display: flex; flex-direction: column; align-items: center; gap: .3rem; }
+.track-place-object { fill: var(--accent); }
+.track-place-caption { fill: var(--bg-primary); stroke: var(--text-primary); stroke-width: 1.5; }
+.track-place-text { fill: var(--text-primary); font: 700 10px var(--font-sans); text-anchor: middle; }
+.track-place-link { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 2 3; stroke-linecap: round; }
+.track-place-speed { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; }
+.track-place-name { font-size: .95rem; font-weight: 600; }
+.track-place-desc { font-size: .8rem; color: var(--text-secondary); line-height: 1.4; }
+.track-place-current {
+  position: absolute; top: 8px; right: 8px; padding: 0 6px; border: 1px solid currentColor;
+  border-radius: 999px; color: var(--accent-hover); font-size: .7rem; font-weight: 600;
+}
+.track-place-current[hidden] { display: none; }
+@media (max-width: 420px) {
+  .track-place-options { grid-template-columns: 1fr; }
+  .track-place-option { flex-direction: row; gap: .75rem; text-align: left; }
+  .track-place-art { width: 72px; height: 45px; }
+  .track-place-copy { align-items: flex-start; }
+  .track-place-current { position: static; }
 }
 
 /* ── Keyframe Context Menu ────────────────── */
