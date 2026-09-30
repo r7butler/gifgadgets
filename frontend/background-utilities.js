@@ -163,33 +163,6 @@
   stage.ondragover=event=>{event.preventDefault(); $('upload').classList.add('dragover');};
   stage.ondragleave=()=>$('upload').classList.remove('dragover');
   stage.ondrop=event=>{event.preventDefault(); $('upload').classList.remove('dragover'); load(event.dataTransfer.files[0]);};
-  async function api(route,body) {
-    const encoded=JSON.stringify(body), raw=new TextEncoder().encode(encoded);
-    const digest=await crypto.subtle.digest('SHA-256',raw);
-    const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-    const response=await fetch('/api/segment/'+route,{method:'POST',headers:{'Content-Type':'application/json','x-amz-content-sha256':hash},body:encoded,signal:AbortSignal.timeout(45000)});
-    let result; try { result=await response.json(); } catch(_) { throw Error('Background removal is unavailable. Please try again later.'); }
-    if(!response.ok) { const error=Error(result.error || 'Background processing failed.'); error.status=response.status; throw error; } return result;
-  }
-  // The worker reports nothing until it has a GPU and a loaded model. A warm
-  // worker may not have reported by the first poll, so only claim a cold start
-  // from the second poll on.
-  function progressText(result,polls) {
-    if(result.phase==='starting' && polls>1) return 'Starting GPU…';
-    const frames=result.frames||original.count;
-    if(result.frame>0 && frames>1) return `Finding objects: frame ${result.frame} of ${frames}…`;
-    return `Finding objects in ${frames} frame${frames===1?'':'s'}…`;
-  }
-  async function cancelRemote(run) {
-    if(run.submission) { try { await run.submission; } catch(_) {} }
-    // Even an interrupted submit may have started compute; cancellation checks
-    // its saved server-side reference rather than assuming no job was launched.
-    if(!run.submission || !run.job) return;
-    for(let i=0;i<12;i++) {
-      try { await api('cancel',{job_id:run.job}); return; }
-      catch(error) { if(error.status!==409 || i===11) throw error; await new Promise(r=>setTimeout(r,1000)); }
-    }
-  }
   async function exportResult() {
     const ticket = generation;
     await ensureWorker();
@@ -218,53 +191,21 @@
         status($('selection-warning').textContent); $('keep').focus(); return;
       }
     }
-    const run=task={cancelled:false,controller:new AbortController()}, ticket=generation;
+    const ticket=generation;
     clearResult(); maskBuffer=maskPreview=null; $('overlay-wrap').hidden=true; draw(); setBusy(true); const span=window.GWFunnel?.trackingStarted();
+    const run=task=GWSegment.start({source,type:mime(source),text:prompt,objects:selected,frames:original.count,
+      onStatus:message=>{ if(!run.cancelled && ticket===generation) status(message); },
+      onProgress:(done,total)=>{ if(total) { $('progress').max=total; $('progress').value=done; } else $('progress').removeAttribute('value'); }});
     try {
-      status(prompt ? 'Uploading source to find what you described…' : 'Uploading source for AI object selection…');
-      const issued=await api('presign',{content_type:mime(source)}); run.job=issued.job_id;
-      if(run.cancelled) return;
-      const upload=await fetch(issued.upload_url,{method:'PUT',headers:{'Content-Type':mime(source)},body:source,signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(300000)])});
-      if(!upload.ok) throw Error('Source upload failed. Try again.');
-      if(run.cancelled) return;
-      run.submission=api('submit', prompt ? {job_id:run.job,text:prompt} : {job_id:run.job,objects:selected});
-      await run.submission;
-      const started=Date.now();
-      $('progress').removeAttribute('value');
-      let result;
-      let pollFailures=0, polls=0;
-      while(!run.cancelled) {
-        if(Date.now()-started>3700000) throw Error('This job exceeded its processing time. Try a smaller file.');
-        try {
-          result=await api('status',{job_id:run.job}); pollFailures=0; polls++;
-        } catch(error) {
-          // A transient polling failure must not discard a paid job already running.
-          if(run.cancelled) return;
-          if((error.status && error.status<500 && error.status!==429) || ++pollFailures>3) throw error;
-          status('Connection interrupted. Checking your existing job again…');
-          await new Promise(r=>setTimeout(r,2000*pollFailures)); continue;
-        }
-        if(run.cancelled || ticket!==generation) return;
-        if(result.state==='complete') break;
-        if(result.state!=='running') throw Error(result.error || 'Segmentation was cancelled.');
-        status(`${progressText(result,polls)} ${Math.round((Date.now()-started)/1000)}s. You can cancel this job.`);
-        if(result.frame>0 && result.frames>1) { $('progress').max=result.frames; $('progress').value=result.frame; }
-        await new Promise(r=>setTimeout(r,2000));
-      }
-      if(run.cancelled || ticket!==generation) return;
-      $('progress').removeAttribute('value');
-      const response=await fetch(result.mask_url,{signal:AbortSignal.any([run.controller.signal,AbortSignal.timeout(120000)])});
-      if(!response.ok) throw Error('Could not download the masks. Please try again.');
-      const compressed=await response.blob();
-      const buffer=await new Response(compressed.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
-      if(run.cancelled || ticket!==generation) return;
+      const buffer=await run.result;
+      if(!buffer || run.cancelled || ticket!==generation) return;
       await ensureWorker(); const selection=await request({type:'masks',buffer}); maskBuffer=buffer; maskPreview=selection.pixels; $('overlay-wrap').hidden=false; draw(); span?.complete();
       await exportResult();
     } catch(error) {
       span?.fail('processing');
       if(!run.cancelled && ticket===generation) {
         status(error.message);
-        if(run.submission) { try { await cancelRemote(run); } catch(_) { status(error.message+' The server job may still be running; it stops after one hour.'); } }
+        if(run.submission) { try { await run.cancelRemote(); } catch(_) { status(error.message+' The server job may still be running; it stops after one hour.'); } }
       }
     } finally { if(!run.cancelled && ticket===generation) { task=null; setBusy(false); } }
   };
@@ -301,9 +242,9 @@
     };
   }
   $('cancel').onclick=async()=>{
-    const run=task; if(run) { run.cancelled=true; run.controller.abort(); }
+    const run=task, stopping=run?.cancel();
     generation++; clearTimeout(previewTimer); killWorker(); $('cancel').disabled=true; status('Cancelling…');
-    try { if(run) await cancelRemote(run); status('Processing cancelled.'); }
+    try { if(stopping) await stopping; status('Processing cancelled.'); }
     catch(_) { status('Local processing stopped, but server cancellation could not be confirmed. The server job stops after one hour.'); }
     finally { task=null; $('cancel').disabled=false; setBusy(false); }
   };

@@ -49,4 +49,4 @@
 <section class="utility-help utility-faq"><h2>Frequently asked questions</h2><dl class="tool-faq">{% for item in utility_faq %}<div class="tool-faq-item"><dt>{{ item.q }}</dt><dd>{{ item.a }}</dd></div>{% endfor %}</dl></section>
 <h2>More {{ 'GIF' if is_gif else 'image' }} tools</h2><div class="tool-grid">{% include 'partials/gif-utility-cards.html' if is_gif else 'partials/image-utility-cards.html' %}</div>
 </main>{% include 'partials/footer.html' %}{% endblock %}
-{% block scripts %}<script src="/background-utilities.js"></script>{% endblock %}
+{% block scripts %}<script src="/segment-client.js"></script><script src="/background-utilities.js"></script>{% endblock %}
