@@ -1,9 +1,10 @@
 /* ==========================================================
-   GifCaption – Client-side Object Tracker (SAM2 via Web Worker)
+   GifCaption – Object Tracker (SAM2 on Modal, via a Web Worker)
 
-   Uses SAM2 running in a Web Worker via onnxruntime-web (WebGPU/WASM).
-   Model files are served from /models/ on the same origin.
-   Results stream in frame-by-frame as each inference completes.
+   The worker uploads sampled frames and asks the API to track the
+   clicked object; the reply lists the object's position per frame.
+   The tracked caption or overlay moves by the object's displacement
+   from the clicked frame, so it keeps the place the visitor gave it.
 
    Public API (called from editor.js):
      GC.trackerAvailable()
@@ -29,7 +30,9 @@
   var _trackingMetric = null;
   var _worker = null;
   var _trackingCap = null;   // caption or overlay being tracked (set during a run)
-  var _timelineBuilt = false;
+  var _anchor = null;        // { frame, x, y }: the target's position on the clicked frame
+  var _pathKeyframes = [];   // object positions collected during a run
+  var _previousMotion = null; // restored if a run fails
 
   function _getWorker() {
     if (_worker) return _worker;
@@ -38,8 +41,8 @@
     _worker.onerror = function (e) {
       if (_trackingMetric) _trackingMetric.fail();
       _hideTrackingProgress();
+      _restoreMotion();
       GC.showError('Tracker worker error: ' + e.message);
-      _trackingCap = null;
     };
     return _worker;
   }
@@ -57,19 +60,13 @@
       _setProgressText(msg.text);
 
     } else if (msg.type === 'keyframe') {
-      if (!_trackingCap) return;
-      // Insert / update keyframe in cap.motion and refresh UI incrementally.
-      _upsertKeyframe(_trackingCap, msg.frame, msg.x, msg.y);
-      if (!_timelineBuilt) {
-        GC.buildTimeline();   // first keyframe — build motion row
-        _timelineBuilt = true;
-      }
-      GC.renderCurrentFrame();
+      // The whole reply arrives at once, so keyframes are applied together on 'done'.
+      if (_trackingCap) _pathKeyframes.push({ frame: msg.frame, x: msg.x, y: msg.y });
 
     } else if (msg.type === 'done') {
       if (_trackingMetric) _trackingMetric.complete();
       if (_trackingCap) {
-        _trackingCap.motion.sort(function (a, b) { return a.frame - b.frame; });
+        _trackingCap.motion = _followPath(_pathKeyframes, _anchor);
         GC.buildTimeline();
         GC.renderCurrentFrame();
         GC.updateCaptionList();
@@ -77,27 +74,43 @@
       }
       _hideTrackingProgress();
       _trackingCap = null;
+      _previousMotion = null;
 
     } else if (msg.type === 'error') {
       if (_trackingMetric) _trackingMetric.fail();
       _hideTrackingProgress();
+      _restoreMotion();
       // A service-level outage is not a failure of the user's GIF, and the
       // message already explains the manual alternative.
       GC.showError(msg.unavailable ? msg.message : 'Tracking failed: ' + msg.message);
-      _trackingCap = null;
     }
   }
 
-  function _upsertKeyframe(cap, frame, x, y) {
-    if (!cap.motion) cap.motion = [];
-    for (var i = 0; i < cap.motion.length; i++) {
-      if (cap.motion[i].frame === frame) {
-        cap.motion[i].x = x;
-        cap.motion[i].y = y;
-        return;
-      }
+  /**
+   * The tracker reports where the object is on each frame. Moving the target
+   * by the object's displacement from the clicked frame keeps a caption placed
+   * beside the object beside it, instead of dropping it on top.
+   */
+  function _followPath(path, anchor) {
+    if (!path.length) return [];
+    var ref = path.reduce(function (best, k) {
+      return Math.abs(k.frame - anchor.frame) < Math.abs(best.frame - anchor.frame) ? k : best;
+    });
+    function round(v) { return Math.round(v * 10000) / 10000; }
+    return path.map(function (k) {
+      return { frame: k.frame, x: round(anchor.x + k.x - ref.x), y: round(anchor.y + k.y - ref.y) };
+    }).sort(function (a, b) { return a.frame - b.frame; });
+  }
+
+  function _restoreMotion() {
+    if (_trackingCap && _previousMotion) {
+      _trackingCap.motion = _previousMotion;
+      GC.buildTimeline();
+      GC.renderCurrentFrame();
+      if (GC.updateUI) GC.updateUI();
     }
-    cap.motion.push({ frame: frame, x: x, y: y });
+    _trackingCap = null;
+    _previousMotion = null;
   }
 
   // ── Public API ───────────────────────────────
@@ -131,6 +144,9 @@
     if (overlay) overlay.classList.remove('hidden');
     var bar = document.getElementById('tracking-bar');
     if (bar) bar.classList.remove('hidden');
+    var hint = bar && bar.querySelector('.tracking-bar-text');
+    if (hint) hint.textContent = 'Tap the object to follow. The ' + (kind === 'overlay' ? 'image' : 'caption') +
+      ' keeps its place relative to it.';
     _getWorker().postMessage({ type: 'warmup' });
   };
 
@@ -160,16 +176,20 @@
       : GC.findCaption(trackingMode.captionId);
     if (!target) return;
 
-    var sampled = _buildSampledFrames(clickFrame);
-    if (sampled.frames.length === 0) return;
-
-    // Clear existing motion and start fresh.
+    if (state.frames.length === 0) return;
+    // Where the visitor put the target on this frame; the tracked path is
+    // measured from here (see _followPath).
+    var at = GC.getInterpolatedPosition(target.motion, clickFrame) || { x: target.x, y: target.y };
+    _anchor = { frame: clickFrame, x: at.x, y: at.y };
+    _previousMotion = target.motion || [];
     target.motion = [];
     _trackingCap = target;
-    _timelineBuilt = false;
+    _pathKeyframes = [];
 
     if (_trackingMetric) _trackingMetric.fail();
     _trackingMetric = GWFunnel.trackingStarted();
+
+    var sampled = _buildSampledFrames(clickFrame);
     _showTrackingProgress('Initializing…');
 
     _getWorker().postMessage({
