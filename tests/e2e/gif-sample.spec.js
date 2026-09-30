@@ -127,6 +127,21 @@ test('Follow an Object on the sample tracks the bee without the GPU tracker', as
   expect(trackerCalls).toEqual([]);
 });
 
+test('Follow an Object still finds the bee after the sample is rotated', async ({ page }) => {
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  await page.evaluate(() => document.querySelector('#adj-rotate-cw').click());
+  // A clockwise turn takes (x, y) to (1 - y, x).
+  const turned = preset.subject.path.map(p => ({ x: 1 - p.y, y: p.x }));
+  const motion = await trackFromFrameZero(page, { x: 0.2, y: 0.5 }, turned[0]);
+  await expect(page.locator('#sample-bar-text')).toContainText('It follows the bee now');
+  for (const frame of [0, 10, 25]) {
+    const k = motion.find(k => k.frame === frame);
+    expect(k.x).toBeCloseTo(0.2 + turned[frame].x - turned[0].x, 3);
+    expect(k.y).toBeCloseTo(0.5 + turned[frame].y - turned[0].y, 3);
+  }
+});
+
 test('tapping still scenery on the sample leaves the caption where it is', async ({ page }) => {
   await page.goto('/gif-editor/edit/?sample=1');
   await expect(page.locator('#editor-workspace')).toBeVisible();

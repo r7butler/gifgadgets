@@ -4,10 +4,13 @@
   var fields = ['width', 'height', 'gifFilename', 'originalFileSize', 'isSample', 'captions',
     'boxCaptionTop', 'boxCaptionBottom', 'cropRect', 'cropActive', 'speed', 'adjustments',
     'hideWatermark', 'compressGif', 'gifQuality', 'lossyCompress', 'isStillImage',
-    'exportFormat', 'exportQuality'];
+    'exportFormat', 'exportQuality', 'cutoutPrompt', 'backdrop', 'sourceMap'];
   var key = location.pathname, ready = false, pending = null, retryAfter = 0, epoch = 0;
   var baseline = '', saved = '', savedFrames = '', generation = null;
   var frameIds = new WeakMap(), nextId = 1, images = new WeakMap();
+  // The background cutout's masks and backdrop file (editor-background.js) are
+  // large and change rarely, so each is written only when it is new.
+  var savedCutout = '', savedBackdrop = '';
   var dbPromise = new Promise(function (resolve) {
     var request = indexedDB.open('gifwidgets_editor_drafts', 1);
     request.onupgradeneeded = function () {
@@ -49,7 +52,17 @@
       return frameIds.get(frame.imageData) + ':' + frame.delay;
     }).join(',');
   }
-  function signature() { return JSON.stringify(snapshot()) + '|' + mediaSignature(); }
+  function extras() { return GC.cutoutDraft ? GC.cutoutDraft() : null; }
+  function signature() {
+    var more = extras();
+    return JSON.stringify(snapshot()) + '|' + mediaSignature() + '|' + (more ? more.key : '');
+  }
+  async function read(db, id) {
+    var tx = db.transaction('frames', 'readonly');
+    var request = tx.objectStore('frames').get(id);
+    await completed(tx);
+    return request.result;
+  }
   GC.hasUnsavedDraft = function () {
     if (!GC.state.frames.length) return false;
     var current = signature();
@@ -73,6 +86,7 @@
       }
     } catch (_) {}
     saved = ''; savedFrames = ''; generation = null; retryAfter = 0;
+    savedCutout = ''; savedBackdrop = '';
     ready = true;
   };
   GC.draftLoaded = function () {
@@ -81,8 +95,10 @@
   };
   GC.saveDraft = function () {
     if (!ready || pending || Date.now() < retryAfter || !GC.state.frames.length || GC.exportInProgress) return pending || Promise.resolve();
-    var metadata = JSON.stringify(snapshot()), media = mediaSignature();
-    var current = metadata + '|' + media;
+    var metadata = JSON.stringify(snapshot()), media = mediaSignature(), more = extras();
+    var current = metadata + '|' + media + '|' + (more ? more.key : '');
+    var cutout = more && more.cutout, backdrop = more && more.backdrop;
+    var cutoutId = cutout ? String(cutout.id) : '', backdropId = backdrop ? String(backdrop.id) : '';
     if (current === baseline) return saved ? GC.clearDraft() : Promise.resolve();
     if (current === saved) return Promise.resolve();
     var savingEpoch = epoch;
@@ -102,13 +118,27 @@
           }
         }
         if (savingEpoch !== epoch) throw new Error('Draft superseded');
+        // Keyed apart from frame generations, so replacing frames leaves them.
+        if (cutoutId && cutoutId !== savedCutout) {
+          var cutoutTx = db.transaction('frames', 'readwrite');
+          cutoutTx.objectStore('frames').put({ id: cutoutId, buffer: cutout.buffer, request: cutout.request }, [key, 'cutout']);
+          await completed(cutoutTx);
+        }
+        if (backdropId && backdropId !== savedBackdrop) {
+          var backdropTx = db.transaction('frames', 'readwrite');
+          backdropTx.objectStore('frames').put({ id: backdropId, file: backdrop.file }, [key, 'backdrop']);
+          await completed(backdropTx);
+        }
+        if (savingEpoch !== epoch) throw new Error('Draft superseded');
         var tx = db.transaction(['drafts', 'frames'], 'readwrite');
-        tx.objectStore('drafts').put({ data: JSON.parse(metadata), generation: nextGeneration, count: frames.length }, key);
+        tx.objectStore('drafts').put({ data: JSON.parse(metadata), generation: nextGeneration, count: frames.length,
+          cutout: cutoutId, cutoutMap: cutout ? cutout.map : null, backdrop: backdropId }, key);
         if (generation && generation !== nextGeneration) {
           tx.objectStore('frames').delete(IDBKeyRange.bound([key, generation], [key, generation, []]));
         }
         await completed(tx);
         generation = nextGeneration; savedFrames = media; saved = current;
+        savedCutout = cutoutId || savedCutout; savedBackdrop = backdropId || savedBackdrop;
       } catch (_) {
         // Preserve editing and the unsaved-work guard if quota/storage fails.
         retryAfter = Date.now() + 30000;
@@ -174,7 +204,13 @@
           img.onerror = reject; img.src = overlay.src;
         });
       }));
+      var parts = {};
+      var cutout = record.cutout && await read(db, [key, 'cutout']);
+      if (cutout && cutout.id === record.cutout) parts.cutout = Object.assign(cutout, { map: record.cutoutMap });
+      var backdrop = record.backdrop && await read(db, [key, 'backdrop']);
+      if (backdrop && backdrop.id === record.backdrop) parts.backdrop = backdrop;
       Object.assign(GC.state, data, { frames: frames, overlays: overlays, currentFrame: 0, isPlaying: false });
+      if (GC.restoreCutoutDraft) await GC.restoreCutoutDraft(parts);
       GC.nextCaptionId = Math.max(0, ...data.captions.map(function (c) { return parseInt(c.id.replace('cap-', ''), 10) || 0; })) + 1;
       GC.nextOverlayId = Math.max(0, ...overlays.map(function (o) { return parseInt(o.id.replace('ov-', ''), 10) || 0; })) + 1;
       GC.canvas.width = data.width; GC.canvas.height = data.height;

@@ -15,8 +15,13 @@
  * made by the GIF editor itself, then re-encoded as video because it is a
  * fraction of the GIF's size.
  *
- * Writes frontend/samples/bee{,-night}.gif, bee.json and
- * bee{,-night}-demo.{mp4,webm,webp}.
+ * The bee's outline on every frame is also written as masks in the
+ * segmentation service's format, so removing the sample's background needs
+ * no GPU either.
+ *
+ * Writes frontend/samples/bee{,-night}.gif, bee.json, bee.masks.gz and
+ * bee{,-night}-demo.{mp4,webm,webp}. Name steps (gifs, preset, masks, demos)
+ * to run only those.
  * Needs ffmpeg on PATH and the Playwright Chromium from `npm ci`.
  */
 'use strict';
@@ -26,6 +31,7 @@ const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 const { GifReader } = require('../frontend/vendor/omggif.js');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -81,7 +87,7 @@ const PALETTES = {
 };
 
 // Runs in the browser. Kept free of closures so it can be serialised.
-function drawFrame({ W, H, frame, t, bee, trail, pal }) {
+function drawFrame({ W, H, frame, t, bee, trail, pal, mask }) {
   const canvas = document.getElementById('c');
   // CPU-backed: a GPU canvas in headless Chromium can lose its context mid-run.
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -200,15 +206,18 @@ function drawFrame({ W, H, frame, t, bee, trail, pal }) {
     });
   }
 
+  // A mask is the bee alone, so the scenery drawn so far is cleared.
+  if (mask) ctx.clearRect(0, 0, W, H);
+
   // Dotted flight trail, fading towards its tail.
-  trail.forEach(function (p, i) {
+  if (!mask) trail.forEach(function (p, i) {
     ctx.fillStyle = 'rgba(' + pal.trail + ',' + (0.15 + 0.6 * (i / trail.length)).toFixed(3) + ')';
     ctx.beginPath();
     ctx.arc(p.x * W, p.y * H, 2.6, 0, TAU);
     ctx.fill();
   });
 
-  if (pal.night) {
+  if (pal.night && !mask) {
     // A soft glow keeps the bee's dark head from sinking into the night sky.
     const g = ctx.createRadialGradient(bee.x * W, bee.y * H, 0, bee.x * W, bee.y * H, 62);
     g.addColorStop(0, 'rgba(255,214,120,0.24)');
@@ -298,6 +307,13 @@ function drawFrame({ W, H, frame, t, bee, trail, pal }) {
   if (wingUp) wing(-2, -24, -0.2, 0.85); else wing(0, -12, 0.45, 0.85);
   ctx.restore();
 
+  if (mask) {
+    // One bit a pixel, first pixel in the high bit, as numpy.packbits writes them.
+    const alpha = ctx.getImageData(0, 0, W, H).data, bits = new Uint8Array(Math.ceil(W * H / 8));
+    for (let i = 0; i < W * H; i++) if (alpha[i * 4 + 3] >= 128) bits[i >> 3] |= 128 >> (i & 7);
+    if (!bits.some(Boolean)) throw new Error('No bee in mask ' + frame);
+    return Array.from(bits);
+  }
   if (ctx.getImageData(0, 0, 1, 1).data[3] !== 255) throw new Error('Canvas lost frame ' + frame);
   return canvas.toDataURL('image/png');
 }
@@ -363,6 +379,31 @@ async function renderSample(variant) {
   console.log(`${path.basename(gif)} ${(fs.statSync(gif).size / 1024).toFixed(0)} KB, ${FRAMES} frames`);
 }
 
+// The bee's outline on every frame, packed like the segmentation service's
+// masks (backend/tracker/segmentation.py), so Remove Background works on the
+// sample without it. Both scenes share the bee, so one file serves both.
+async function renderMasks() {
+  const browser = await chromium.launch({ args: ['--disable-gpu'] });
+  const frames = [];
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<canvas id="c" width="${W}" height="${H}"></canvas>`);
+    for (let i = 0; i < FRAMES; i++) {
+      const t = i / FRAMES;
+      frames.push(Buffer.from(await page.evaluate(drawFrame,
+        { W, H, frame: i, t, bee: beeAt(t), trail: [], pal: PALETTES.day, mask: true })));
+    }
+  } finally {
+    await browser.close();
+  }
+  const header = Buffer.from(JSON.stringify({ version: 1, width: W, height: H, frames: FRAMES }));
+  const size = Buffer.alloc(4);
+  size.writeUInt32LE(header.length);
+  const file = path.join(OUT, 'bee.masks.gz');
+  fs.writeFileSync(file, zlib.gzipSync(Buffer.concat([size, header, ...frames]), { level: 9 }));
+  console.log(`bee.masks.gz ${(fs.statSync(file).size / 1024).toFixed(0)} KB, ${FRAMES} frames`);
+}
+
 function writePreset() {
   const preset = {
     variants: {
@@ -421,8 +462,12 @@ async function exportDemo(variant) {
   }
 }
 
+// Steps can be named to run only those, e.g. `masks`; the default is all of them.
 (async function main() {
-  for (const variant of Object.keys(PALETTES)) await renderSample(variant);
-  writePreset();
-  for (const variant of Object.keys(PALETTES)) await exportDemo(variant);
+  const steps = process.argv.slice(2);
+  const run = step => !steps.length || steps.includes(step);
+  if (run('gifs')) for (const variant of Object.keys(PALETTES)) await renderSample(variant);
+  if (run('preset')) writePreset();
+  if (run('masks')) await renderMasks();
+  if (run('demos')) for (const variant of Object.keys(PALETTES)) await exportDemo(variant);
 })().catch(function (err) { console.error(err); process.exit(1); });

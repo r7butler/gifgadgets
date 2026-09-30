@@ -59,15 +59,6 @@
     expCanvas.height = compSize.h;
     var expCtx = expCanvas.getContext('2d');
 
-    // Reusable temp canvas for adjustment filter pass (drawImage respects ctx.filter; putImageData does not)
-    var adjTmpCanvas = null, adjTmpCtx = null;
-    if (GC.hasAdjustments()) {
-      adjTmpCanvas = document.createElement('canvas');
-      adjTmpCanvas.width  = state.width;
-      adjTmpCanvas.height = state.height;
-      adjTmpCtx = adjTmpCanvas.getContext('2d');
-    }
-
     // Separate canvas for cropped output (if cropping)
     var cropCanvas, cropCtx;
     if (crop) {
@@ -95,17 +86,15 @@
       workerScript: workerUrl,
     });
 
-    // Composite every frame: raw pixels → overlay captions → box bars → watermark
+    // A removed background with nothing behind the subject stays transparent.
+    // gif.js reads transparency from one key color, which has to be chosen
+    // before frames are added, so those frames are composed first.
+    var composed = GC.cutoutLeavesTransparency && GC.cutoutLeavesTransparency() ? [] : null;
+
+    // Composite every frame: base layer → overlay captions → box bars → watermark
     for (var i = 0; i < state.frames.length; i++) {
       expCtx.clearRect(0, 0, compSize.w, compSize.h);
-      if (adjTmpCanvas) {
-        adjTmpCtx.putImageData(state.frames[i].imageData, 0, 0);
-        expCtx.filter = GC.buildAdjFilter();
-        expCtx.drawImage(adjTmpCanvas, 0, offsetY);
-        expCtx.filter = 'none';
-      } else {
-        expCtx.putImageData(state.frames[i].imageData, 0, offsetY);
-      }
+      GC.drawBaseFrame(expCtx, i, 0, offsetY);
 
       expCtx.save();
       expCtx.translate(0, offsetY);
@@ -132,7 +121,16 @@
         frameCtx = cropCtx;
       }
 
-      gif.addFrame(frameCtx, { copy: true, delay: state.frames[i].delay });
+      if (composed) composed.push(frameCtx.getImageData(0, 0, outW, outH));
+      else gif.addFrame(frameCtx, { copy: true, delay: state.frames[i].delay });
+    }
+    if (composed) {
+      var key = BackgroundCore.keyColor(composed.map(function (image) { return image.data; }));
+      gif.setOption('transparent', key);
+      composed.forEach(function (image, index) {
+        BackgroundCore.keyOut(image.data, key);
+        gif.addFrame(image, { delay: state.frames[index].delay });
+      });
     }
 
     gif.on('progress', function (p) { GC.showExportProgress(p); });
@@ -332,19 +330,7 @@
     saveCanvas.width  = compSize.w;
     saveCanvas.height = compSize.h;
     var saveCtx = saveCanvas.getContext('2d');
-    var frame = state.frames[state.currentFrame];
-
-    if (GC.hasAdjustments()) {
-      var tmpC = document.createElement('canvas');
-      tmpC.width  = state.width;
-      tmpC.height = state.height;
-      tmpC.getContext('2d').putImageData(frame.imageData, 0, 0);
-      saveCtx.filter = GC.buildAdjFilter();
-      saveCtx.drawImage(tmpC, 0, offsetY);
-      saveCtx.filter = 'none';
-    } else {
-      saveCtx.putImageData(frame.imageData, 0, offsetY);
-    }
+    GC.drawBaseFrame(saveCtx, state.currentFrame, 0, offsetY);
 
     saveCtx.save();
     saveCtx.translate(0, offsetY);
@@ -375,6 +361,8 @@
     var exportMetric = GWFunnel.exportStarted();
     var onBlob  = opts && opts.onBlob;
     var fmt     = state.exportFormat  || 'image/jpeg';
+    // JPEG has no transparency to keep a removed background in.
+    if (fmt === 'image/jpeg' && GC.cutoutLeavesTransparency && GC.cutoutLeavesTransparency()) fmt = 'image/png';
     var quality = state.exportQuality != null ? state.exportQuality : 0.92;
     var ext     = fmt === 'image/jpeg' ? '.jpg' : fmt === 'image/webp' ? '.webp' : '.png';
     var base    = (state.gifFilename || 'image').replace(/\.[^.]+$/, '');
@@ -403,11 +391,13 @@
     var onBlob = opts && opts.onBlob;
     var id     = Math.random().toString(36).slice(2, 5);
     var base   = (state.gifFilename || 'frame').replace(/\.gif$/i, '');
-    var fname  = base + '-frame-' + id + '.jpg';
+    // JPEG has no transparency to keep a removed background in.
+    var png    = GC.cutoutLeavesTransparency && GC.cutoutLeavesTransparency();
+    var fname  = base + '-frame-' + id + (png ? '.png' : '.jpg');
     var canvas = renderFrameToCanvas();
     canvas.toBlob(function (blob) {
       if (onBlob) { onBlob(blob, fname); } else { GC.downloadBlob(blob, fname); }
-    }, 'image/jpeg', 0.92);
+    }, png ? 'image/png' : 'image/jpeg', 0.92);
   };
 
   /**

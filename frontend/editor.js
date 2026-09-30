@@ -418,6 +418,13 @@
       return;
     }
 
+    // 0a. Background selection — taps mark what to keep (editor-background.js)
+    if (GC.cutoutPicking && GC.cutoutPicking()) {
+      if (e.detail > 1) return;
+      GC.cutoutPickAt(m.x / state.width, m.y / state.height);
+      return;
+    }
+
     // 0b. Hit-test crop rectangle first when crop is active
     if (state.cropActive && state.cropRect) {
       var cropHit = hitTestCrop(m);
@@ -952,7 +959,7 @@
 
       // Crop hover cursor
       var cropHit = hitTestCrop(m);
-      if (state._trackingMode) { /* keep crosshair set by startTrackingMode */ }
+      if (state._trackingMode || (GC.cutoutPicking && GC.cutoutPicking())) { /* keep the crosshair */ }
       else if (cropHit) { GC.canvas.style.cursor = CROP_CURSOR_MAP[cropHit.edge] || 'default'; }
       else if (state.zoom > 1) { GC.canvas.style.cursor = 'grab'; }
       else { GC.canvas.style.cursor = 'default'; }
@@ -2056,6 +2063,7 @@
         // Update dimensions
         state.width = cw;
         state.height = ch;
+        if (GC.framesEdited) GC.framesEdited({ crop: { x: cx, y: cy, w: cw, h: ch, width: oldW, height: oldH } });
 
         // Turn off crop mode
         state.cropActive = false;
@@ -2143,6 +2151,7 @@
       }
       state.width = newW; state.height = newH;
       GC.canvas.width = newW; GC.canvas.height = newH;
+      if (GC.framesEdited) GC.framesEdited({ rotate: degrees });
       _updateAdjResizeInputs();
       GC.renderCurrentFrame();
       GC.buildTimeline();
@@ -2166,6 +2175,7 @@
         dstX.restore();
         state.frames[i].imageData = dstX.getImageData(0, 0, w, h);
       }
+      if (GC.framesEdited) GC.framesEdited({ flip: axis });
       GC.renderCurrentFrame();
     }
 
@@ -2220,6 +2230,7 @@
         }
         state.width = newW; state.height = newH;
         GC.canvas.width = newW; GC.canvas.height = newH;
+        if (GC.framesEdited) GC.framesEdited({ resize: true });
         _updateAdjResizeInputs();
         GC.renderCurrentFrame();
         GC.buildTimeline();
@@ -2287,6 +2298,7 @@
     var btnSF = $('#btn-save-frame');
     if (btnSF) btnSF.disabled = state.isPlaying || state.frames.length === 0;
     if (GC.syncSampleBar) GC.syncSampleBar();
+    if (GC.syncBackgroundSection) GC.syncBackgroundSection();
   };
 
   // ── Boot ─────────────────────────────────────

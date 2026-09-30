@@ -37,6 +37,21 @@
     return GC.boxTotalH(state.boxCaptionTop);
   };
 
+  /**
+   * Bring the preview on screen for a mode that waits for taps on it. On
+   * phones the sidebar's buttons sit below the preview, out of view. This
+   * waits a turn: a dialog that just closed returns focus to its button,
+   * which would scroll that back into view instead.
+   */
+  GC.revealPreview = function () {
+    setTimeout(function () {
+      var box = GC.canvas.getBoundingClientRect();
+      if (box.top >= 0 && box.bottom <= window.innerHeight) return;
+      var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      GC.canvas.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    }, 0);
+  };
+
   // ── Box Caption Drawing ──────────────────────
 
   /**
@@ -106,26 +121,42 @@
   // ── Frame + Caption Compositing ──────────────
 
   /**
-   * Draw a frame's ImageData to ctx at (x, y), applying photo adjustments.
-   * ctx.putImageData ignores the canvas filter, so we route through a temp
-   * canvas + ctx.drawImage when any adjustment is active.
+   * Draw frame `index` at (x, y) as the picture captions sit on: the GIF frame,
+   * cut out over whatever replaces its background when editor-background.js
+   * has a cutout, with the photo adjustments over both. ctx.putImageData
+   * neither composites nor honours the canvas filter, so anything beyond the
+   * plain frame goes through scratch canvases.
    */
-  function drawFrameAdjusted(ctx, frame, x, y) {
-    if (GC.hasAdjustments()) {
-      var s = state;
-      // Reuse a cached temp canvas when possible (invalidate on dimension change)
-      if (!s._adjTmpCanvas || s._adjTmpCanvas.width !== s.width || s._adjTmpCanvas.height !== s.height) {
-        s._adjTmpCanvas = document.createElement('canvas');
-        s._adjTmpCanvas.width  = s.width;
-        s._adjTmpCanvas.height = s.height;
-      }
-      s._adjTmpCanvas.getContext('2d').putImageData(frame.imageData, 0, 0);
-      ctx.filter = GC.buildAdjFilter();
-      ctx.drawImage(s._adjTmpCanvas, x, y);
-      ctx.filter = 'none';
+  GC.drawBaseFrame = function (ctx, index, x, y) {
+    var frame = state.frames[index];
+    var cut = GC.cutoutFrame ? GC.cutoutFrame(index) : null;
+    var adjusted = GC.hasAdjustments();
+    if (!cut && !adjusted) { ctx.putImageData(frame.imageData, x, y); return; }
+    var layer = scratchCanvas('_baseCanvas');
+    var layerCtx = layer.getContext('2d');
+    if (cut) {
+      layerCtx.clearRect(0, 0, layer.width, layer.height);
+      GC.drawBackdrop(layerCtx, index, layer.width, layer.height);
+      var subject = scratchCanvas('_cutCanvas');
+      subject.getContext('2d').putImageData(cut, 0, 0);
+      layerCtx.drawImage(subject, 0, 0);
     } else {
-      ctx.putImageData(frame.imageData, x, y);
+      layerCtx.putImageData(frame.imageData, 0, 0);
     }
+    if (adjusted) ctx.filter = GC.buildAdjFilter();
+    ctx.drawImage(layer, x, y);
+    ctx.filter = 'none';
+  };
+
+  // A canvas the size of the frames, kept for reuse between renders.
+  function scratchCanvas(name) {
+    var canvas = state[name];
+    if (!canvas || canvas.width !== state.width || canvas.height !== state.height) {
+      canvas = state[name] = document.createElement('canvas');
+      canvas.width = state.width;
+      canvas.height = state.height;
+    }
+    return canvas;
   }
 
   /**
@@ -140,9 +171,9 @@
     var offsetY = GC.getFrameOffsetY();
     var ctx = GC.ctx;
 
-    // Clear and draw the raw frame at the correct vertical offset
+    // Clear and draw the frame at the correct vertical offset
     ctx.clearRect(0, 0, size.w, size.h);
-    drawFrameAdjusted(ctx, state.frames[state.currentFrame], 0, offsetY);
+    GC.drawBaseFrame(ctx, state.currentFrame, 0, offsetY);
 
     // Overlay on-image captions and image overlays (coordinates are relative to the GIF area)
     ctx.save();
@@ -162,6 +193,8 @@
         GC.drawCaption(ctx, cap, state.currentFrame);
       }
     }
+    // Points marking what to keep, while they are being placed (preview only)
+    if (GC.drawCutoutPoints) GC.drawCutoutPoints(ctx);
     ctx.restore();
 
     // Box-caption bars on top of everything

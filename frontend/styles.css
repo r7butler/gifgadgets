@@ -1005,6 +1005,25 @@ input[type="range"]::-moz-range-thumb {
 .overlay-img-section.collapsed .overlay-section-body { display: none; }
 #adj-section.collapsed > div { display: none; }
 
+/* Background section (editor-background.js) */
+.background-section.collapsed .background-body { display: none; }
+.background-body { padding-top: 10px; }
+#background-section [hidden] { display: none; }
+.bg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.bg-row .sub-hint { margin-bottom: 0; }
+.bg-remove { margin: 4px 0 8px; }
+#bg-progress { flex: 1; min-width: 120px; height: 8px; accent-color: var(--accent); }
+.bg-status { font-size: 12px; color: var(--text-secondary); line-height: 1.45; margin-bottom: 8px; }
+.bg-status:empty { display: none; }
+.bg-behind { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px 10px 10px; margin: 4px 0 8px; }
+.bg-behind legend { font-size: 12px; font-weight: 700; color: var(--text-secondary); padding: 0 4px; }
+.bg-behind .option-label { padding: 4px 0; }
+.bg-behind .form-group { margin-bottom: 8px; }
+#btn-bg-restore { margin-top: 6px; }
+#btn-bg-pick[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-hover); }
+.cutout-modes { display: inline-flex; gap: 4px; }
+.cutout-bar .btn[aria-pressed="true"] { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
 /* Box caption toggle switch */
 .toggle-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex-shrink: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -1396,7 +1415,7 @@ input[type="range"]::-moz-range-thumb {
 .tracking-bar .btn-ghost { color: #cbd5e1; border-color: #4a4a6a; }
 .tracking-bar .btn-ghost:hover { background: #252540; color: #f1f5f9; }
 /* Phones keep the bar to one row over the GIF; the dialog behind Change explains. */
-@media (max-width: 520px) { .tracking-bar-mode { display: none; } }
+@media (max-width: 520px) { .tracking-bar-detail { display: none; } }
 .tracking-loading {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;

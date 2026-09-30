@@ -84,6 +84,13 @@
       filter: 'none',       // 'none' | 'grayscale' | 'sepia' | 'invert' | 'blur' | 'warm'
     },
 
+    // Background removal (editor-background.js). The masks are a layer over the
+    // frames, which keep every pixel; `cutout` is null until they arrive.
+    cutout: null,           // BackgroundCore.readMasks() masks, plus { map, id, buffer, request }
+    cutoutPrompt: { text: '', objects: [{ points: [] }] }, // what to keep: a description, or taps on frame 0
+    backdrop: { mode: 'none', color: '#ffffff', fit: 'cover' }, // behind the subject: none | color | image
+    sourceMap: [1, 0, 0, 0, 1, 0], // current frames → frames as loaded (BackgroundCore frame map)
+
     // Still-image mode (image caption tool) — single frame, exports to image not GIF
     isStillImage: false,
     exportFormat: 'image/jpeg',   // output format for image export

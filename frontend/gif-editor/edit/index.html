@@ -82,10 +82,20 @@
               <div class="tracking-loading-label">Creating motion keyframes…</div>
             </div>
             <div id="tracking-bar" class="tracking-bar hidden">
-              <span class="tracking-bar-text">Tap the object to follow.<span class="tracking-bar-mode"> The caption keeps its place relative to it.</span></span>
+              <span class="tracking-bar-text">Tap the object to follow.<span class="tracking-bar-detail"> The caption keeps its place relative to it.</span></span>
               <span class="tracking-bar-actions">
                 <button id="btn-tracking-placement" class="btn btn-ghost btn-xs" aria-label="Change how the caption follows">Change</button>
                 <button id="btn-cancel-tracking" class="btn btn-ghost btn-xs">Cancel</button>
+              </span>
+            </div>
+            <div id="cutout-bar" class="tracking-bar cutout-bar hidden">
+              <span class="tracking-bar-text">Tap what to keep.<span class="tracking-bar-detail"> Points go on the first frame.</span></span>
+              <span class="tracking-bar-actions">
+                <span class="cutout-modes" role="group" aria-label="What a tap marks">
+                  <button type="button" id="btn-cutout-keep" class="btn btn-ghost btn-xs" aria-pressed="true">+ Keep</button>
+                  <button type="button" id="btn-cutout-exclude" class="btn btn-ghost btn-xs" aria-pressed="false">− Exclude</button>
+                </span>
+                <button type="button" id="btn-cutout-done" class="btn btn-ghost btn-xs">Done</button>
               </span>
             </div>
           </div>
@@ -177,6 +187,50 @@
                 </div>
                 <button id="btn-delete-overlay" class="btn btn-danger btn-full delete-caption-btn">Delete Overlay</button>
               </div>
+            </div>
+          </div>
+
+          <div class="sidebar-section background-section collapsed" id="background-section">
+            <button class="section-toggle collapsed" id="background-toggle" aria-expanded="false">Background</button>
+            <div class="background-body">
+              <p class="sub-hint">Remove the background, or put a color, image or GIF behind your subject.</p>
+              <div class="form-group">
+                <label for="bg-prompt">What to keep</label>
+                <input type="text" id="bg-prompt" maxlength="120" autocomplete="off" spellcheck="false" placeholder="dog, person, car…" />
+                <p class="sub-hint">A word or two keeps every match. Or tap it on the GIF instead:</p>
+              </div>
+              <div class="bg-row">
+                <button type="button" id="btn-bg-pick" class="btn btn-ghost btn-xs" aria-pressed="false">Tap what to keep</button>
+                <button type="button" id="btn-bg-subject" class="btn btn-ghost btn-xs" hidden>+ Another subject</button>
+              </div>
+              <div id="bg-points-row" class="bg-row" hidden>
+                <span id="bg-points" class="sub-hint" role="status"></span>
+                <button type="button" id="btn-bg-undo" class="btn btn-ghost btn-xs">Undo</button>
+                <button type="button" id="btn-bg-clear" class="btn btn-ghost btn-xs">Clear</button>
+              </div>
+              <button type="button" id="btn-bg-remove" class="btn btn-accent btn-full bg-remove">Remove background</button>
+              <div id="bg-progress-row" class="bg-row" hidden>
+                <progress id="bg-progress" aria-label="Removing the background"></progress>
+                <button type="button" id="btn-bg-cancel" class="btn btn-ghost btn-xs">Cancel</button>
+              </div>
+              <p id="bg-status" class="bg-status" role="status" aria-live="polite"></p>
+              <p class="sub-hint"><span id="bg-privacy">Removing the background uploads this GIF's frames to our AI processor.</span> <a href="/privacy/" target="_blank" rel="noopener">How files are handled</a></p>
+              <fieldset id="bg-behind" class="bg-behind" hidden>
+                <legend>Behind your subject</legend>
+                <label class="option-label"><input type="radio" name="bg-mode" value="none" checked /><span>Nothing (transparent)</span></label>
+                <label class="option-label"><input type="radio" name="bg-mode" value="color" /><span>A color</span></label>
+                <label class="option-label"><input type="radio" name="bg-mode" value="image" /><span>An image or GIF</span></label>
+                <div id="bg-image-options" class="sub-settings" hidden>
+                  <div class="bg-row">
+                    <button type="button" id="btn-bg-image" class="btn btn-ghost btn-xs">Choose image or GIF</button>
+                    <span id="bg-image-name" class="sub-hint"></span>
+                  </div>
+                  <input type="file" id="bg-image-input" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+                  <div class="form-group"><label for="bg-fit">Fit</label><select id="bg-fit"><option value="cover">Fill the frame</option><option value="contain">Fit inside</option></select></div>
+                </div>
+                <div id="bg-color-options" class="form-group sub-settings" hidden><label for="bg-color" id="bg-color-label">Color</label><input type="color" id="bg-color" value="#ffffff" /></div>
+                <button type="button" id="btn-bg-restore" class="btn btn-ghost btn-xs">Restore the original background</button>
+              </fieldset>
             </div>
           </div>
 
@@ -376,6 +430,9 @@
   <script src="/gif-timeline.js"></script>
   <script src="/gif-export.js"></script>
   <script src="/gif-tracker.js"></script>
+  <script src="/background-core.js"></script>
+  <script src="/segment-client.js"></script>
+  <script src="/editor-background.js"></script>
   <script src="/editor-drafts.js"></script>
   <script src="/editor-sample.js"></script>
   <script src="/editor.js"></script>

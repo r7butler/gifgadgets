@@ -196,7 +196,7 @@
     var bar = document.getElementById('tracking-bar');
     if (!mode || !bar) return;
     var noun = mode.overlayId ? 'image' : 'caption';
-    var hint = bar.querySelector('.tracking-bar-mode');
+    var hint = bar.querySelector('.tracking-bar-detail');
     if (hint) hint.textContent = ' The ' + noun +
       (mode.placement === 'center' ? ' goes on top of it.' : ' keeps its place relative to it.');
     var change = document.getElementById('btn-tracking-placement');
@@ -204,6 +204,7 @@
   }
 
   function _enterTrackingMode(target, kind, placement) {
+    if (GC.stopCutoutPick) GC.stopCutoutPick();
     state._trackingMode = kind === 'overlay'
       ? { overlayId: target.id, placement: placement }
       : { captionId: target.id, placement: placement };
@@ -213,6 +214,7 @@
     var bar = document.getElementById('tracking-bar');
     if (bar) bar.classList.remove('hidden');
     _showTrackingHint();
+    if (GC.revealPreview) GC.revealPreview();
     if (!state.isSample) _getWorker().postMessage({ type: 'warmup' });
   }
 
