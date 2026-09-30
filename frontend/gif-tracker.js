@@ -5,6 +5,7 @@
    clicked object; the reply lists the object's position per frame.
    The tracked caption or overlay moves by the object's displacement
    from the clicked frame, so it keeps the place the visitor gave it.
+   The bundled sample instead uses its known path (GC.sampleTrack).
 
    Public API (called from editor.js):
      GC.trackerAvailable()
@@ -122,7 +123,8 @@
    * request doesn't have to wait for the download.
    */
   GC.warmUpTracker = function () {
-    if (GC._trackerWarm || GC._trackerWarmupSent) return;
+    // The sample's path ships with it, so it never wakes the GPU.
+    if (state.isSample || GC._trackerWarm || GC._trackerWarmupSent) return;
     GC._trackerWarmupSent = true;
     _getWorker().postMessage({ type: 'warmup' });
   };
@@ -147,7 +149,7 @@
     var hint = bar && bar.querySelector('.tracking-bar-text');
     if (hint) hint.textContent = 'Tap the object to follow. The ' + (kind === 'overlay' ? 'image' : 'caption') +
       ' keeps its place relative to it.';
-    _getWorker().postMessage({ type: 'warmup' });
+    if (!state.isSample) _getWorker().postMessage({ type: 'warmup' });
   };
 
   GC.stopTrackingMode = function () {
@@ -188,6 +190,20 @@
 
     if (_trackingMetric) _trackingMetric.fail();
     _trackingMetric = GWFunnel.trackingStarted();
+
+    if (state.isSample && GC.sampleTrack) {
+      // The sample's subject path ships with it: nothing is uploaded or run.
+      _setProgressText('Creating motion keyframes…');
+      var reply = GC.sampleTrack(normX, normY, clickFrame);
+      var shown = new Promise(function (resolve) { setTimeout(resolve, 500); });
+      Promise.all([reply, shown]).then(function (done) {
+        done[0].forEach(function (k) { _handleWorkerMessage({ data: { type: 'keyframe', frame: k.frame, x: k.x, y: k.y } }); });
+        _handleWorkerMessage({ data: { type: 'done' } });
+      }, function (err) {
+        _handleWorkerMessage({ data: { type: 'error', message: err.message } });
+      });
+      return;
+    }
 
     var sampled = _buildSampledFrames(clickFrame);
     _showTrackingProgress('Initializing…');

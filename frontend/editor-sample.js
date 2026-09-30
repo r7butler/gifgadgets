@@ -3,16 +3,18 @@
 
    "Try a sample" loads a bundled GIF through the same pipeline
    as a visitor's own file, then adds a caption whose motion
-   keyframes already follow the subject. Visitors can edit and
-   export it like any GIF.
+   keyframes already follow the subject. Visitors can edit,
+   track and export it like any GIF.
 
-   The sample never starts AI tracking: its keyframes ship with
-   it (scripts/make-sample-media.cjs regenerates both files).
+   Follow an Object works on the sample without the GPU tracker:
+   the preset ships the bee's position on every frame, and the
+   rest of the scene is still, so the answer is already known.
+   scripts/make-sample-media.cjs regenerates the GIFs and preset.
 
    Public API:
-     GC.loadSample()             — also reached via ?sample=1
-     GC.syncSampleBar()          — called from GC.updateUI
-     GC.explainSampleTracking()  — called instead of tracking
+     GC.loadSample()                 — also reached via ?sample=1|day|night
+     GC.sampleTrack(x, y, frame)     — object path for a tap, as the tracker returns it
+     GC.syncSampleBar()              — called from GC.updateUI
 
    Depends on:
      editor-state.js   (GC namespace, state)
@@ -27,9 +29,12 @@
   var $ = GC.$;
   var state = GC.state;
   var PRESET_URL = '/samples/bee.json';
-  var INTRO = 'Sample GIF: its caption follows the bee with motion keyframes. Select the caption to edit it.';
-  var TRACKING = 'AI tracking runs on your own GIFs. This sample\'s caption already follows the bee with motion keyframes.';
+  var INTRO = 'Sample GIF. To try tracking, select a caption, click Follow an Object, then tap the bee.';
+  var FOLLOWING = 'It follows the bee now. The sample\'s path is built in, so this is instant; ' +
+    'on your own GIFs, AI tracking takes a little longer.';
+  var STILL = 'That spot doesn\'t move in this GIF, so the caption stays put. Try tapping the bee.';
   var loading = false;
+  var presetRequest = null;
 
   function fetchOk(url, as) {
     return fetch(url).then(function (response) {
@@ -38,9 +43,29 @@
     });
   }
 
+  // Cached, and re-fetched after a failure. A restored sample draft needs it too.
+  function preset() {
+    if (!presetRequest) {
+      presetRequest = fetchOk(PRESET_URL, 'json').catch(function (err) { presetRequest = null; throw err; });
+    }
+    return presetRequest;
+  }
+
+  // The night scene suits the dark theme; ?sample=day|night picks one explicitly.
+  function variantName() {
+    var asked = new URLSearchParams(location.search).get('sample');
+    if (asked === 'day' || asked === 'night') return asked;
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'night' : 'day';
+  }
+
   function setStatus(message) {
     var el = $('#sample-status');
     if (el) el.textContent = message;
+  }
+
+  function setBar(message) {
+    var text = $('#sample-bar-text');
+    if (text) text.textContent = message;
   }
 
   GC.loadSample = async function () {
@@ -51,15 +76,16 @@
     setStatus('');
     GC.showLoading('Loading sample GIF…');
     try {
-      var preset = await fetchOk(PRESET_URL, 'json');
-      var blob = await fetchOk(preset.gif, 'blob');
-      var file = new File([blob], preset.filename, { type: 'image/gif' });
+      var spec = await preset();
+      var variant = spec.variants[variantName()];
+      var blob = await fetchOk(variant.gif, 'blob');
+      var file = new File([blob], variant.filename, { type: 'image/gif' });
       // A decode failure is reported by the loader itself.
       if (!await GC.loadGifFromFile(file, { funnelKind: 'sample' })) return;
       state.isSample = true;
-      preset.captions.forEach(function (spec) {
-        var cap = GC.addCaption(spec);
-        cap.motion = spec.motion.map(function (k) { return { frame: k.frame, x: k.x, y: k.y }; });
+      spec.captions.forEach(function (caption) {
+        var cap = GC.addCaption(caption);
+        cap.motion = caption.motion.map(function (k) { return { frame: k.frame, x: k.x, y: k.y }; });
       });
       // Start unselected so the first thing seen is the finished effect, not handles.
       state.selectedCaptionId = null;
@@ -80,19 +106,29 @@
     }
   };
 
+  /**
+   * What the tracker would report for a tap on the sample: the bee's path when
+   * the tap lands on it, otherwise the tapped point on every frame, because
+   * nothing else in the scene moves.
+   */
+  GC.sampleTrack = function (x, y, frame) {
+    return preset().then(function (spec) {
+      var subject = spec.subject;
+      var here = subject.path[Math.min(frame, subject.path.length - 1)];
+      var dx = (x - here.x) / subject.radius.x, dy = (y - here.y) / subject.radius.y;
+      var onSubject = dx * dx + dy * dy <= 1;
+      setBar(onSubject ? FOLLOWING : STILL);
+      return onSubject ? subject.path : subject.path.map(function (k) { return { frame: k.frame, x: x, y: y }; });
+    });
+  };
+
   GC.syncSampleBar = function () {
     var bar = $('#sample-bar');
     if (!bar) return;
     var showing = !bar.classList.contains('hidden');
     // Each appearance starts from the introduction.
-    if (showing !== state.isSample) $('#sample-bar-text').textContent = INTRO;
+    if (showing !== state.isSample) setBar(INTRO);
     bar.classList.toggle('hidden', !state.isSample);
-  };
-
-  GC.explainSampleTracking = function () {
-    var text = $('#sample-bar-text');
-    if (text) text.textContent = TRACKING;
-    GC.syncSampleBar();
   };
 
   function bind() {

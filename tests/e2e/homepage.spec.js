@@ -50,11 +50,14 @@ test.describe("Homepage demo", () => {
     await page.addInitScript(() => localStorage.setItem("gc_cookie_consent", "rejected"));
   });
 
-  test("shows a real export and opens the same sample in the editor", async ({ page }) => {
+  const clip = variant => `.home-demo-video[data-variant="${variant}"]`;
+  const paused = (page, variant) => page.locator(clip(variant)).evaluate(v => v.paused);
+
+  test("shows real exports and opens the same sample in the editor", async ({ page }) => {
     await page.goto("/");
-    const video = page.locator("#home-demo-video");
-    for (const url of [await video.getAttribute("poster"), ...(await video.locator("source").evaluateAll(s => s.map(e => e.getAttribute("src"))))]) {
-      expect((await page.request.get(url)).status(), url).toBe(200);
+    for (const video of await page.locator(".home-demo-video").all()) {
+      const urls = [await video.getAttribute("poster"), ...(await video.locator("source").evaluateAll(s => s.map(e => e.getAttribute("src"))))];
+      for (const url of urls) expect((await page.request.get(url)).status(), url).toBe(200);
     }
     await page.locator(".home-demo-cta").click();
     await expect(page).toHaveURL(/\/gif-editor\/edit\/\?sample=1$/);
@@ -63,16 +66,26 @@ test.describe("Homepage demo", () => {
 
   test("plays while visible, and stays paused once the visitor pauses it", async ({ page }) => {
     await page.goto("/");
-    const video = page.locator("#home-demo-video");
     const toggle = page.locator("#home-demo-toggle");
-    await expect.poll(() => video.evaluate(v => v.paused)).toBe(false);
+    await expect(page.locator(clip("day"))).toBeVisible();
+    await expect.poll(() => paused(page, "day")).toBe(false);
     await expect(toggle).toHaveAttribute("aria-label", "Pause animation");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Play animation");
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
-    expect(await video.evaluate(v => v.paused)).toBe(true);
+    expect(await paused(page, "day")).toBe(true);
+  });
+
+  test("the dark theme swaps in the night clip and keeps it playing", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(() => paused(page, "day")).toBe(false);
+    await page.locator("button.theme-toggle").click();
+    await expect(page.locator(clip("night"))).toBeVisible();
+    await expect(page.locator(clip("day"))).toBeHidden();
+    await expect.poll(() => paused(page, "night")).toBe(false);
+    expect(await paused(page, "day")).toBe(true);
   });
 
   test("waits for a press of play when reduced motion is requested", async ({ page }) => {
@@ -81,7 +94,7 @@ test.describe("Homepage demo", () => {
     const toggle = page.locator("#home-demo-toggle");
     await expect(toggle).toHaveAttribute("aria-label", "Play animation");
     await page.waitForTimeout(500);
-    expect(await page.locator("#home-demo-video").evaluate(v => v.paused)).toBe(true);
+    expect(await paused(page, "day")).toBe(true);
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Pause animation");
   });

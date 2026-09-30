@@ -1475,7 +1475,6 @@
       btnOvTrackAI.addEventListener('click', function () {
         var ov = GC.findOverlay(state.selectedOverlayId);
         if (!ov || state.frames.length === 0) return;
-        if (state.isSample) { GC.explainSampleTracking(); return; }
         GC.warmUpTracker();
         GC.startTrackingMode(ov, 'overlay');
       });
@@ -1558,8 +1557,6 @@
     if (btnTrackAI) btnTrackAI.addEventListener('click', function () {
       var cap = GC.findCaption(state.selectedCaptionId);
       if (!cap || state.frames.length === 0) return;
-      // The sample exists to try the editor, not to spend GPU time.
-      if (state.isSample) { GC.explainSampleTracking(); return; }
       GC.warmUpTracker();
       GC.startTrackingMode(cap);
     });

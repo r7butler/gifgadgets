@@ -72,12 +72,19 @@
 
       <figure class="home-demo">
         <div class="home-demo-media">
-          {# A real GIF editor export of the sample session; scripts/make-sample-media.cjs remakes it. #}
-          <video id="home-demo-video" width="640" height="360" muted loop playsinline preload="none"
+          {# Real GIF editor exports of the sample session, a day and a night scene;
+             the stylesheet shows the one that matches the theme. scripts/make-sample-media.cjs remakes them. #}
+          <video class="home-demo-video" data-variant="day" width="640" height="360" muted loop playsinline preload="none"
                  poster="/samples/bee-demo.webp"
                  aria-label="Example GIF: the caption BZZZ! moves with a bee as it flies over a meadow">
             <source src="/samples/bee-demo.mp4" type="video/mp4" />
             <source src="/samples/bee-demo.webm" type="video/webm" />
+          </video>
+          <video class="home-demo-video" data-variant="night" width="640" height="360" muted loop playsinline preload="none"
+                 poster="/samples/bee-night-demo.webp"
+                 aria-label="Example GIF: the caption BZZZ! moves with a bee as it flies over a meadow at night">
+            <source src="/samples/bee-night-demo.mp4" type="video/mp4" />
+            <source src="/samples/bee-night-demo.webm" type="video/webm" />
           </video>
           <button type="button" id="home-demo-toggle" class="home-demo-toggle" aria-label="Play animation" hidden>
             <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6,4 20,12 6,20"/></svg>

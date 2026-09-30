@@ -74,16 +74,52 @@ test('the sample edits and exports like any GIF, caption motion included', async
   expect(changedAround(exported.out[10], source.out[10], 640, 360, later)).toBeGreaterThan(150);
 });
 
-test('Follow an Object on the sample explains itself and never calls the tracker', async ({ page }) => {
+/** Enter tracking with a fresh caption parked at `spot` on frame 0, then tap `tap`. */
+async function trackFromFrameZero(page, spot, tap) {
+  await page.evaluate(() => { GC.pause(); GC.seekFrame(0); });
+  await page.locator('#btn-add-caption').click();
+  await page.evaluate(spot => Object.assign(GC.state.captions[1], spot), spot);
+  await page.locator('#btn-track-with-ai').click();
+  await expect(page.locator('#tracking-bar')).toContainText('keeps its place relative to it');
+  const box = await page.locator('#preview-canvas').boundingBox();
+  await page.mouse.click(box.x + tap.x * box.width, box.y + tap.y * box.height);
+  await expect.poll(() => page.evaluate(() => GC.state.captions[1].motion.length)).toBe(40);
+  return page.evaluate(() => GC.state.captions[1].motion);
+}
+
+test('Follow an Object on the sample tracks the bee without the GPU tracker', async ({ page }) => {
   const trackerCalls = [];
   page.on('request', request => { if (request.url().includes('/api/track')) trackerCalls.push(request.url()); });
   await page.goto('/gif-editor/edit/?sample=1');
   await expect(page.locator('#editor-workspace')).toBeVisible();
-  await page.locator('.caption-list-item').first().click();
-  await page.locator('#btn-track-with-ai').click();
-  await expect(page.locator('#sample-bar-text')).toContainText('AI tracking runs on your own GIFs');
-  await expect(page.locator('#tracking-bar')).toBeHidden();
+  const bee = preset.subject.path;
+  const motion = await trackFromFrameZero(page, { x: 0.5, y: 0.2 }, bee[0]);
+  await expect(page.locator('#sample-bar-text')).toContainText('It follows the bee now');
+  // The caption keeps the spot it was given and moves as the bee moves.
+  for (const frame of [0, 10, 25]) {
+    const k = motion.find(k => k.frame === frame);
+    expect(k.x).toBeCloseTo(0.5 + bee[frame].x - bee[0].x, 3);
+    expect(k.y).toBeCloseTo(0.2 + bee[frame].y - bee[0].y, 3);
+  }
   expect(trackerCalls).toEqual([]);
+});
+
+test('tapping still scenery on the sample leaves the caption where it is', async ({ page }) => {
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  const motion = await trackFromFrameZero(page, { x: 0.3, y: 0.3 }, { x: 0.07, y: 0.78 });
+  await expect(page.locator('#sample-bar-text')).toContainText('Try tapping the bee');
+  expect(new Set(motion.map(k => k.x + ',' + k.y))).toEqual(new Set(['0.3,0.3']));
+});
+
+test('the dark theme opens the night sample, unless the link asks for one', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gw-theme', 'dark'));
+  await page.goto('/gif-editor/edit/?sample=1');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  expect(await page.evaluate(() => GC.state.gifFilename)).toBe('sample-bee-night.gif');
+  await page.goto('/gif-editor/edit/?sample=day');
+  await expect(page.locator('#editor-workspace')).toBeVisible();
+  expect(await page.evaluate(() => GC.state.gifFilename)).toBe('sample-bee.gif');
 });
 
 test('switching from the sample to your own GIF asks only once there are edits', async ({ page }) => {
