@@ -127,6 +127,7 @@ test('the sample cuts out the bee without the GPU, and exports a transparent GIF
   const calls = segmentCalls(page);
   await openSample(page);
   await expect(page.locator('#bg-privacy')).toContainText('nothing is uploaded');
+  await expect(page.locator('#bg-privacy')).toContainText('only the bee can be cut out');
   await removeWith(page, 'bee');
   await expect(page.locator('#bg-status')).toHaveText('The bee is cut out. Choose what goes behind it.');
   await expect(page.locator('#bg-behind')).toBeVisible();

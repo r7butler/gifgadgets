@@ -532,7 +532,8 @@
     remove.disabled = busy || !state.frames.length;
     $('#bg-progress-row').hidden = !busy;
     $('#bg-privacy').textContent = state.isSample
-      ? 'The sample\'s bee has its cutout built in, so this is instant and nothing is uploaded. On your own GIFs, AI selection takes a little longer.'
+      ? 'In the sample, only the bee can be cut out. Its cutout is built in, so this is instant and nothing is uploaded. ' +
+        'On your own GIFs, describe or tap anything; AI selection takes a little longer.'
       : 'Removing the background uploads this GIF\'s frames to our AI processor.';
 
     $('#bg-behind').hidden = !cut;
