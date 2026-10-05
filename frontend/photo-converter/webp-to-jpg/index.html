@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
   <script src="/tool-funnel.js"></script>
+  <script src="/save-to-photos.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   
@@ -140,6 +141,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download JPG
       </button>
+      <button class="conv-save-photos save-photos" id="btn-save-photos" type="button" hidden>Save to Photos</button>
     </div>
 
     <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />
@@ -257,6 +259,7 @@
   var resultImg = document.getElementById('result-img');
   var resultInfoEl = document.getElementById('result-info');
   var downloadBtn = document.getElementById('btn-download');
+  var savePhotosBtn = document.getElementById('btn-save-photos');
   var qualitySlider = document.getElementById('quality-slider');
   var qualityVal = document.getElementById('quality-val');
 
@@ -350,6 +353,7 @@
           a.download = outName;
           a.click();
         };
+        GWSave.offer(savePhotosBtn, GWSave.file(blob, outName), function() { downloadBtn.click(); });
       }, 'image/jpeg', quality);
     };
     img.onerror = function() {

@@ -2,15 +2,16 @@
   'use strict';
   const $ = id => document.getElementById('utility-' + id);
   const tool = document.querySelector('[data-tool]').dataset.tool;
-  // combine-gifs takes several inputs; extract-frames returns PNGs rather than a GIF.
-  const MULTI = tool === 'combine-gifs', FRAMES = tool === 'extract-frames';
+  // combine-gifs takes several inputs; extract-frames returns PNGs rather than a GIF;
+  // trim-gif adds a frame timeline (gif-trim.js).
+  const MULTI = tool === 'combine-gifs', FRAMES = tool === 'extract-frames', TRIM = tool === 'trim-gif';
   let source, extras = [], worker, timer, metric, inputURL, outputURL, outputBlob, generation = 0;
   let outputName = tool + '.gif';
   let frameURLs = [];
   function clearResult() {
     if (outputURL) URL.revokeObjectURL(outputURL);
     outputURL = null; outputBlob = null;
-    $('download').hidden = $('replay').hidden = $('result-wrap').hidden = $('continue-wrap').hidden = true;
+    $('download').hidden = $('save').hidden = $('replay').hidden = $('result-wrap').hidden = $('continue-wrap').hidden = true;
     $('result').removeAttribute('src'); $('download').removeAttribute('href');
     frameURLs.forEach(URL.revokeObjectURL); frameURLs = [];
     if ($('frames')) { $('frames').hidden = true; $('frames').textContent = ''; }
@@ -26,6 +27,7 @@
     const file = list[0];
     const ticket = ++generation;
     stop(); source = null; extras = []; clearResult(); $('options').disabled = true;
+    if (TRIM) GWTrim.reset();
     $('upload').hidden = false; $('new').hidden = true;
     if (inputURL) URL.revokeObjectURL(inputURL);
     $('original-wrap').hidden = true; $('original').removeAttribute('src'); $('info').textContent = '';
@@ -62,6 +64,7 @@
         $('width').value = reader.width; $('height').value = reader.height;
       }
       if ($('end')) { $('end').value = reader.numFrames(); $('end').max = $('start').max = reader.numFrames(); $('start').value = 1; }
+      if (TRIM) GWTrim.load(data, reader.numFrames());
       $('options').disabled = false; $('status').textContent = 'Ready. Choose settings, then apply.'; GWFunnel.ready();
     } catch (error) { $('status').textContent = error.message; GWFunnel.failure('decode'); }
   }
@@ -114,6 +117,7 @@
         outputName = tool + '.gif';
         $('result').src = outputURL; $('result-wrap').hidden = false;
         $('download').href = outputURL; $('download').download = outputName; $('download').hidden = $('replay').hidden = $('continue-wrap').hidden = false;
+        GWSave.offer($('save'), GWSave.file(outputBlob, outputName), () => $('download').click());
         metric.complete(); stop();
         const size = (outputBlob.size / 1024).toFixed(1) + ' KB';
         // Compression is only meaningful against the original, so show both.
@@ -146,6 +150,9 @@
         outputBlob = out.blob; outputURL = URL.createObjectURL(outputBlob);
         outputName = out.entries.length === 1 ? out.entries[0].name : 'frames.zip';
         $('download').href = outputURL; $('download').download = outputName; $('download').hidden = false;
+        // Photos takes the PNGs themselves, not the ZIP.
+        $('save').textContent = out.entries.length > 1 ? 'Save all to Photos' : 'Save to Photos';
+        GWSave.offer($('save'), out.entries.map(entry => GWSave.file(entry.blob, entry.name)), () => $('download').click());
         const gallery = $('frames');
         if (gallery) {
           out.entries.forEach(entry => {

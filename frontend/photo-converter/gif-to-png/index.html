@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
   <script src="/tool-funnel.js"></script>
+  <script src="/save-to-photos.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   <link rel="stylesheet" href="/utilities.css" />
   
@@ -62,7 +63,9 @@
     </button>
     <input id="utility-file" type="file" accept="image/gif,.gif" aria-label="Choose a GIF"  hidden />
     <div class="utility-previews">
-      <figure id="utility-original-wrap" hidden><figcaption>Original</figcaption><div class="utility-preview-image"><img id="utility-original" alt="Original GIF preview" /></div></figure>
+      <figure id="utility-original-wrap" hidden><figcaption>Original</figcaption><div class="utility-preview-image"><img id="utility-original" alt="Original GIF preview" /></div>
+      
+      </figure>
       <figure id="utility-result-wrap" hidden><figcaption>Result</figcaption><div class="utility-preview-image"><img id="utility-result" alt="Transformed GIF preview" /></div></figure>
     </div>
     <button id="utility-new" class="btn btn-ghost" type="button" hidden>Choose another GIF</button>
@@ -86,6 +89,7 @@
   <p id="utility-status" role="status" aria-live="polite"></p>
   <progress id="utility-progress" max="100" value="0" hidden aria-label="Processing progress"></progress>
   <a id="utility-download" class="btn btn-accent utility-primary" hidden download="edited.gif">Download GIF</a>
+  <button id="utility-save" class="btn btn-ghost utility-primary save-photos" type="button" hidden>Save to Photos</button>
   <button id="utility-replay" class="btn btn-ghost" type="button" hidden>Replay result</button>
   <div id="utility-continue-wrap" hidden>
     <label for="utility-next">Continue editing this result</label>

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/styles.css" />
   <script src="/theme.js"></script>
   <script src="/tool-funnel.js"></script>
+  <script src="/save-to-photos.js"></script>
   <script src="/dialog-accessibility.js" defer></script>
   
   <style>
@@ -281,7 +282,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download GIF
       </button>
-      <button id="btn-save-photos" class="gm-save-photos-link" type="button">Save to Photos</button>
+      <button id="btn-save-photos" class="gm-save-photos-link save-photos" type="button" hidden>Save to Photos</button>
     </div>
   </div>
 </div>
@@ -313,7 +314,7 @@
     </div>
     <div class="share-buttons">
       <button id="btn-share-download" class="btn btn-primary btn-full">Download GIF</button>
-      <button id="btn-share-save-photos" class="btn btn-ghost btn-full">Save to Photos</button>
+      <button id="btn-share-save-photos" class="btn btn-ghost btn-full save-photos" type="button" hidden>Save to Photos</button>
       <div id="share-social-skeletons" class="skeleton-social">
         <div class="skeleton skeleton-social-btn"></div>
         <div class="skeleton skeleton-social-btn"></div>
@@ -1432,6 +1433,7 @@
         lastGifUrl = url;
         lastGifBlob = blob;
         lastGifFilename = 'animation.gif';
+        GWSave.offer(btnSavePhotos, GWSave.file(blob, lastGifFilename, 'image/gif'), downloadGif);
 
         resultGif.src = url;
         resultInfo.textContent = totalFrames + ' frames · ' + dims.width + '×' + dims.height + ' · ' + formatSize(blob.size);
@@ -1474,15 +1476,6 @@
   function closeResultModal() { resultModal.classList.add('hidden'); }
 
   dlBtn.addEventListener('click', downloadGif);
-  btnSavePhotos.addEventListener('click', function () {
-    if (!lastGifBlob) return;
-    var file = new File([lastGifBlob], lastGifFilename, { type: 'image/gif' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: 'Created GIF' }).catch(function () {});
-    } else {
-      downloadGif();
-    }
-  });
 
   document.getElementById('result-modal-close').addEventListener('click', closeResultModal);
   resultModal.addEventListener('click', function (e) { if (e.target === resultModal) closeResultModal(); });
@@ -1627,6 +1620,8 @@
 
     shareModal._blob = blob;
     shareModal._blobUrl = blobUrl;
+    GWSave.offer(document.getElementById('btn-share-save-photos'), GWSave.file(blob, lastGifFilename, 'image/gif'),
+      function () { document.getElementById('btn-share-download').click(); });
 
     document.getElementById('share-url').value = '';
     document.getElementById('share-image-url').value = '';
@@ -1711,19 +1706,6 @@
 
   document.getElementById('btn-share-download').addEventListener('click', function () {
     if (shareModal._blob) {
-      var a = document.createElement('a');
-      a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
-      a.download = lastGifFilename;
-      a.click();
-    }
-  });
-
-  document.getElementById('btn-share-save-photos').addEventListener('click', function () {
-    if (!shareModal._blob) return;
-    var file = new File([shareModal._blob], lastGifFilename, { type: 'image/gif' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: 'Created GIF' }).catch(function () {});
-    } else {
       var a = document.createElement('a');
       a.href = shareModal._blobUrl || URL.createObjectURL(shareModal._blob);
       a.download = lastGifFilename;

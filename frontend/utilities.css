@@ -18,6 +18,7 @@
 .tool-utility input[type=checkbox] { accent-color: var(--utility-accent); margin-right: .35rem; }
 .tool-utility :is(button, input, select, a):focus-visible { outline: 2px solid var(--utility-accent); outline-offset: 3px; }
 .utility-primary { width: 100%; margin-top: 1rem; justify-content: center; }
+.utility-primary.save-photos { margin-top: .5rem; }
 .tool-utility .btn-accent { background: var(--utility-accent); color: var(--on-cat); }
 .tool-utility [hidden] { display: none !important; }
 .utility-previews { display: flex; flex-wrap: wrap; width: 100%; gap: 1rem; }
@@ -43,6 +44,34 @@
 .utility-thumb-grid img { display: block; width: 100%; height: 90px; object-fit: contain;
   background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 0 / 12px 12px; }
 .utility-thumb-grid figcaption { font-size: .7rem; color: var(--text-secondary); text-align: center; }
+
+/* ── Trim GIF timeline ─────────────────────────────── */
+/* The track's side padding leaves room for the handles at either end of the GIF. */
+#utility-trim-preview { display: block; max-width: 100%; max-height: 400px;
+  background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 0 / 16px 16px; }
+.utility-trim-track { position: relative; height: 48px; padding: 0 14px; border-radius: var(--radius-sm);
+  background: var(--bg-tertiary); overflow: hidden; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.utility-trim-track.dragging { cursor: grabbing; }
+.utility-trim-frames { position: relative; height: 100%; }
+.utility-trim-frames canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.utility-trim-window { position: absolute; top: 0; bottom: 0; box-sizing: border-box; cursor: grab;
+  border-block: 3px solid var(--utility-accent); box-shadow: 0 0 0 100vmax rgba(15, 23, 42, .6); }
+.utility-trim-track.dragging .utility-trim-window { cursor: grabbing; }
+.utility-trim-handle { position: absolute; top: 0; bottom: 0; width: 14px; background: var(--utility-accent); cursor: ew-resize;
+  display: flex; align-items: center; justify-content: center; }
+.utility-trim-handle::before { content: ''; width: 3px; height: 18px; border-radius: 999px; background: rgba(255, 255, 255, .95); }
+.utility-trim-handle-start { transform: translateX(-100%); border-radius: 6px 0 0 6px; }
+.utility-trim-handle-end { border-radius: 0 6px 6px 0; }
+.utility-trim-playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); pointer-events: none; }
+.utility-trim-meta { display: flex; align-items: center; gap: .75rem; margin-top: .6rem; font-size: .8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.utility-trim-play { width: 36px; height: 36px; padding: 0; justify-content: center; flex-shrink: 0; }
+.utility-trim .utility-hint { margin-top: .4rem; }
+@media (pointer: coarse) {
+  .utility-trim-track { height: 56px; padding: 0 18px; }
+  .utility-trim-handle { width: 18px; }
+  .utility-trim-play { width: 44px; height: 44px; }
+}
 
 @media (max-width: 768px) {
   .tool-utility { padding: 0 1rem 2rem; }

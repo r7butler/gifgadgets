@@ -15,7 +15,7 @@
     if ($('result').load) $('result').load();
     if (resultURL) URL.revokeObjectURL(resultURL);
     resultURL = null;
-    $('result-wrap').hidden = $('download').hidden = true;
+    $('result-wrap').hidden = $('download').hidden = $('save').hidden = true;
     $('download').removeAttribute('href');
   }
   function stop() {
@@ -106,6 +106,7 @@
       $('download').download = file.name.replace(/\.[^.]+$/, '') + '-' + tool + '.' + result.extension;
       $('download').textContent = 'Download ' + result.extension.toUpperCase();
       $('result-wrap').hidden = $('download').hidden = false;
+      GWSave.offer($('save'), GWSave.file(blob, $('download').download), () => $('download').click());
       status('Ready · ' + (blob.size / 1048576).toFixed(2) + ' MB'); span?.complete();
     } catch (error) { span?.fail('encode'); if (current === generation) { stop(); status(error.message); } }
     finally { setBusy(false); }

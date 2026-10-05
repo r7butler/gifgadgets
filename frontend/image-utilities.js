@@ -29,7 +29,7 @@
     if (outputURL) URL.revokeObjectURL(outputURL);
     outputURL = null; outputBlob = null; results = [];
     thumbURLs.forEach(URL.revokeObjectURL); thumbURLs = [];
-    $('download').hidden = true; $('download').removeAttribute('href');
+    $('download').hidden = $('save').hidden = true; $('download').removeAttribute('href');
     if ($('results')) { $('results').hidden = true; $('results').textContent = ''; }
     if ($('result-wrap')) { $('result-wrap').hidden = true; $('result').removeAttribute('src'); }
   }
@@ -284,6 +284,9 @@
       gallery.hidden = false;
     }
     $('download').hidden = false;
+    // Photos takes the images themselves, not the ZIP.
+    $('save').textContent = done.length > 1 ? 'Save all to Photos' : 'Save to Photos';
+    GWSave.offer($('save'), done.map(r => GWSave.file(r.blob, r.name)), () => $('download').click());
   }
 
   $('apply').addEventListener('click', async () => {

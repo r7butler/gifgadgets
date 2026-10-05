@@ -248,6 +248,9 @@
     modal._blob = blob;
     modal._filename = fname || null;
     modal._blobUrl = blobUrl;
+    var saveName = modal._filename || GC.makeCaptionedFilename();
+    GWSave.offer($('#btn-share-save-photos'), GWSave.file(blob, saveName, blob.type || 'image/gif'),
+      function () { GC.downloadBlob(blob, saveName); });
 
     // Reset UI to "uploading" state (skeleton placeholders)
     $('#share-url').value = '';

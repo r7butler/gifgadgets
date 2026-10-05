@@ -13,7 +13,7 @@
   function clearResult() {
     clearTimeout(previewTimer);
     if (outputURL) URL.revokeObjectURL(outputURL);
-    outputURL = null; $('download').hidden = $('result-wrap').hidden = true;
+    outputURL = null; $('download').hidden = $('save').hidden = $('result-wrap').hidden = true;
     $('result').removeAttribute('src'); $('download').removeAttribute('href');
   }
   function setBusy(value) {
@@ -175,6 +175,7 @@
       clearResult(); const blob=new Blob([result.bytes],{type:result.mime}); outputURL=URL.createObjectURL(blob);
       $('result').src=$('download').href=outputURL; $('download').download=source.name.replace(/\.[^.]+$/,'')+'-'+root.dataset.tool+(gif?'.gif':'.png');
       $('download').textContent='Download '+(gif?'GIF':'PNG'); $('download').hidden=$('result-wrap').hidden=false;
+      GWSave.offer($('save'), GWSave.file(blob, $('download').download), () => $('download').click());
       $('segment').textContent='Refine cutout';
       status(describing() ? 'Ready to download. To refine, reword the description, or clear it and click your subject instead.'
         : 'Ready to download. To refine, add keep or exclude points on the original, then preview again.');

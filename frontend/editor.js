@@ -1821,6 +1821,10 @@
       // Update download button label
       var dlBtn = $('#btn-dl-download');
       if (dlBtn) dlBtn.textContent = filename && filename.endsWith('.gif') ? 'Download GIF' : 'Download Image';
+      var saveName = filename || GC.makeCaptionedFilename();
+      var mimeType = blob.type || (state.isStillImage ? (state.exportFormat || 'image/jpeg') : 'image/gif');
+      GWSave.offer($('#btn-dl-save-photos'), GWSave.file(blob, saveName, mimeType),
+        function () { GC.downloadBlob(blob, saveName); });
       GC.updateSizeInfo(modal, blob);
       modal.classList.remove('hidden');
     }
@@ -1838,20 +1842,6 @@
       var modal = $('#download-modal');
       var blob = modal._blob;
       if (blob) GC.downloadBlob(blob, modal._filename || GC.makeCaptionedFilename());
-    });
-    $('#btn-dl-save-photos').addEventListener('click', function () {
-      var modal = $('#download-modal');
-      var blob = modal._blob;
-      if (!blob) return;
-      var fname = modal._filename || GC.makeCaptionedFilename();
-      var mimeType = (blob && blob.type) || (state.isStillImage ? (state.exportFormat || 'image/jpeg') : 'image/gif');
-      var file = new File([blob], fname, { type: mimeType });
-      var title = state.isStillImage ? 'Captioned image' : 'Captioned GIF';
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: title }).catch(function () {});
-      } else {
-        GC.downloadBlob(blob, fname);
-      }
     });
 
     // Share modal events (only present in GIF editors, not image-caption)
@@ -1892,22 +1882,6 @@
       var modal = $('#share-modal');
       if (modal && modal._blob) GC.downloadBlob(modal._blob, modal._filename || GC.makeCaptionedFilename());
     });
-
-    // Save to Photos (mobile: Web Share API or download fallback)
-    var savePhotosBtn = $('#btn-share-save-photos');
-    if (savePhotosBtn) {
-      savePhotosBtn.addEventListener('click', function () {
-        var modal = $('#share-modal');
-        if (!modal._blob) return;
-        var fname = GC.makeCaptionedFilename();
-        var file = new File([modal._blob], fname, { type: 'image/gif' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: 'Captioned GIF' }).catch(function () {});
-        } else {
-          GC.downloadBlob(modal._blob, fname);
-        }
-      });
-    }
 
     // ── Keyboard shortcuts ────────────────────
     document.addEventListener('keydown', function (e) {
