@@ -130,7 +130,7 @@
                 <h3>Edit Caption</h3>
                 <div class="form-group"><label for="cap-text">Text</label><textarea id="cap-text" rows="2" placeholder="Enter caption text…"></textarea></div>
                 <div class="form-row">
-                  <div class="form-group" style="flex:1"><label for="cap-font">Font</label><select id="cap-font"><option value="Impact">Impact</option><option value="Arial Black">Arial Black</option><option value="Comic Sans MS">Comic Sans MS</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select></div>
+                  <div class="form-group" style="flex:1"><label for="cap-font">Font</label><select id="cap-font">{% include "partials/caption-font-options.html" %}</select></div>
                   <div class="form-group" id="cap-bold-group"><label for="cap-bold">Bold</label><input type="checkbox" id="cap-bold" checked /></div>
                 </div>
                 <div class="form-group"><label>Max size: <span id="cap-font-size-val">40</span>px</label><input type="range" id="cap-font-size" min="8" max="200" value="40" /></div>
@@ -241,7 +241,7 @@
                 <div class="form-group box-bold-group" id="box-top-bold-group"><label class="option-label"><input type="checkbox" id="box-top-bold" checked /><span>Bold</span></label></div>
                 <div class="form-row">
                   <div class="form-group"><label for="box-top-align">Align</label><select id="box-top-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
-                  <div class="form-group"><label for="box-top-font">Font</label><select id="box-top-font"><option value="Impact">Impact</option><option value="Arial Black">Arial Black</option><option value="Comic Sans MS">Comic Sans MS</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select></div>
+                  <div class="form-group"><label for="box-top-font">Font</label><select id="box-top-font">{% include "partials/caption-font-options.html" %}</select></div>
                 </div>
                 <div class="form-row">
                   <div class="form-group"><label for="box-top-text-color">Text</label><input type="color" id="box-top-text-color" value="#000000" /></div>
@@ -258,7 +258,7 @@
                 <div class="form-group box-bold-group" id="box-bottom-bold-group"><label class="option-label"><input type="checkbox" id="box-bottom-bold" checked /><span>Bold</span></label></div>
                 <div class="form-row">
                   <div class="form-group"><label for="box-bottom-align">Align</label><select id="box-bottom-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
-                  <div class="form-group"><label for="box-bottom-font">Font</label><select id="box-bottom-font"><option value="Impact">Impact</option><option value="Arial Black">Arial Black</option><option value="Comic Sans MS">Comic Sans MS</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select></div>
+                  <div class="form-group"><label for="box-bottom-font">Font</label><select id="box-bottom-font">{% include "partials/caption-font-options.html" %}</select></div>
                 </div>
                 <div class="form-row">
                   <div class="form-group"><label for="box-bottom-text-color">Text</label><input type="color" id="box-bottom-text-color" value="#000000" /></div>
@@ -382,6 +382,7 @@
   <script src="/vendor/gif.js"></script>
   <script src="/vendor/heic2any.min.js"></script>
   <script src="/editor-state.js"></script>
+  <script src="/caption-fonts.js"></script>
   <script src="/canvas-rendering.js"></script>
   <script src="/gif-decode.js"></script>
   <script src="/gif-playback.js"></script>

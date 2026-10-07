@@ -29,3 +29,23 @@ would remove that from the critical path.
 
 Video tools additionally use the pinned single-thread FFmpeg core in `ffmpeg/`.
 See `ffmpeg/README.md` for source, license, loading behavior and version details.
+
+## Caption fonts
+
+`fonts/` holds the web fonts in the caption font menus. Everything else in those menus
+is a system font. `caption-fonts.js` registers these files and loads them before a
+caption draws, so preview and export both use the real face.
+
+| Files | Upstream | License |
+| --- | --- | --- |
+| `fonts/tiktok-sans-*.woff2` | https://cdn.jsdelivr.net/npm/@fontsource/tiktok-sans@5.3.0/files/ | `fonts/OFL-TikTokSans.txt` |
+| `fonts/montserrat-*.woff2` | https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5.3.0/files/ | `fonts/OFL-Montserrat.txt` |
+
+Each family ships the `latin` and `latin-ext` subsets at weights 400 and 700, which
+are the weights the Bold toggle switches between. The SIL Open Font License allows
+self-hosting and redistribution as long as the license file travels with the fonts.
+
+Montserrat stands in for Gotham, which is a commercial Hoefler&Co typeface that needs
+a paid web license. If one is bought, add its files here and change the `FAMILIES`
+entry in `caption-fonts.js` and the option in
+`src/templates/partials/caption-font-options.html`.

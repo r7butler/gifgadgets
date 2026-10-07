@@ -13,6 +13,7 @@
      canvas-rendering.js  (GC.drawCaption, GC.drawBoxCaption,
                            GC.drawWatermark, GC.getCompositeSize,
                            GC.getFrameOffsetY)
+     caption-fonts.js     (GC.loadCaptionFonts)
      gif.js               (GIF global — the gif.js encoder)
      app.js               (shareGif function)
    ========================================================== */
@@ -33,6 +34,9 @@
    */
   GC.exportGif = function (opts) {
     if (state.frames.length === 0 || GC.exportInProgress) return;
+    // A caption font still downloading would be baked in as its fallback.
+    var fonts = GC.loadCaptionFonts();
+    if (fonts) { fonts.then(function () { GC.exportGif(opts); }); return; }
     opts = opts || {};
     var exportMetric = GWFunnel.exportStarted();
     GC.exportInProgress = true;
@@ -361,6 +365,9 @@
    */
   GC.exportImage = function (opts) {
     if (state.frames.length === 0) return;
+    // A caption font still downloading would be baked in as its fallback.
+    var fonts = GC.loadCaptionFonts();
+    if (fonts) { fonts.then(function () { GC.exportImage(opts); }); return; }
     var exportMetric = GWFunnel.exportStarted();
     var onBlob  = opts && opts.onBlob;
     var fmt     = state.exportFormat  || 'image/jpeg';
@@ -391,6 +398,9 @@
    */
   GC.saveCurrentFrame = function (opts) {
     if (state.frames.length === 0) return;
+    // A caption font still downloading would be baked in as its fallback.
+    var fonts = GC.loadCaptionFonts();
+    if (fonts) { fonts.then(function () { GC.saveCurrentFrame(opts); }); return; }
     var onBlob = opts && opts.onBlob;
     var id     = Math.random().toString(36).slice(2, 5);
     var base   = (state.gifFilename || 'frame').replace(/\.gif$/i, '');

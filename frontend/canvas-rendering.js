@@ -8,7 +8,8 @@
    canvas context, so future tools (still-image macro editor,
    etc.) can reuse them directly.
 
-   Depends on: editor-state.js (GC namespace, state, constants)
+   Depends on: editor-state.js (GC namespace, state, constants),
+               caption-fonts.js (GC.redrawWhenCaptionFontsLoad)
    ========================================================== */
 
 (function () {
@@ -165,6 +166,7 @@
    */
   GC.renderCurrentFrame = function () {
     if (state.frames.length === 0) return;
+    GC.redrawWhenCaptionFontsLoad();
 
     GC.syncCanvasSize();
     var size = GC.getCompositeSize();
