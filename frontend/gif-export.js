@@ -10,7 +10,7 @@
 
    Depends on:
      editor-state.js      (GC namespace, state)
-     canvas-rendering.js  (GC.drawCaption, GC.drawBoxCaption,
+     canvas-rendering.js  (GC.drawLayers, GC.drawBoxCaption,
                            GC.drawWatermark, GC.getCompositeSize,
                            GC.getFrameOffsetY)
      caption-fonts.js     (GC.loadCaptionFonts)
@@ -102,15 +102,7 @@
 
       expCtx.save();
       expCtx.translate(0, offsetY);
-      // Image overlays (behind text captions)
-      for (var oi = 0; oi < state.overlays.length; oi++) {
-        var ov = state.overlays[oi];
-        if (i >= ov.startFrame && i <= ov.endFrame) GC.drawOverlay(expCtx, ov, i);
-      }
-      for (var j = 0; j < state.captions.length; j++) {
-        var cap = state.captions[j];
-        if (i >= cap.startFrame && i <= cap.endFrame) GC.drawCaption(expCtx, cap, i);
-      }
+      GC.drawLayers(expCtx, i);
       expCtx.restore();
 
       GC.drawBoxCaption(expCtx, compSize.w, compSize.h);
@@ -341,18 +333,7 @@
 
     saveCtx.save();
     saveCtx.translate(0, offsetY);
-    for (var oi = 0; oi < state.overlays.length; oi++) {
-      var ov = state.overlays[oi];
-      if (state.currentFrame >= ov.startFrame && state.currentFrame <= ov.endFrame) {
-        GC.drawOverlay(saveCtx, ov, state.currentFrame);
-      }
-    }
-    for (var i = 0; i < state.captions.length; i++) {
-      var cap = state.captions[i];
-      if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
-        GC.drawCaption(saveCtx, cap, state.currentFrame);
-      }
-    }
+    GC.drawLayers(saveCtx, state.currentFrame);
     saveCtx.restore();
     GC.drawBoxCaption(saveCtx, compSize.w, compSize.h);
     GC.drawWatermark(saveCtx);

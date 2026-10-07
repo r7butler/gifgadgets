@@ -180,21 +180,7 @@
     // Overlay on-image captions and image overlays (coordinates are relative to the GIF area)
     ctx.save();
     ctx.translate(0, offsetY);
-
-    // Image overlays (drawn behind text captions)
-    for (var oi = 0; oi < state.overlays.length; oi++) {
-      var ov = state.overlays[oi];
-      if (state.currentFrame >= ov.startFrame && state.currentFrame <= ov.endFrame) {
-        GC.drawOverlay(ctx, ov, state.currentFrame);
-      }
-    }
-
-    for (var i = 0; i < state.captions.length; i++) {
-      var cap = state.captions[i];
-      if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
-        GC.drawCaption(ctx, cap, state.currentFrame);
-      }
-    }
+    GC.drawLayers(ctx, state.currentFrame);
     // Points marking what to keep, while they are being placed (preview only)
     if (GC.drawCutoutPoints) GC.drawCutoutPoints(ctx);
     ctx.restore();
@@ -226,6 +212,43 @@
 
     // Crop overlay (preview only — not baked into export)
     GC.drawCropOverlay();
+  };
+
+  // ── Layer Order ──────────────────────────────
+
+  /**
+   * Captions and image overlays in drawing order, back to front, as
+   * [{ kind: 'caption' | 'overlay', item }]. An item's `z` (default 0) sets
+   * its layer. At equal z, overlays sit behind captions and later items in
+   * front of earlier ones — the fixed order used before layers existed.
+   */
+  GC.layerOrder = function () {
+    var layers = [];
+    state.overlays.forEach(function (ov) { layers.push({ kind: 'overlay', item: ov, rank: layers.length }); });
+    state.captions.forEach(function (cap) { layers.push({ kind: 'caption', item: cap, rank: layers.length }); });
+    return layers.sort(function (a, b) { return (a.item.z || 0) - (b.item.z || 0) || a.rank - b.rank; });
+  };
+
+  /** The z of the front-most caption or overlay (0 when there are none). */
+  GC.frontZ = function () {
+    var layers = GC.layerOrder();
+    return layers.length ? layers[layers.length - 1].item.z || 0 : 0;
+  };
+
+  /** True when `item` is drawn in front of every other caption and overlay. */
+  GC.isFrontLayer = function (item) {
+    var layers = GC.layerOrder();
+    return layers.length > 0 && layers[layers.length - 1].item === item;
+  };
+
+  /** Draw the captions and overlays showing on frame `index`, back to front. */
+  GC.drawLayers = function (context, index) {
+    GC.layerOrder().forEach(function (layer) {
+      var item = layer.item;
+      if (index < item.startFrame || index > item.endFrame) return;
+      if (layer.kind === 'overlay') GC.drawOverlay(context, item, index);
+      else GC.drawCaption(context, item, index);
+    });
   };
 
   // ── Motion Keyframe Interpolation ────────────
@@ -699,18 +722,13 @@
       var frame = state.frames[state.currentFrame];
       ctx.putImageData(frame.imageData, 0, offsetY,
         r.x, r.y, r.w, r.h);
-      // Re-draw captions in crop area
+      // Re-draw captions and overlays in crop area
       ctx.save();
       ctx.beginPath();
       ctx.rect(r.x, r.y + offsetY, r.w, r.h);
       ctx.clip();
       ctx.translate(0, offsetY);
-      for (var i = 0; i < state.captions.length; i++) {
-        var cap = state.captions[i];
-        if (state.currentFrame >= cap.startFrame && state.currentFrame <= cap.endFrame) {
-          GC.drawCaption(ctx, cap, state.currentFrame);
-        }
-      }
+      GC.drawLayers(ctx, state.currentFrame);
       ctx.restore();
       GC.drawBoxCaption(ctx, compSize.w, compSize.h);
     }

@@ -129,6 +129,7 @@
       startFrame: opts.startFrame || 0,
       endFrame: opts.endFrame != null ? opts.endFrame : state.frames.length - 1,
       motion: [],        // Motion keyframes: [{ frame, x, y }] — empty = static position
+      z: GC.frontZ(),    // layer (GC.layerOrder) — a new caption starts in front
     };
     state.captions.push(cap);
     state.selectedCaptionId = cap.id;
@@ -207,6 +208,7 @@
           startFrame: 0,
           endFrame: state.frames.length - 1,
           motion: [],
+          z: 0,          // layer (GC.layerOrder) — behind captions until brought to front
         };
         state.overlays.push(ov);
         state.selectedOverlayId = ov.id;
@@ -230,6 +232,7 @@
     }
     updateOverlayList();
     updateOverlayEditor();
+    updateCaptionEditor();
     GC.buildTimeline();
     GC.renderCurrentFrame();
   }
@@ -243,6 +246,15 @@
     updateCaptionEditor();
     GC.renderCurrentFrame();
   };
+
+  /** Move a caption or overlay in front of every other caption and overlay. */
+  function bringToFront(item) {
+    if (!item || GC.isFrontLayer(item)) return;
+    item.z = GC.frontZ() + 1;
+    updateCaptionEditor();
+    updateOverlayEditor();
+    GC.renderCurrentFrame();
+  }
 
   function updateOverlayList() {
     var list = $('#overlay-list');
@@ -294,6 +306,8 @@
     if (btnClear) btnClear.style.display = motionCount > 0 ? '' : 'none';
     var btnTrack = $('#btn-ov-track-ai');
     if (btnTrack) btnTrack.style.display = GC.trackerAvailable && GC.trackerAvailable() ? '' : 'none';
+    var btnFront = $('#btn-ov-bring-front');
+    if (btnFront) btnFront.disabled = GC.isFrontLayer(ov);
   }
 
   // ── Canvas Drag & Resize ─────────────────────
@@ -390,6 +404,26 @@
     $('#crop-y').value = r.y;
     $('#crop-w').value = r.w;
     $('#crop-h').value = r.h;
+  }
+
+  /**
+   * The front-most caption or overlay showing under canvas point m on the
+   * current frame, as a GC.layerOrder() entry, or null.
+   */
+  function layerAt(m) {
+    var layers = GC.layerOrder();
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var item = layers[i].item;
+      if (state.currentFrame < item.startFrame || state.currentFrame > item.endFrame) continue;
+      var bbox = layers[i].kind === 'overlay'
+        ? GC.getOverlayBBox(item, state.currentFrame)
+        : GC.getCaptionBBox(GC.ctx, item, state.currentFrame);
+      if (!bbox) continue;
+      var lm = GC.unrotatePoint(m.x, m.y, bbox, item.rotation || 0);
+      if (lm.x >= bbox.x - 6 && lm.x <= bbox.x + bbox.w + 6 &&
+          lm.y >= bbox.y - 6 && lm.y <= bbox.y + bbox.h + 6) return layers[i];
+    }
+    return null;
   }
 
   function handleCanvasMouseDown(e) {
@@ -635,70 +669,33 @@
       }
     }
 
-    // 2. Hit-test captions in reverse order (top-most first)
-    for (var i = state.captions.length - 1; i >= 0; i--) {
-      var cap = state.captions[i];
-      if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
-      var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
-      if (!bbox) continue;
-      var lm = GC.unrotatePoint(m.x, m.y, bbox, cap.rotation || 0);
-      if (lm.x >= bbox.x - 6 && lm.x <= bbox.x + bbox.w + 6 &&
-          lm.y >= bbox.y - 6 && lm.y <= bbox.y + bbox.h + 6) {
-        state.selectedCaptionId = cap.id;
-        state.selectedOverlayId = null;
-        // For motion captions, offset from interpolated position; otherwise from static
-        var dip = (cap.motion && cap.motion.length > 0)
-          ? GC.getInterpolatedPosition(cap.motion, state.currentFrame)
-          : null;
-        var dpx = dip ? dip.x : cap.x;
-        var dpy = dip ? dip.y : cap.y;
-        state.dragState = {
-          captionId: cap.id,
-          offsetX: m.x - dpx * state.width,
-          offsetY: m.y - dpy * state.height,
-          motionEnabled: cap.motion && cap.motion.length > 0,
-          motionFrame: state.currentFrame,
-        };
-        GC.canvas.style.cursor = 'grabbing';
-        GC.updateCaptionList();
-        updateCaptionEditor();
-        updateOverlayList();
-        updateOverlayEditor();
-        GC.renderCurrentFrame();
-        return;
-      }
-    }
-
-    // 3. Hit-test image overlays in reverse order
-    for (var oi = state.overlays.length - 1; oi >= 0; oi--) {
-      var ov = state.overlays[oi];
-      if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
-      var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
-      if (!ovBbox) continue;
-      var olm = GC.unrotatePoint(m.x, m.y, ovBbox, ov.rotation || 0);
-      if (olm.x >= ovBbox.x - 6 && olm.x <= ovBbox.x + ovBbox.w + 6 &&
-          olm.y >= ovBbox.y - 6 && olm.y <= ovBbox.y + ovBbox.h + 6) {
-        state.selectedOverlayId = ov.id;
-        state.selectedCaptionId = null;
-        var ovIp = (ov.motion && ov.motion.length > 0)
-          ? GC.getInterpolatedPosition(ov.motion, state.currentFrame) : null;
-        var ovPx = ovIp ? ovIp.x : ov.x;
-        var ovPy = ovIp ? ovIp.y : ov.y;
-        state.dragState = {
-          overlayId: ov.id,
-          offsetX: m.x - ovPx * state.width,
-          offsetY: m.y - ovPy * state.height,
-          motionEnabled: ov.motion && ov.motion.length > 0,
-          motionFrame: state.currentFrame,
-        };
-        GC.canvas.style.cursor = 'grabbing';
-        updateOverlayList();
-        updateOverlayEditor();
-        GC.updateCaptionList();
-        updateCaptionEditor();
-        GC.renderCurrentFrame();
-        return;
-      }
+    // 2. Hit-test captions and overlays, front-most layer first
+    var hit = layerAt(m);
+    if (hit) {
+      var item = hit.item;
+      var isOverlay = hit.kind === 'overlay';
+      state.selectedCaptionId = isOverlay ? null : item.id;
+      state.selectedOverlayId = isOverlay ? item.id : null;
+      // For motion items, offset from interpolated position; otherwise from static
+      var dip = (item.motion && item.motion.length > 0)
+        ? GC.getInterpolatedPosition(item.motion, state.currentFrame)
+        : null;
+      var dpx = dip ? dip.x : item.x;
+      var dpy = dip ? dip.y : item.y;
+      state.dragState = {
+        offsetX: m.x - dpx * state.width,
+        offsetY: m.y - dpy * state.height,
+        motionEnabled: item.motion && item.motion.length > 0,
+        motionFrame: state.currentFrame,
+      };
+      state.dragState[isOverlay ? 'overlayId' : 'captionId'] = item.id;
+      GC.canvas.style.cursor = 'grabbing';
+      GC.updateCaptionList();
+      updateCaptionEditor();
+      updateOverlayList();
+      updateOverlayEditor();
+      GC.renderCurrentFrame();
+      return;
     }
 
     // Nothing else hit — start pan drag when zoomed in
@@ -929,33 +926,7 @@
       if (onHandle) { GC.canvas.style.cursor = 'nwse-resize'; return; }
       if (onEdge) { GC.canvas.style.cursor = onEdge === 'h' ? 'ew-resize' : 'ns-resize'; return; }
 
-      var hovering = false;
-      for (var i = state.captions.length - 1; i >= 0; i--) {
-        var cap = state.captions[i];
-        if (state.currentFrame < cap.startFrame || state.currentFrame > cap.endFrame) continue;
-        var bbox = GC.getCaptionBBox(GC.ctx, cap, state.currentFrame);
-        if (!bbox) continue;
-        var hlm = GC.unrotatePoint(m.x, m.y, bbox, cap.rotation || 0);
-        if (hlm.x >= bbox.x - 6 && hlm.x <= bbox.x + bbox.w + 6 &&
-            hlm.y >= bbox.y - 6 && hlm.y <= bbox.y + bbox.h + 6) {
-          hovering = true; break;
-        }
-      }
-      if (hovering) { GC.canvas.style.cursor = 'grab'; return; }
-
-      // Overlay hover
-      for (var oi = state.overlays.length - 1; oi >= 0; oi--) {
-        var ov = state.overlays[oi];
-        if (state.currentFrame < ov.startFrame || state.currentFrame > ov.endFrame) continue;
-        var ovBbox = GC.getOverlayBBox(ov, state.currentFrame);
-        if (!ovBbox) continue;
-        var ohlm = GC.unrotatePoint(m.x, m.y, ovBbox, ov.rotation || 0);
-        if (ohlm.x >= ovBbox.x - 6 && ohlm.x <= ovBbox.x + ovBbox.w + 6 &&
-            ohlm.y >= ovBbox.y - 6 && ohlm.y <= ovBbox.y + ovBbox.h + 6) {
-          hovering = true; break;
-        }
-      }
-      if (hovering) { GC.canvas.style.cursor = 'grab'; return; }
+      if (layerAt(m)) { GC.canvas.style.cursor = 'grab'; return; }
 
       // Crop hover cursor
       var cropHit = hitTestCrop(m);
@@ -1164,6 +1135,8 @@
     if (btnClear) btnClear.style.display = motionCount > 0 ? '' : 'none';
     var btnTrack = $('#btn-track-with-ai');
     if (btnTrack) btnTrack.style.display = GC.trackerAvailable && GC.trackerAvailable() ? '' : 'none';
+    var btnFront = $('#btn-cap-bring-front');
+    if (btnFront) btnFront.disabled = GC.isFrontLayer(cap);
   }
 
   /** Update the play/pause button icon, frame counter, scrubber, and Save Frame state. */
@@ -1501,6 +1474,12 @@
         GC.renderCurrentFrame();
       });
     }
+    var btnOvBringFront = $('#btn-ov-bring-front');
+    if (btnOvBringFront) {
+      btnOvBringFront.addEventListener('click', function () {
+        bringToFront(GC.findOverlay(state.selectedOverlayId));
+      });
+    }
     var btnDeleteOverlay = $('#btn-delete-overlay');
     if (btnDeleteOverlay) {
       btnDeleteOverlay.addEventListener('click', function () {
@@ -1542,6 +1521,9 @@
     $('#btn-add-caption').addEventListener('click', function () { addCaption(); });
     $('#btn-delete-caption').addEventListener('click', function () {
       if (state.selectedCaptionId) GC.showDeleteModal();
+    });
+    $('#btn-cap-bring-front').addEventListener('click', function () {
+      bringToFront(GC.findCaption(state.selectedCaptionId));
     });
 
     // ── Motion keyframe controls (absent in still-image mode) ─
