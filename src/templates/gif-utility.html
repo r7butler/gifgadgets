@@ -78,6 +78,9 @@
     <label for="utility-selection">Frames to remove</label><input id="utility-selection" type="text" value="2" placeholder="2, 4-6" />
     <label for="utility-duration">Animation duration</label><select id="utility-duration"><option value="preserve">Preserve total duration</option><option value="shorten">Shorten animation</option></select>
     <p class="utility-hint">Preserve holds the preceding retained frame longer. Removed leading frames extend the first retained frame.</p>
+    {% elif utility_slug == 'gif-frame-rate' %}
+    <label for="utility-fps">Frame rate (frames per second)</label><input id="utility-fps" type="number" min="1" max="50" step="1" value="10" />
+    <p class="utility-hint">Frames are dropped evenly and the rest are held longer, so the animation keeps its length. A GIF cannot be given frames it does not have.</p>
     {% elif utility_slug == 'compress-gif' %}
     <label for="utility-compression">Compression method</label><select id="utility-compression"><option value="colors">Reduce colors</option><option value="metadata">Remove comments only (unchanged image data)</option></select>
     <label for="utility-colors">Maximum colors per frame</label><select id="utility-colors"><option>16</option><option>32</option><option selected>64</option><option>128</option><option>256</option></select>
@@ -121,7 +124,7 @@
   <div id="utility-continue-wrap" hidden>
     <label for="utility-next">Continue editing this result</label>
     <select id="utility-next">
-      <option value="/gif-speed/?continue=1">Change speed</option><option value="/reverse-gif/?continue=1">Reverse</option>
+      <option value="/gif-speed/?continue=1">Change speed</option><option value="/gif-frame-rate/?continue=1">Change frame rate</option><option value="/reverse-gif/?continue=1">Reverse</option>
       <option value="/rotate-gif/?continue=1">Rotate</option><option value="/flip-gif/?continue=1">Flip</option>
       <option value="/gif-loop/?continue=1">Change looping</option><option value="/trim-gif/?continue=1">Trim</option>
       <option value="/gif-resizer/edit/">Resize</option><option value="/gif-editor/edit/?source=local">Add captions</option>

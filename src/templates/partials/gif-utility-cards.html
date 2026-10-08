@@ -9,6 +9,14 @@
   <div class="tool-card-desc">Speed up or slow down the exported animation.</div>
   <div class="tool-card-arrow">Open tool →</div>
 </a>
+<a href="/gif-frame-rate/" class="tool-card gif">
+  <div class="tool-card-icon" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="5" height="12" rx="1"/><rect x="9.5" y="6" width="5" height="12" rx="1" stroke-dasharray="2 2"/><rect x="17" y="6" width="5" height="12" rx="1"/></svg>
+  </div>
+  <div class="tool-card-title">Change GIF Frame Rate</div>
+  <div class="tool-card-desc">Lower the frame rate to cut frames and size, keeping the length.</div>
+  <div class="tool-card-arrow">Open tool →</div>
+</a>
 {% if 'reverse-gif' not in excluded_gif_tools | default([]) -%}
 {% include 'partials/reverse-gif-card.html' %}
 {% endif -%}

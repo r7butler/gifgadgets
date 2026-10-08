@@ -66,6 +66,14 @@
       $('upload').hidden = true; $('new').hidden = false;
       $('info').textContent = reader.width + ' × ' + reader.height + ' · ' + reader.numFrames() + ' frames'
         + (extras.length ? ' · ' + (extras.length + 1) + ' GIFs selected' : '');
+      if ($('fps')) {
+        // Browsers play delays under 2 hundredths of a second at 10 (playedDelay in the worker).
+        let total = 0;
+        for (let i = 0; i < reader.numFrames(); i++) { const d = reader.frameInfo(i).delay; total += d < 2 ? 10 : d; }
+        const fps = reader.numFrames() * 100 / total;
+        $('info').textContent += ' · about ' + Math.round(fps * 10) / 10 + ' fps';
+        $('fps').value = Math.max(1, Math.floor(fps / 2));
+      }
       if ($('selection')) $('selection').placeholder = '1-' + reader.numFrames();
       if ($('width') && !MULTI && $('preset') && $('preset').value === 'custom') {
         $('width').value = reader.width; $('height').value = reader.height;
@@ -105,7 +113,7 @@
     if (!source || worker) return;
     clearResult();
     const options = {tool};
-    for (const key of ['rate','angle','axis','start','end','selection','extract',
+    for (const key of ['rate','fps','angle','axis','start','end','selection','extract',
                        'duration','compression','colors','width','height','fit']) {
       if ($(key)) options[key] = $(key).value;
     }
@@ -131,9 +139,10 @@
         metric.complete(); stop();
         const size = (outputBlob.size / 1024).toFixed(1) + ' KB';
         // Compression is only meaningful against the original, so show both.
+        const change = result.originalSize ? Math.round((1 - outputBlob.size / result.originalSize) * 100) : 0;
         const comparison = result.originalSize
           ? ' Original ' + (result.originalSize / 1024).toFixed(1) + ' KB · result ' + size
-            + ' (' + Math.round((1 - outputBlob.size / result.originalSize) * 100) + '% smaller).'
+            + ' (' + Math.abs(change) + (change >= 0 ? '% smaller).' : '% larger).')
           : '';
         $('status').textContent = 'Result ready · ' + size + '.' + comparison
           + (result.message ? ' ' + result.message : '')

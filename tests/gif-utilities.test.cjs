@@ -134,6 +134,83 @@ test('remove-gif-frames preserves or shortens duration and keeps a frame', () =>
   assert.throws(() => runBatch({tool:'remove-gif-frames', selection:'2', duration:'nope'}), /duration mode/);
 });
 
+/**
+ * An opaque 8×4 GIF whose frame i shows color i in the pixel at column i % 8,
+ * on a gray field, so every frame differs from the last only in that spot.
+ */
+function frameRateFixture(delays) {
+  const data = new Uint8Array(65536), w = new GifWriter(data, 8, 4, {loop: 0});
+  const palette = [0x808080].concat(delays.map((_, i) => 0x010000 * (i + 1) + 0x40)), size = 2 ** Math.ceil(Math.log2(palette.length));
+  while (palette.length < size) palette.push(0);
+  delays.forEach((delay, i) => {
+    const indexed = new Uint8Array(32); indexed[i % 8] = i + 1;
+    w.addFrame(0, 0, 8, 4, indexed, {palette, delay});
+  });
+  return data.slice(0, w.end());
+}
+/** Composed RGBA of every frame, with each frame's timing and stored rectangle. */
+function composed(bytes) {
+  const reader = new GifReader(bytes);
+  // decodeFrames comes from the vm realm, so copy it before strict deep compares.
+  return Array.from(context.decodeFrames(bytes, reader, context.blocks(bytes))).map((f, i) => {
+    const info = reader.frameInfo(i);
+    return {pixels: Array.from(f.pixels), delay: f.delay, width: info.width, height: info.height, disposal: info.disposal};
+  });
+}
+
+test('gif-frame-rate keeps the frame on screen at each step and the total length', () => {
+  // 10 frames of 4 hundredths: 25 fps over 40 hundredths.
+  const data = frameRateFixture(Array(10).fill(4)), source = composed(data);
+  const out = runBatch({tool:'gif-frame-rate', fps:10}, data);
+  const frames = composed(out.bytes);
+  // Steps at 0, 10, 20 and 30 fall in frames 0, 2, 5 and 7.
+  assert.deepEqual(frames.map(f => f.delay), [10, 10, 10, 10]);
+  [0, 2, 5, 7].forEach((s, k) => assert.deepEqual(frames[k].pixels, source[s].pixels));
+  assert.match(out.message, /Kept 4 of 10 frames .*0\.40 s/);
+  assert.equal(out.originalSize, data.length);
+
+  // 15 fps does not divide 100, so frame times alternate and still sum to the length.
+  const fifteen = composed(runBatch({tool:'gif-frame-rate', fps:15}, frameRateFixture(Array(30).fill(4))).bytes).map(f => f.delay);
+  assert.equal(fifteen.length, 18);
+  assert.equal(fifteen.reduce((n, d) => n + d, 0), 120);
+  assert.ok(fifteen.every(d => d === 6 || d === 7));
+});
+
+test('gif-frame-rate refuses to raise the rate and reads short delays as browsers play them', () => {
+  const data = frameRateFixture(Array(10).fill(4));
+  assert.throws(() => runBatch({tool:'gif-frame-rate', fps:25}, data), /about 25 fps\. Choose a lower frame rate/);
+  assert.throws(() => runBatch({tool:'gif-frame-rate', fps:30}, data), /Choose a lower frame rate/);
+  assert.throws(() => runBatch({tool:'gif-frame-rate', fps:0}, data), /from 1 to 50/);
+  // Delays of 0 and 1 play at 10 hundredths, so these GIFs run at 10 fps.
+  for (const delay of [0, 1]) {
+    const frames = composed(runBatch({tool:'gif-frame-rate', fps:5}, frameRateFixture(Array(6).fill(delay))).bytes);
+    assert.deepEqual(frames.map(f => f.delay), [20, 20, 20]);
+  }
+});
+
+test('gif-frame-rate stores only what changes, unless the GIF has transparency', () => {
+  const data = frameRateFixture(Array(10).fill(4)), source = composed(data);
+  const frames = composed(runBatch({tool:'gif-frame-rate', fps:20}, data).bytes);
+  // The first frame is whole; later ones are the one row that changed, left in place.
+  assert.deepEqual([frames[0].width, frames[0].height], [8, 4]);
+  assert.ok(frames.slice(1).every(f => f.height === 1));
+  assert.ok(frames.every(f => f.disposal === 1));
+  // Steps of 5 hundredths fall in frames 0, 1, 2, 3, 5, 6, 7, 8.
+  [0, 1, 2, 3, 5, 6, 7, 8].forEach((s, k) => assert.deepEqual(frames[k].pixels, source[s].pixels));
+
+  // The shared fixture has transparent pixels, so its frames stay whole and are cleared.
+  const clear = composed(runBatch({tool:'gif-frame-rate', fps:3}).bytes);
+  assert.ok(clear.every(f => f.width === 3 && f.height === 2 && f.disposal === 2));
+});
+
+test('gif-frame-rate merges kept frames that change nothing', () => {
+  // Frames 0-3 are the same picture; the step at frame 2 adds nothing new.
+  const data = new Uint8Array(4096), w = new GifWriter(data, 2, 1, {loop: 0});
+  [[1, 1], [1, 1], [1, 1], [1, 1], [2, 1], [2, 2]].forEach(px => w.addFrame(0, 0, 2, 1, px, {palette: [0, 0xff0000, 0x00ff00, 0x0000ff], delay: 5}));
+  const frames = composed(runBatch({tool:'gif-frame-rate', fps:10}, data.slice(0, w.end())).bytes);
+  assert.deepEqual(frames.map(f => f.delay), [20, 10]);
+});
+
 test('compress-gif strips comments losslessly and never returns a larger file', () => {
   const data = fixture();
   const stripped = runBatch({tool:'compress-gif', compression:'metadata'}, data);

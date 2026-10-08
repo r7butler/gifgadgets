@@ -4,7 +4,7 @@
   var tools = ['add-text-to-image', 'add-text-to-gif', 'gif-editor', 'gif-editor-advanced', 'image-editor', 'gif-resizer',
     'crop-gif', 'gif-maker', 'video-to-gif', 'gif-speed', 'reverse-gif',
     'rotate-gif', 'flip-gif', 'gif-loop', 'trim-gif', 'compress-gif',
-    'remove-gif-frames', 'gif-canvas', 'combine-gifs', 'bulk-resize-images',
+    'remove-gif-frames', 'gif-frame-rate', 'gif-canvas', 'combine-gifs', 'bulk-resize-images',
     'bulk-compress-images', 'bulk-convert-images', 'image-contact-sheet', 'gif-to-mp4', 'video-frame-extractor', 'trim-video', 'mute-video', 'remove-image-background', 'change-image-background', 'remove-gif-background', 'swap-gif-background'];
   var converters = ['jpg-to-png', 'png-to-jpg', 'jpg-to-webp', 'png-to-webp',
     'webp-to-jpg', 'gif-to-png', 'svg-to-png', 'heic-to-jpg'];

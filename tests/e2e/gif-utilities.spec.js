@@ -164,6 +164,35 @@ for (const tool of ['remove-gif-frames', 'compress-gif', 'gif-canvas']) {
   });
 }
 
+test('gif-frame-rate lowers the frame rate, keeps the length and refuses to raise it', async ({page}) => {
+  // 10 opaque frames of 4 hundredths each: 25 fps for 0.4 s, a different pixel lit in each.
+  const bytes = new Uint8Array(8192), writer = new GifWriter(bytes, 8, 4, {loop:0});
+  const palette = [0x808080, 0xff0000, 0x00ff00, 0x0000ff];
+  for (let i = 0; i < 10; i++) {
+    const pixels = new Uint8Array(32); pixels[i % 8] = 1 + i % 3;
+    writer.addFrame(0, 0, 8, 4, pixels, {palette, delay:4});
+  }
+  await page.goto('/gif-frame-rate/');
+  await page.locator('#utility-file').setInputFiles({name:'clip.gif', mimeType:'image/gif', buffer:Buffer.from(bytes.slice(0, writer.end()))});
+  await expect(page.locator('#utility-info')).toHaveText('8 × 4 · 10 frames · about 25 fps');
+  await expect(page.locator('#utility-fps')).toHaveValue('12');
+
+  await page.locator('#utility-fps').fill('30');
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-status')).toHaveText(/about 25 fps\. Choose a lower frame rate/);
+
+  await page.locator('#utility-fps').fill('10');
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible();
+  await expect(page.locator('#utility-status')).toContainText('Kept 4 of 10 frames');
+  await expect(page.locator('#utility-status')).toContainText(/% (smaller|larger)\)/);
+  const waiting = page.waitForEvent('download'); await page.locator('#utility-download').click();
+  const reader = new GifReader(fs.readFileSync(await (await waiting).path()));
+  expect(reader.numFrames()).toBe(4);
+  expect([0, 1, 2, 3].map(i => reader.frameInfo(i).delay)).toEqual([10, 10, 10, 10]);
+  expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://gifgadgets.com/gif-frame-rate/');
+});
+
 test('combine-gifs joins two uploads into one animation', async ({page}) => {
   await page.goto('/combine-gifs/');
   await page.locator('#utility-file').setInputFiles([

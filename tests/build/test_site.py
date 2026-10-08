@@ -53,7 +53,7 @@ class SiteBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
             module.build()
             root = Path(output)
-            for slug in ['gif-speed', 'gif-loop', 'reverse-gif', 'rotate-gif', 'flip-gif', 'trim-gif']:
+            for slug in ['gif-speed', 'gif-frame-rate', 'gif-loop', 'reverse-gif', 'rotate-gif', 'flip-gif', 'trim-gif']:
                 self.assertIn('/' + slug + '/', (root / 'sitemap.xml').read_text())
                 self.assertIn('/' + slug + '/', (root / 'index.html').read_text())
                 page = (root / slug / 'index.html').read_text()

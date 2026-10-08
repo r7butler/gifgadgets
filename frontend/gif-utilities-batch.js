@@ -1,6 +1,6 @@
 /* Shares compositing, palettes and encoding with the batch-one worker. */
 'use strict';
-const BATCH_TOOLS = ['extract-frames', 'remove-gif-frames', 'compress-gif', 'gif-canvas', 'combine-gifs'];
+const BATCH_TOOLS = ['extract-frames', 'remove-gif-frames', 'gif-frame-rate', 'compress-gif', 'gif-canvas', 'combine-gifs'];
 const BATCH_MEMORY = 96 * 1024 * 1024;
 function inspectGif(bytes) {
   check(bytes.length <= 40 * 1024 * 1024, 'Choose files totaling less than 40 MB.');
@@ -53,12 +53,73 @@ function encodeBatch(frames, width, height, loop, colors = 256) {
   frames.forEach((frame, i) => {
     check(frame.delay <= 65535, 'A retained frame exceeds the GIF delay limit. Remove fewer frames or choose Shorten.');
     const pal = paletteFrame(frame.pixels, colors); quantized ||= pal.quantized;
-    writer.addFrame(0, 0, width, height, pal.indexed, {palette:pal.palette, transparent:pal.transparent, delay:frame.delay, disposal:2});
+    // A frame from changedFrames covers only its rectangle and stays in place.
+    const r = frame.rect || {x:0, y:0, w:width, h:height};
+    writer.addFrame(r.x, r.y, r.w, r.h, pal.indexed, {palette:pal.palette, transparent:pal.transparent, delay:frame.delay, disposal:frame.rect ? 1 : 2});
     postMessage({progress: 40 + Math.round((i + 1) * 60 / frames.length)});
   });
   const end = writer.end(); check(end <= capacity, 'Output exceeds the memory limit.');
   return {bytes:buffer.slice(0, end), quantized};
 }
+/** How long a frame is shown: browsers play delays under 2 hundredths of a second at 10. */
+function playedDelay(delay) { return delay < 2 ? 10 : delay; }
+
+/**
+ * Keep an animation's length at a lower frame rate. Frames are sampled at
+ * even steps of 100 / fps hundredths of a second; each kept frame is the one
+ * on screen at its step and holds until the next. Timing is whole hundredths,
+ * so rates that do not divide 100 alternate frame times to average out.
+ */
+function lowerFrameRate(frames, fps) {
+  const delays = frames.map(f => playedDelay(f.delay)), total = delays.reduce((n, d) => n + d, 0);
+  const current = frames.length * 100 / total, shown = Math.round(current * 10) / 10;
+  check(fps < current - 1e-9, 'This GIF plays at about ' + shown + ' fps. Choose a lower frame rate; a higher one would need new frames drawn in between.');
+  const kept = [], step = 100 / fps;
+  let source = 0, start = 0;
+  for (let k = 0; Math.round(k * step) < total; k++) {
+    const at = Math.round(k * step), until = Math.min(total, Math.round((k + 1) * step));
+    while (start + delays[source] <= at) start += delays[source++];
+    const last = kept[kept.length - 1];
+    if (last && last.source === source) last.delay += until - at;
+    else kept.push({pixels: frames[source].pixels, delay: until - at, source});
+  }
+  return {kept, current: shown, seconds: total / 100};
+}
+
+/**
+ * Store only what changes. In an animation with no transparency, each frame
+ * after the first keeps the rectangle that differs from the frame before,
+ * with unchanged pixels left clear so the earlier frame shows through, and a
+ * frame that changes nothing adds its time to the one before. Frames are left
+ * in place rather than cleared, which cannot bring back a clear pixel, so an
+ * animation with transparency keeps whole frames.
+ */
+function changedFrames(frames, width, height) {
+  const opaque = frames.every(f => { for (let p = 3; p < f.pixels.length; p += 4) if (f.pixels[p] !== 255) return false; return true; });
+  if (!opaque) return frames;
+  const out = [{pixels: frames[0].pixels, delay: frames[0].delay, rect: {x:0, y:0, w:width, h:height}}];
+  let previous = frames[0].pixels;
+  const differs = (a, b, p) => a[p] !== b[p] || a[p + 1] !== b[p + 1] || a[p + 2] !== b[p + 2];
+  for (const frame of frames.slice(1)) {
+    const current = frame.pixels;
+    let left = width, top = height, right = -1, bottom = -1;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (!differs(current, previous, (y * width + x) * 4)) continue;
+      if (x < left) left = x; if (x > right) right = x;
+      if (y < top) top = y; if (y > bottom) bottom = y;
+    }
+    if (right < 0) { out[out.length - 1].delay += frame.delay; continue; }
+    const w = right - left + 1, h = bottom - top + 1, pixels = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const from = ((top + y) * width + left + x) * 4;
+      if (differs(current, previous, from)) pixels.set(current.subarray(from, from + 4), (y * w + x) * 4);
+    }
+    out.push({pixels, delay: frame.delay, rect: {x:left, y:top, w, h}});
+    previous = current;
+  }
+  return out;
+}
+
 function stripComments(info) {
   const pieces = [info.parsed.header, ...info.parsed.list.filter(b => !(b[0] === 33 && b[1] === 254)), new Uint8Array([59])];
   const bytes = new Uint8Array(pieces.reduce((n, p) => n + p.length, 0)); let offset = 0;
@@ -95,6 +156,14 @@ function transformBatch(bytes, opts, extra = []) {
       }
     });
     return encodeBatch(kept, info.width, info.height, info.reader.loopCount());
+  }
+  if (opts.tool === 'gif-frame-rate') {
+    const fps = Number(opts.fps);
+    check(Number.isFinite(fps) && fps >= 1 && fps <= 50, 'Choose a frame rate from 1 to 50 frames per second.');
+    const {kept, current, seconds} = lowerFrameRate(frames, fps);
+    const result = encodeBatch(changedFrames(kept, info.width, info.height), info.width, info.height, info.reader.loopCount());
+    return {...result, originalSize: bytes.length,
+      message: 'Kept ' + kept.length + ' of ' + frames.length + ' frames (about ' + current + ' fps to ' + fps + ' fps); the animation still runs ' + seconds.toFixed(2) + ' s.'};
   }
   if (opts.tool === 'compress-gif') {
     const colors = Number(opts.colors);

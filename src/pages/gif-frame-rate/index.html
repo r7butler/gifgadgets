@@ -1,0 +1,13 @@
+{% extends "gif-utility.html" %}
+{% set utility_slug = "gif-frame-rate" %}
+{% set utility_title = "Change GIF Frame Rate" %}
+{% set utility_description = "Lower a GIF's frame rate to cut frames and file size while the animation keeps its length." %}
+{% set utility_help = "Enter a frame rate below the GIF's current one. Frames are dropped evenly and the rest are held longer, so the animation runs just as long." %}
+{% set utility_faq = [
+  {"q": "Why can't I raise the frame rate?", "a": "A higher frame rate needs new frames between the ones the GIF already has, and those would have to be invented. This tool only lowers the rate. To make a GIF play faster, use Change GIF Speed instead."},
+  {"q": "Does a lower frame rate make the GIF smaller?", "a": "Usually. Fewer frames means less image data, and only the parts of each frame that change are stored. A GIF that is already tightly optimized may shrink only a little, so the result shows both sizes."},
+  {"q": "Will the animation get shorter or faster?", "a": "No. Each frame that is kept is held for the time of the frames dropped after it, so the total length stays the same to the hundredth of a second, and motion plays at the same pace, just less smoothly."},
+  {"q": "Which frame rates can a GIF have?", "a": "GIF timing is stored in hundredths of a second, so 50, 25, 20 and 10 fps are exact. Rates such as 15 or 12 are kept on average by alternating slightly different frame times. Browsers slow frames shorter than 2 hundredths of a second, so GIFs top out at 50 fps."},
+  {"q": "How is this different from changing the speed?", "a": "Changing the speed makes the whole animation play faster or slower and keeps every frame. Changing the frame rate keeps the speed and length, and drops frames."},
+  {"q": "Is my GIF uploaded to a server?", "a": "No. Frames are dropped and re-encoded in your browser."}
+] %}
