@@ -638,24 +638,46 @@ def handle_report_issue(event):
         return _cors_response(500, {"error": "Failed to retrieve credentials"})
 
     issue_payload = json.dumps({"title": title, "body": body_text}).encode("utf-8")
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{GITHUB_REPO}/issues",
-        data=issue_payload,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "gifwidgets-app",
-        },
-        method="POST",
-    )
+
+    def post_issue(url):
+        req = urllib.request.Request(
+            url,
+            data=issue_payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "gifwidgets-app",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
 
     try:
-        with urllib.request.urlopen(req) as resp:
-            result = json.loads(resp.read())
+        try:
+            result = post_issue(f"https://api.github.com/repos/{GITHUB_REPO}/issues")
+        except urllib.error.HTTPError as e:
+            # A renamed repo answers POSTs with a 307/308 to its new location, and
+            # urllib refuses to follow a redirect on POST. Follow it once, and only
+            # to GitHub's API, so the token is never sent anywhere else.
+            location = (e.headers or {}).get("Location", "")
+            if e.code not in (307, 308) or not location.startswith("https://api.github.com/"):
+                raise
+            logger.warning(json.dumps({
+                "event": "report_issue_repo_moved",
+                "repo": GITHUB_REPO,
+                "location": location,
+            }))
+            result = post_issue(location)
         return _cors_response(200, {"url": result.get("html_url", "")})
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as e:
+        logger.error(json.dumps({
+            "event": "report_issue_failed",
+            "repo": GITHUB_REPO,
+            "status": e.code,
+        }))
         return _cors_response(500, {"error": "Failed to create issue"})
 
 

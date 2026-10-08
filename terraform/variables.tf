@@ -78,7 +78,7 @@ variable "route53_zone_id" {
 variable "github_repo" {
   description = "GitHub repository used by the backend integration"
   type        = string
-  default     = "r7butler/gifwidgets"
+  default     = "r7butler/gifgadgets"
 }
 
 variable "acm_certificate_arn" {

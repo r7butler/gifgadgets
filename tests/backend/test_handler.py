@@ -351,6 +351,51 @@ class TestReportIssue:
         assert resp["statusCode"] == 500
         assert "create issue" in json.loads(resp["body"])["error"]
 
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_follows_renamed_repo_redirect(self, mock_urlopen, mock_aws):
+        # Renaming the repo makes GitHub answer the old path with a 307, which
+        # urllib raises instead of following on POST. Reports must still land.
+        moved_to = "https://api.github.com/repositories/1174924784/issues"
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"html_url": "https://github.com/issue/2"}).encode()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.side_effect = [
+            urllib.error.HTTPError(
+                url="https://api.github.com/repos/testuser/testrepo/issues",
+                code=307,
+                msg="Temporary Redirect",
+                hdrs={"Location": moved_to},
+                fp=None,
+            ),
+            mock_response,
+        ]
+
+        event = make_event("/api/report-issue", {"title": "Bug", "body": "details"})
+        resp = h.handler(event, None)
+        assert resp["statusCode"] == 200
+        assert json.loads(resp["body"])["url"] == "https://github.com/issue/2"
+
+        first, second = (c.args[0] for c in mock_urlopen.call_args_list)
+        assert second.full_url == moved_to
+        assert second.get_method() == "POST"
+        assert second.data == first.data
+        assert second.get_header("Authorization") == "Bearer ghp_testtoken"
+
+    @patch("backend.handler.urllib.request.urlopen")
+    def test_does_not_follow_redirect_off_github(self, mock_urlopen, mock_aws):
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="https://api.github.com/repos/testuser/testrepo/issues",
+            code=307,
+            msg="Temporary Redirect",
+            hdrs={"Location": "https://example.com/collect"},
+            fp=None,
+        )
+        event = make_event("/api/report-issue", {"title": "Bug", "body": "details"})
+        resp = h.handler(event, None)
+        assert resp["statusCode"] == 500
+        assert mock_urlopen.call_count == 1
+
 
 class TestTrackWarmup:
     def test_always_returns_200(self):
