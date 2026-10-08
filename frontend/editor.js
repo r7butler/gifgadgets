@@ -187,7 +187,8 @@
 
   // ── Overlay CRUD ──────────────────────────────
 
-  function addOverlayFromFile(file) {
+  /** Add an image file as an overlay, centred at `pos` (0–1 fractions) or near the top left. */
+  function addOverlayFromFile(file, pos) {
     var reader = new FileReader();
     reader.onload = function (e) {
       var img = new Image();
@@ -200,8 +201,8 @@
           id: 'ov-' + (GC.nextOverlayId++),
           img: img,
           name: file.name,
-          x: 0.1,
-          y: 0.1,
+          x: pos ? pos.x : 0.1,
+          y: pos ? pos.y : 0.1,
           scale: scale,
           scaleX: scale,
           scaleY: scale,
@@ -1468,6 +1469,52 @@
         overlayToggle.setAttribute('aria-expanded', String(!collapsed));
       });
     }
+    // Images dropped on the preview become overlays where they land — on the
+    // editors that show the overlay section, so they can be edited and removed.
+    var overlaySection = $('#overlay-section');
+    var canvasContainer = GC.canvas.closest('.canvas-container');
+    function isOverlayDrop(e) {
+      return state.frames.length > 0 && overlaySection && getComputedStyle(overlaySection).display !== 'none' &&
+        e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1;
+    }
+    if (overlaySection && canvasContainer) {
+      var dragDepth = 0; // dragenter/dragleave also fire crossing the preview's children
+      canvasContainer.addEventListener('dragenter', function (e) {
+        if (!isOverlayDrop(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        canvasContainer.classList.add('overlay-drop');
+      });
+      canvasContainer.addEventListener('dragover', function (e) {
+        if (!isOverlayDrop(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+      canvasContainer.addEventListener('dragleave', function () {
+        if (dragDepth > 0 && --dragDepth === 0) canvasContainer.classList.remove('overlay-drop');
+      });
+      canvasContainer.addEventListener('drop', function (e) {
+        if (!isOverlayDrop(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        canvasContainer.classList.remove('overlay-drop');
+        var images = Array.prototype.filter.call(e.dataTransfer.files, function (file) {
+          return file.type.indexOf('image/') === 0;
+        });
+        if (!images.length) {
+          GC.showError('Drop an image file to add it as an overlay.');
+          return;
+        }
+        var m = canvasCoords(e);
+        var pos = {
+          x: Math.max(0, Math.min(1, m.x / state.width)),
+          y: Math.max(0, Math.min(1, m.y / state.height)),
+        };
+        if (overlaySection.classList.contains('collapsed') && overlayToggle) overlayToggle.click();
+        images.forEach(function (file) { addOverlayFromFile(file, pos); });
+      });
+    }
+
     var btnAddOverlay = $('#btn-add-overlay');
     var overlayFileInput = $('#overlay-file-input');
     if (btnAddOverlay && overlayFileInput) {

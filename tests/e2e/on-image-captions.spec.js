@@ -44,12 +44,17 @@ async function solidPng(page, name, width, height, color) {
   return { name, mimeType: 'image/png', buffer: Buffer.from(url.split(',')[1], 'base64') };
 }
 
-/** Open an editor on a 240×160 gray picture with one selected caption. */
-async function openWithCaption(page, editor) {
+/** Open an editor (or a page built on one) on a 240×160 gray picture. */
+async function openEditor(page, editor) {
   await page.goto(editor.path);
   const base = editor.exportFn === 'exportGif' ? grayGif() : await solidPng(page, 'gray.png', 240, 160, '#808080');
   await page.locator('#file-input').setInputFiles(base);
   await expect(page.locator('#editor-workspace')).toBeVisible();
+}
+
+/** Open an editor on a 240×160 gray picture with one selected caption. */
+async function openWithCaption(page, editor) {
+  await openEditor(page, editor);
   await page.locator('#on-image-caption-toggle').click();
   await page.locator('#btn-add-caption').click();
   await expect(page.locator('#caption-editor')).toBeVisible();
@@ -163,6 +168,26 @@ async function dragHandle(page, kind, index, dx, dy, target = 'caption') {
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 6 });
   await page.mouse.up();
+}
+
+/**
+ * Drag files over the preview and drop them at picture point (x, y), as the
+ * browser delivers a drag from the desktop. Checks between dragover and drop.
+ */
+async function dropFiles(page, files, x, y, whileOver = async () => {}) {
+  const dataTransfer = await page.evaluateHandle((files) => {
+    const dt = new DataTransfer();
+    for (const f of files) {
+      dt.items.add(new File([Uint8Array.from(atob(f.data), c => c.charCodeAt(0))], f.name, { type: f.mimeType }));
+    }
+    return dt;
+  }, files.map(f => ({ name: f.name, mimeType: f.mimeType, data: f.buffer.toString('base64') })));
+  const point = await pagePoint(page, x, y);
+  const init = { dataTransfer, clientX: point.x, clientY: point.y };
+  await page.dispatchEvent('.canvas-container', 'dragenter', init);
+  await page.dispatchEvent('.canvas-container', 'dragover', init);
+  await whileOver();
+  await page.dispatchEvent('.canvas-container', 'drop', init);
 }
 
 /** Add a red image overlay through the overlay panel, then set its properties. */
@@ -327,6 +352,38 @@ for (const editor of EDITORS) {
       expectSamePoint(narrowed[3], after[3]);
     });
 
+    test('an image dropped on the preview becomes an overlay where it lands', async ({ page }) => {
+      await openEditor(page, editor);
+      const container = page.locator('.canvas-container');
+      await expect(page.locator('#overlay-section')).toHaveClass(/collapsed/);
+
+      await dropFiles(page, [await solidPng(page, 'red.png', 40, 30, '#ff0000')], 180, 50, async () => {
+        await expect(container).toHaveClass(/overlay-drop/);
+      });
+      await expect(container).not.toHaveClass(/overlay-drop/);
+      await expect(page.locator('#overlay-editor')).toBeVisible();
+      await expect(page.locator('#overlay-section')).not.toHaveClass(/collapsed/);
+      await expect(page.locator('#overlay-name')).toHaveText('red.png');
+      const placed = await page.evaluate(() => {
+        const ov = GC.state.overlays[0], pixel = GC.ctx.getImageData(180, 50 + GC.getFrameOffsetY(), 1, 1).data;
+        return { x: ov.x, y: ov.y, selected: GC.state.selectedOverlayId === ov.id, pixel: Array.from(pixel.slice(0, 3)) };
+      });
+      expect(Math.abs(placed.x - 180 / 240)).toBeLessThan(0.01);
+      expect(Math.abs(placed.y - 50 / 160)).toBeLessThan(0.01);
+      expect(placed.selected).toBe(true);
+      expect(placed.pixel).toEqual([255, 0, 0]);
+
+      // Several images at once each become an overlay.
+      await dropFiles(page, [await solidPng(page, 'a.png', 20, 20, '#00ff00'), await solidPng(page, 'b.png', 20, 20, '#0000ff')], 60, 100);
+      await expect.poll(() => page.evaluate(() => GC.state.overlays.map(o => o.name))).toEqual(['red.png', 'a.png', 'b.png']);
+
+      // Anything else is turned away with a message, and nothing is added.
+      const message = new Promise(resolve => page.once('dialog', dialog => { resolve(dialog.message()); dialog.dismiss(); }));
+      await dropFiles(page, [{ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') }], 120, 80);
+      expect(await message).toBe('Drop an image file to add it as an overlay.');
+      expect(await page.evaluate(() => GC.state.overlays.length)).toBe(3);
+    });
+
     test('a box outline frames the caption box, clear of its text, in preview and export', async ({ page }) => {
       await openWithCaption(page, editor);
       await placeCaption(page, 'WWWW');
@@ -386,4 +443,12 @@ test('resizing a moving image overlay keeps its corner on this frame and its pat
   const [k0, k1] = await page.evaluate(() => GC.state.overlays[0].motion);
   expect(k1.x - k0.x).toBeCloseTo(0.1, 6);
   expect(k1.y - k0.y).toBeCloseTo(0.05, 6);
+});
+
+test('caption-only editors leave dropped images alone, as they have no overlay controls', async ({ page }) => {
+  await openEditor(page, { path: '/add-text-to-gif/edit/', exportFn: 'exportGif' });
+  await dropFiles(page, [await solidPng(page, 'red.png', 40, 30, '#ff0000')], 120, 80, async () => {
+    await expect(page.locator('.canvas-container')).not.toHaveClass(/overlay-drop/);
+  });
+  expect(await page.evaluate(() => GC.state.overlays.length)).toBe(0);
 });
