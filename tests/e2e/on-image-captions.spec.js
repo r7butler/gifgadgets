@@ -8,7 +8,19 @@ const EDITORS = [
 ];
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
+  await page.addInitScript(() => {
+    localStorage.setItem('gc_cookie_consent', 'rejected');
+    /** The first caption or overlay, its box on the current frame, and its handle positions. */
+    window.testTarget = (target) => {
+      const f = GC.state.currentFrame;
+      if (target === 'overlay') {
+        const item = GC.state.overlays[0], box = GC.getOverlayBBox(item, f);
+        return { item, box, corners: GC.getOverlaySelectionCorners(box), edges: GC.getOverlayEdgeHandles(box) };
+      }
+      const item = GC.state.captions[0], box = GC.getCaptionBBox(GC.ctx, item, f);
+      return { item, box, corners: GC.getSelectionCorners(box), edges: GC.getEdgeHandles(box) };
+    };
+  });
 });
 
 /** A solid gray GIF, large enough to grab caption handles on. */
@@ -116,29 +128,28 @@ async function placeCaption(page, text) {
   });
 }
 
-/** The first caption box's corners — TL, TR, BL, BR — on the current frame, turned with the box. */
-function captionCorners(page) {
-  return page.evaluate(() => {
-    const cap = GC.state.captions[0], b = GC.getCaptionBBox(GC.ctx, cap, GC.state.currentFrame);
-    const rad = (cap.rotation || 0) * Math.PI / 180, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+/** The first caption's (or overlay's) box corners — TL, TR, BL, BR — on the current frame, turned with the box. */
+function boxCorners(page, target = 'caption') {
+  return page.evaluate((target) => {
+    const { item, box: b } = testTarget(target);
+    const rad = (item.rotation || 0) * Math.PI / 180, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
     return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => {
       const dx = sx * b.w / 2, dy = sy * b.h / 2;
       return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad), y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) };
     });
-  });
+  }, target);
 }
 
 /**
- * Drag one of the selected caption's handles — corner 0-3 (TL, TR, BL, BR)
- * or edge 0-3 (top, right, bottom, left) — by (dx, dy) picture pixels along
- * the box's own axes.
+ * Drag one of the selected caption's (or overlay's) handles — corner 0-3
+ * (TL, TR, BL, BR) or edge 0-3 (top, right, bottom, left) — by (dx, dy)
+ * picture pixels along the box's own axes.
  */
-async function dragHandle(page, kind, index, dx, dy) {
-  const [from, to] = await page.evaluate(([kind, index, dx, dy]) => {
-    const cap = GC.state.captions[0], b = GC.getCaptionBBox(GC.ctx, cap, GC.state.currentFrame);
-    const hs = GC.HANDLE_SIZE, rad = (cap.rotation || 0) * Math.PI / 180;
-    const corner = GC.getSelectionCorners(b)[index];
-    const handle = kind === 'corner' ? { x: corner.x + hs / 2, y: corner.y + hs / 2 } : GC.getEdgeHandles(b)[index];
+async function dragHandle(page, kind, index, dx, dy, target = 'caption') {
+  const [from, to] = await page.evaluate(([target, kind, index, dx, dy]) => {
+    const { item, box: b, corners, edges } = testTarget(target);
+    const hs = GC.HANDLE_SIZE, rad = (item.rotation || 0) * Math.PI / 180;
+    const handle = kind === 'corner' ? { x: corners[index].x + hs / 2, y: corners[index].y + hs / 2 } : edges[index];
     const r = GC.canvas.getBoundingClientRect(), size = GC.getCompositeSize();
     const onPage = (x, y) => {
       const ox = x - (b.x + b.w / 2), oy = y - (b.y + b.h / 2);
@@ -147,11 +158,22 @@ async function dragHandle(page, kind, index, dx, dy) {
       return { x: r.left + px * r.width / size.w, y: r.top + py * r.height / size.h };
     };
     return [onPage(handle.x, handle.y), onPage(handle.x + dx, handle.y + dy)];
-  }, [kind, index, dx, dy]);
+  }, [target, kind, index, dx, dy]);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 6 });
   await page.mouse.up();
+}
+
+/** Add a red image overlay through the overlay panel, then set its properties. */
+async function addRedOverlay(page, width, height, props) {
+  await page.locator('#overlay-toggle').click();
+  await page.locator('#overlay-file-input').setInputFiles(await solidPng(page, 'red.png', width, height, '#ff0000'));
+  await expect(page.locator('#overlay-editor')).toBeVisible();
+  await page.evaluate((props) => {
+    Object.assign(GC.state.overlays[0], props);
+    GC.renderCurrentFrame();
+  }, props);
 }
 
 function expectSamePoint(actual, expected) {
@@ -172,13 +194,7 @@ for (const editor of EDITORS) {
       await expect(page.locator('#btn-cap-bring-front')).toBeDisabled();
 
       // A red image big enough to cover the whole picture.
-      await page.locator('#overlay-toggle').click();
-      await page.locator('#overlay-file-input').setInputFiles(await solidPng(page, 'red.png', 100, 100, '#ff0000'));
-      await expect(page.locator('#overlay-editor')).toBeVisible();
-      await page.evaluate(() => {
-        Object.assign(GC.state.overlays[0], { x: 0.5, y: 0.5, scale: 4, scaleX: 4, scaleY: 4 });
-        GC.renderCurrentFrame();
-      });
+      await addRedOverlay(page, 100, 100, { x: 0.5, y: 0.5, scale: 4, scaleX: 4, scaleY: 4 });
       if (editor.exportFn === 'exportGif') await page.waitForFunction(() => GC.state._workerBlobUrl);
 
       // A new image goes behind the captions, as before layers existed.
@@ -217,9 +233,9 @@ for (const editor of EDITORS) {
       await placeCaption(page, 'WWWW');
 
       // Bottom-right corner in: the top-left corner stays put.
-      let before = await captionCorners(page);
+      let before = await boxCorners(page);
       await dragHandle(page, 'corner', 3, -30, -20);
-      let after = await captionCorners(page);
+      let after = await boxCorners(page);
       expectSamePoint(after[0], before[0]);
       expect(after[3].x).toBeLessThan(before[3].x - 10);
       expect(after[3].y).toBeLessThan(before[3].y - 5);
@@ -227,14 +243,14 @@ for (const editor of EDITORS) {
       // Top-left corner in: the bottom-right corner stays put.
       before = after;
       await dragHandle(page, 'corner', 0, 20, 10);
-      after = await captionCorners(page);
+      after = await boxCorners(page);
       expectSamePoint(after[3], before[3]);
       expect(after[0].x).toBeGreaterThan(before[0].x + 5);
 
       // Top edge down: the bottom edge stays put, and the top follows the pointer.
       before = after;
       await dragHandle(page, 'edge', 0, 0, 12);
-      after = await captionCorners(page);
+      after = await boxCorners(page);
       expectSamePoint(after[2], before[2]);
       expectSamePoint(after[3], before[3]);
       expect(Math.abs(after[0].y - before[0].y - 12)).toBeLessThan(1.5);
@@ -242,7 +258,7 @@ for (const editor of EDITORS) {
       // Right edge in: the left edge stays put.
       before = after;
       await dragHandle(page, 'edge', 1, -15, 0);
-      after = await captionCorners(page);
+      after = await boxCorners(page);
       expectSamePoint(after[0], before[0]);
       expectSamePoint(after[2], before[2]);
       expect(Math.abs(before[1].x - after[1].x - 15)).toBeLessThan(1.5);
@@ -255,15 +271,58 @@ for (const editor of EDITORS) {
         Object.assign(GC.state.captions[0], { rotation: 30, align: 'right', x: 0.75 });
         GC.renderCurrentFrame();
       });
-      const before = await captionCorners(page);
+      const before = await boxCorners(page);
       await dragHandle(page, 'corner', 3, -30, -20);
-      const after = await captionCorners(page);
+      const after = await boxCorners(page);
       expectSamePoint(after[0], before[0]);
       expect(Math.hypot(after[3].x - after[0].x, after[3].y - after[0].y))
         .toBeLessThan(Math.hypot(before[3].x - before[0].x, before[3].y - before[0].y) - 10);
 
       await dragHandle(page, 'edge', 3, 15, 0);
-      const narrowed = await captionCorners(page);
+      const narrowed = await boxCorners(page);
+      expectSamePoint(narrowed[1], after[1]);
+      expectSamePoint(narrowed[3], after[3]);
+    });
+
+    test('resizing an image overlay from a corner or edge keeps the opposite one in place', async ({ page }) => {
+      await openWithCaption(page, editor);
+      // A 60×40 image in the middle of the picture, clear of the caption.
+      await addRedOverlay(page, 60, 40, { x: 0.5, y: 0.5, scale: 1, scaleX: 1, scaleY: 1 });
+
+      let before = await boxCorners(page, 'overlay');
+      await dragHandle(page, 'corner', 3, -15, -10, 'overlay');
+      let after = await boxCorners(page, 'overlay');
+      expectSamePoint(after[0], before[0]);
+      expect(after[3].x).toBeLessThan(before[3].x - 5);
+
+      before = after;
+      await dragHandle(page, 'corner', 0, -10, -5, 'overlay');
+      after = await boxCorners(page, 'overlay');
+      expectSamePoint(after[3], before[3]);
+      expect(after[0].x).toBeLessThan(before[0].x - 3);
+
+      before = after;
+      await dragHandle(page, 'edge', 0, 0, 8, 'overlay');
+      after = await boxCorners(page, 'overlay');
+      expectSamePoint(after[2], before[2]);
+      expectSamePoint(after[3], before[3]);
+      expect(Math.abs(after[0].y - before[0].y - 8)).toBeLessThan(1.5);
+
+      before = after;
+      await dragHandle(page, 'edge', 1, -10, 0, 'overlay');
+      after = await boxCorners(page, 'overlay');
+      expectSamePoint(after[0], before[0]);
+      expectSamePoint(after[2], before[2]);
+      expect(Math.abs(before[1].x - after[1].x - 10)).toBeLessThan(1.5);
+
+      // Turned 30°, the corner and edge opposite the handle still stay put.
+      await page.evaluate(() => { GC.state.overlays[0].rotation = 30; GC.renderCurrentFrame(); });
+      before = await boxCorners(page, 'overlay');
+      await dragHandle(page, 'corner', 3, -8, -6, 'overlay');
+      after = await boxCorners(page, 'overlay');
+      expectSamePoint(after[0], before[0]);
+      await dragHandle(page, 'edge', 3, 6, 0, 'overlay');
+      const narrowed = await boxCorners(page, 'overlay');
       expectSamePoint(narrowed[1], after[1]);
       expectSamePoint(narrowed[3], after[3]);
     });
@@ -308,10 +367,23 @@ test('resizing a moving caption keeps its corner on this frame and its path shap
     GC.state.captions[0].motion = [{ frame: 0, x: 0.5, y: 0.25 }, { frame: 1, x: 0.6, y: 0.3 }];
     GC.seekFrame(0);
   });
-  const before = await captionCorners(page);
+  const before = await boxCorners(page);
   await dragHandle(page, 'corner', 3, -30, -20);
-  expectSamePoint((await captionCorners(page))[0], before[0]);
+  expectSamePoint((await boxCorners(page))[0], before[0]);
   const [k0, k1] = await page.evaluate(() => GC.state.captions[0].motion);
+  expect(k1.x - k0.x).toBeCloseTo(0.1, 6);
+  expect(k1.y - k0.y).toBeCloseTo(0.05, 6);
+});
+
+test('resizing a moving image overlay keeps its corner on this frame and its path shape', async ({ page }) => {
+  await openWithCaption(page, EDITORS[0]);
+  await addRedOverlay(page, 60, 40, { x: 0.5, y: 0.5, scale: 1, scaleX: 1, scaleY: 1,
+    motion: [{ frame: 0, x: 0.5, y: 0.5 }, { frame: 1, x: 0.6, y: 0.55 }] });
+  await page.evaluate(() => GC.seekFrame(0));
+  const before = await boxCorners(page, 'overlay');
+  await dragHandle(page, 'corner', 3, -15, -10, 'overlay');
+  expectSamePoint((await boxCorners(page, 'overlay'))[0], before[0]);
+  const [k0, k1] = await page.evaluate(() => GC.state.overlays[0].motion);
   expect(k1.x - k0.x).toBeCloseTo(0.1, 6);
   expect(k1.y - k0.y).toBeCloseTo(0.05, 6);
 });
