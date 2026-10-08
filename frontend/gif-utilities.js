@@ -16,6 +16,13 @@
     frameURLs.forEach(URL.revokeObjectURL); frameURLs = [];
     if ($('frames')) { $('frames').hidden = true; $('frames').textContent = ''; }
   }
+  // Upload problems show under the drop zone, where the person is looking. The
+  // sidebar status can sit below the fold, so a rejected GIF looked ignored.
+  function uploadError(message) {
+    $('upload-error').textContent = message || '';
+    $('upload-error').hidden = !message;
+    if (message) $('upload-error').scrollIntoView({block: 'nearest'});
+  }
   function stop() {
     if (worker) worker.terminate();
     worker = null; clearTimeout(timer); metric = null;
@@ -26,7 +33,7 @@
     const list = input ? (input.length !== undefined ? Array.from(input) : [input]) : [];
     const file = list[0];
     const ticket = ++generation;
-    stop(); source = null; extras = []; clearResult(); $('options').disabled = true;
+    stop(); source = null; extras = []; clearResult(); $('options').disabled = true; uploadError('');
     if (TRIM) GWTrim.reset();
     $('upload').hidden = false; $('new').hidden = true;
     if (inputURL) URL.revokeObjectURL(inputURL);
@@ -66,7 +73,7 @@
       if ($('end')) { $('end').value = reader.numFrames(); $('end').max = $('start').max = reader.numFrames(); $('start').value = 1; }
       if (TRIM) GWTrim.load(data, reader.numFrames());
       $('options').disabled = false; $('status').textContent = 'Ready. Choose settings, then apply.'; GWFunnel.ready();
-    } catch (error) { $('status').textContent = error.message; GWFunnel.failure('decode'); }
+    } catch (error) { $('status').textContent = error.message; uploadError(error.message); GWFunnel.failure('decode'); }
   }
   $('file').addEventListener('change', () => load(MULTI ? $('file').files : $('file').files[0]));
   $('upload').addEventListener('click', () => $('file').click());
@@ -75,7 +82,10 @@
   $('upload').addEventListener('dragleave', () => $('upload').classList.remove('dragover'));
   $('upload').addEventListener('drop', event => {
     event.preventDefault(); $('upload').classList.remove('dragover');
-    if (!worker && event.dataTransfer.files.length) load(MULTI ? event.dataTransfer.files : event.dataTransfer.files[0]);
+    if (worker) return;
+    // An image dragged from a web page arrives as a link, not a file.
+    if (event.dataTransfer.files.length) load(MULTI ? event.dataTransfer.files : event.dataTransfer.files[0]);
+    else uploadError('Drop a GIF file from your device.');
   });
   $('options').addEventListener('input', event => {
     clearResult(); $('status').textContent = 'Settings changed. Apply to preview the new result.';

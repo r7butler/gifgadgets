@@ -24,6 +24,36 @@ test('themed upload area supports dropping a GIF and choosing a replacement', as
   await page.evaluate(() => { document.documentElement.setAttribute('data-theme', 'dark'); window.scrollTo(0, 0); });
   await page.screenshot({path:testInfo.outputPath('utility-dark-result.png'),fullPage:true,animations:'disabled'});
 });
+for (const viewport of [{width:1280, height:720}, {width:390, height:844}]) {
+  test(`a GIF that cannot be opened says why beside the drop zone (${viewport.width}px)`, async ({page}) => {
+    // Remove frames has the tallest settings panel, which hid its status line below the fold.
+    await page.setViewportSize(viewport);
+    await page.goto('/remove-gif-frames/');
+    const message = page.locator('#utility-upload-error');
+    // A 4096×4096 canvas decodes past the memory limit, though the file is tiny.
+    const huge = new Uint8Array(4096), writer = new GifWriter(huge, 4096, 4096, {loop:0});
+    writer.addFrame(0, 0, 1, 1, [0], {palette:[0, 0xffffff]});
+    await page.locator('#utility-file').setInputFiles({name:'huge.gif', mimeType:'image/gif', buffer:Buffer.from(huge.slice(0, writer.end()))});
+    await expect(message).toHaveText('This GIF exceeds the decoded memory limit. Resize or shorten it first.');
+    await expect(message).toBeInViewport();
+    await expect(page.locator('#utility-upload')).toBeVisible();
+
+    await page.locator('#utility-file').setInputFiles({name:'renamed.gif', mimeType:'image/gif', buffer:Buffer.from('not a gif')});
+    await expect(message).toHaveText('Choose a valid GIF file.');
+
+    // A drag from a web page carries a link, not a file.
+    await page.locator('#utility-upload').evaluate(element => {
+      const transfer = new DataTransfer();
+      transfer.setData('text/uri-list', 'https://example.com/cat.gif');
+      element.dispatchEvent(new DragEvent('drop', {bubbles:true, cancelable:true, dataTransfer:transfer}));
+    });
+    await expect(message).toHaveText('Drop a GIF file from your device.');
+
+    await page.locator('#utility-file').setInputFiles({name:'good.gif', mimeType:'image/gif', buffer:fixture()});
+    await expect(page.locator('#utility-original-wrap')).toBeVisible();
+    await expect(message).toBeHidden();
+  });
+}
 for (const tool of ['gif-speed','gif-loop','reverse-gif','rotate-gif','flip-gif','trim-gif']) {
   test(tool + ' downloads a real transformed animation', async ({page}) => {
     await page.goto('/' + tool + '/');
