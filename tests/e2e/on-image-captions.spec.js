@@ -52,40 +52,83 @@ function pagePoint(page, x, y) {
 }
 
 /**
- * Pixels inside the first caption's box, clear of its selection handles,
- * that are not the red overlay — in the preview, or in the exported file.
+ * The picture as the preview shows it without selection handles, or as
+ * GC[exportFn] exports it, with the first caption's box in its pixels.
  */
-function pixelsNotRed(page, exportFn) {
+function renderedPicture(page, exportFn) {
   return page.evaluate(async (exportFn) => {
-    const box = GC.getCaptionBBox(GC.ctx, GC.state.captions[0], 0);
-    let ctx = GC.ctx, offsetY = GC.getFrameOffsetY();
+    let source = GC.canvas;
+    const selected = [GC.state.selectedCaptionId, GC.state.selectedOverlayId];
     if (exportFn) {
+      if (GC.state.isStillImage) GC.state.exportFormat = 'image/png';
       const blob = await new Promise(resolve => GC[exportFn]({ onBlob: resolve }));
-      const bitmap = await createImageBitmap(blob);
-      const canvas = document.createElement('canvas');
-      canvas.width = bitmap.width; canvas.height = bitmap.height;
-      ctx = canvas.getContext('2d');
-      ctx.drawImage(bitmap, 0, 0);
+      source = await createImageBitmap(blob);
+    } else {
+      GC.state.selectedCaptionId = GC.state.selectedOverlayId = null;
+      GC.renderCurrentFrame();
     }
-    const inset = 12;
-    const data = ctx.getImageData(box.x + inset, box.y + offsetY + inset, box.w - 2 * inset, box.h - 2 * inset).data;
-    let count = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (!(data[i] > 200 && data[i + 1] < 60 && data[i + 2] < 60)) count++;
-    }
-    return count;
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width; canvas.height = source.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0);
+    [GC.state.selectedCaptionId, GC.state.selectedOverlayId] = selected;
+    GC.renderCurrentFrame();
+    const box = GC.getCaptionBBox(GC.ctx, GC.state.captions[0], 0);
+    box.y += GC.getFrameOffsetY();
+    return { width: canvas.width, data: Array.from(ctx.getImageData(0, 0, canvas.width, canvas.height).data), box };
   }, exportFn);
+}
+
+/**
+ * Count the caption box's pixels by color — red, the gray picture, or
+ * anything else — keeping those `from` to `to` pixels in from its edge.
+ */
+function tally({ width, data, box }, from = 0, to = Infinity) {
+  const counts = { red: 0, gray: 0, other: 0 };
+  const left = Math.round(box.x), top = Math.round(box.y), w = Math.round(box.w), h = Math.round(box.h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const depth = Math.min(x, y, w - 1 - x, h - 1 - y);
+      if (depth < from || depth >= to) continue;
+      const i = ((top + y) * width + left + x) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
+      if (r > 200 && g < 60 && b < 60) counts.red++;
+      else if (Math.abs(r - 128) < 12 && Math.abs(g - 128) < 12 && Math.abs(b - 128) < 12) counts.gray++;
+      else counts.other++;
+    }
+  }
+  return counts;
+}
+
+/** Set a control's value the way a person dragging or picking it would. */
+function setControl(page, selector, value) {
+  return page.locator(selector).evaluate((el, value) => {
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+}
+
+/** The first caption as a 144×80 box, 48 px from the left and 40 px down. */
+async function placeCaption(page, text) {
+  await page.locator('#cap-text').fill(text);
+  await page.evaluate(() => {
+    Object.assign(GC.state.captions[0], { x: 0.5, y: 0.25, boxWidth: 0.6, boxHeight: 0.5, fontSize: 200 });
+    GC.renderCurrentFrame();
+  });
+}
+
+function notRed(picture) {
+  const counts = tally(picture);
+  return counts.gray + counts.other;
 }
 
 for (const editor of EDITORS) {
   test.describe(editor.name, () => {
     test('bring to front moves an image over a caption and the caption back over it', async ({ page }) => {
       await openWithCaption(page, editor);
-      await page.locator('#cap-text').fill('WWWW');
-      await page.evaluate(() => Object.assign(GC.state.captions[0], { x: 0.5, y: 0.25, boxWidth: 0.6, boxHeight: 0.5, fontSize: 200 }));
+      await placeCaption(page, 'WWWW');
       await expect(page.locator('#btn-cap-bring-front')).toBeDisabled();
 
-      // A red image big enough to cover the whole picture, handles and all.
+      // A red image big enough to cover the whole picture.
       await page.locator('#overlay-toggle').click();
       await page.locator('#overlay-file-input').setInputFiles(await solidPng(page, 'red.png', 100, 100, '#ff0000'));
       await expect(page.locator('#overlay-editor')).toBeVisible();
@@ -96,13 +139,13 @@ for (const editor of EDITORS) {
       if (editor.exportFn === 'exportGif') await page.waitForFunction(() => GC.state._workerBlobUrl);
 
       // A new image goes behind the captions, as before layers existed.
-      expect(await pixelsNotRed(page)).toBeGreaterThan(0);
+      expect(notRed(await renderedPicture(page))).toBeGreaterThan(0);
       await expect(page.locator('#btn-ov-bring-front')).toBeEnabled();
 
       await page.locator('#btn-ov-bring-front').click();
       await expect(page.locator('#btn-ov-bring-front')).toBeDisabled();
-      expect(await pixelsNotRed(page)).toBe(0);
-      expect(await pixelsNotRed(page, editor.exportFn)).toBe(0);
+      expect(notRed(await renderedPicture(page))).toBe(0);
+      expect(notRed(await renderedPicture(page, editor.exportFn))).toBe(0);
 
       // With nothing selected, a click where they overlap picks the front one.
       const middle = await page.evaluate(() => {
@@ -118,12 +161,43 @@ for (const editor of EDITORS) {
       await expect(page.locator('#btn-cap-bring-front')).toBeEnabled();
       await page.locator('#btn-cap-bring-front').click();
       await expect(page.locator('#btn-cap-bring-front')).toBeDisabled();
-      expect(await pixelsNotRed(page)).toBeGreaterThan(0);
-      expect(await pixelsNotRed(page, editor.exportFn)).toBeGreaterThan(0);
+      expect(notRed(await renderedPicture(page))).toBeGreaterThan(0);
+      expect(notRed(await renderedPicture(page, editor.exportFn))).toBeGreaterThan(0);
 
       await page.evaluate(() => GC.selectCaption(null));
       await page.mouse.click(point.x, point.y);
       expect(await page.evaluate(() => GC.state.selectedCaptionId)).toBe('cap-1');
+    });
+
+    test('a box outline frames the caption box, clear of its text, in preview and export', async ({ page }) => {
+      await openWithCaption(page, editor);
+      await placeCaption(page, 'WWWW');
+      if (editor.exportFn === 'exportGif') await page.waitForFunction(() => GC.state._workerBlobUrl);
+      await expect(page.locator('#cap-box-outline-width')).toHaveValue('0');
+      expect(tally(await renderedPicture(page), 0, 6).red).toBe(0);
+
+      await setControl(page, '#cap-box-outline-color', '#ff0000');
+      await setControl(page, '#cap-box-outline-width', '6');
+      await expect(page.locator('#cap-box-outline-width-val')).toHaveText('6');
+
+      // The outline fills the box's outer 6 px; the next 6 px stay empty, so
+      // the text and its own outline never touch it.
+      for (const picture of [await renderedPicture(page), await renderedPicture(page, editor.exportFn)]) {
+        const ring = tally(picture, 0, 6);
+        expect(ring.gray + ring.other).toBe(0);
+        expect(tally(picture, 6, 10)).toEqual({ red: 0, gray: expect.any(Number), other: 0 });
+        expect(tally(picture, 10).other).toBeGreaterThan(0);
+      }
+
+      // The controls show a caption's own outline when it is selected again.
+      await page.locator('#btn-add-caption').click();
+      await expect(page.locator('#cap-box-outline-width')).toHaveValue('0');
+      await page.locator('#caption-list .caption-list-item').first().click();
+      await expect(page.locator('#cap-box-outline-width')).toHaveValue('6');
+      await expect(page.locator('#cap-box-outline-color')).toHaveValue('#ff0000');
+
+      await setControl(page, '#cap-box-outline-width', '0');
+      expect(tally(await renderedPicture(page), 0, 6).red).toBe(0);
     });
   });
 }

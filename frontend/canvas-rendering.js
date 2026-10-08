@@ -317,6 +317,23 @@
     return { fontSize: bestSize, lines: bestLines };
   };
 
+  /**
+   * Lay out a caption's text in its box: { fontSize, lines, inset }, where
+   * inset is the gap from the box edge to the text. An outlined box keeps its
+   * text, text outline included, clear of the box outline by the outline's
+   * width; a box without an outline has no inset.
+   */
+  GC.fitCaption = function (context, cap) {
+    var outline = cap.boxOutlineWidth || 0;
+    var inset = outline > 0 ? outline * 2 + (cap.strokeWidth || 0) : 0;
+    var boxW = (cap.boxWidth || 0.55) * state.width;
+    var boxH = (cap.boxHeight || 0.25) * state.height;
+    var fit = GC.fitFontSize(context, cap.text, cap.fontWeight, cap.fontFamily,
+      Math.max(1, boxW - 2 * inset), Math.max(1, boxH - 2 * inset), 8, cap.fontSize || 200);
+    fit.inset = inset;
+    return fit;
+  };
+
   GC.drawCaption = function (context, cap, frameIndex) {
     var motion = cap.motion || [];
     var px = cap.x, py = cap.y;
@@ -341,11 +358,22 @@
       context.translate(-cx, -cy);
     }
 
+    // Box outline, drawn just inside the box edge
+    var outline = cap.boxOutlineWidth || 0;
+    if (outline > 0) {
+      var bx = cap.align === 'left' ? x : cap.align === 'right' ? x - boxW : x - boxW / 2;
+      context.strokeStyle = cap.boxOutlineColor || '#ffffff';
+      context.lineWidth = outline;
+      context.lineJoin = 'miter';
+      context.strokeRect(bx + outline / 2, y + outline / 2,
+        Math.max(0, boxW - outline), Math.max(0, boxH - outline));
+    }
+
     // Auto-fit font size within the box, capped by cap.fontSize
-    var maxFs = cap.fontSize || 200;
-    var fit = GC.fitFontSize(context, cap.text, cap.fontWeight, cap.fontFamily, boxW, boxH, 8, maxFs);
+    var fit = GC.fitCaption(context, cap);
     var fontSize = fit.fontSize;
     var lines = fit.lines;
+    var tx = cap.align === 'left' ? x + fit.inset : cap.align === 'right' ? x - fit.inset : x;
 
     context.font = (cap.fontWeight || 700) + ' ' + fontSize + 'px ' + cap.fontFamily;
     context.textAlign = cap.align;
@@ -354,16 +382,16 @@
     var lh = fontSize * 1.2;
 
     for (var i = 0; i < lines.length; i++) {
-      var ly = y + i * lh;
+      var ly = y + fit.inset + i * lh;
       if (cap.strokeWidth > 0) {
         context.strokeStyle = cap.strokeColor;
         context.lineWidth = cap.strokeWidth * 2;
         context.lineJoin = 'round';
         context.miterLimit = 2;
-        context.strokeText(lines[i], x, ly);
+        context.strokeText(lines[i], tx, ly);
       }
       context.fillStyle = cap.color;
-      context.fillText(lines[i], x, ly);
+      context.fillText(lines[i], tx, ly);
     }
     context.restore();
   };

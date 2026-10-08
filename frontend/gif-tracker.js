@@ -120,14 +120,15 @@
     if (kind === 'overlay') return { x: 0, y: 0 };
     var ctx = GC.ctx;
     ctx.save();
-    var fit = GC.fitFontSize(ctx, target.text, target.fontWeight, target.fontFamily,
-      (target.boxWidth || 0.55) * state.width, (target.boxHeight || 0.25) * state.height, 8, target.fontSize || 200);
+    var fit = GC.fitCaption(ctx, target);
     var width = fit.lines.reduce(function (w, line) { return Math.max(w, ctx.measureText(line).width); }, 0);
     ctx.restore();
-    // Lines are drawn from the top, 1.2 font sizes apart (GC.drawCaption).
+    // Lines are drawn from the top, 1.2 font sizes apart, `inset` in from the
+    // box edge (GC.drawCaption).
     var height = fit.fontSize * (1.2 * (fit.lines.length - 1) + 1);
-    var dx = target.align === 'left' ? width / 2 : target.align === 'right' ? -width / 2 : 0;
-    return { x: dx / state.width, y: height / 2 / state.height };
+    var side = fit.inset + width / 2;
+    var dx = target.align === 'left' ? side : target.align === 'right' ? -side : 0;
+    return { x: dx / state.width, y: (fit.inset + height / 2) / state.height };
   }
 
   function _restoreMotion() {

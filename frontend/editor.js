@@ -122,6 +122,8 @@
       color: opts.color || '#ffffff',
       strokeColor: opts.strokeColor || '#000000',
       strokeWidth: opts.strokeWidth != null ? opts.strokeWidth : 3,
+      boxOutlineColor: opts.boxOutlineColor || '#ffffff',
+      boxOutlineWidth: opts.boxOutlineWidth || 0,  // px; 0 = no outline around the box
       align: opts.align || 'center',
       boxWidth: opts.boxWidth || 0.55,    // normalised 0–1 fraction of canvas width
       boxHeight: opts.boxHeight || 0.25,  // normalised 0–1 fraction of canvas height
@@ -1120,6 +1122,9 @@
     $('#cap-stroke-color').value = cap.strokeColor;
     $('#cap-stroke-width').value = cap.strokeWidth;
     $('#cap-stroke-width-val').textContent = cap.strokeWidth;
+    $('#cap-box-outline-color').value = cap.boxOutlineColor || '#ffffff';
+    $('#cap-box-outline-width').value = cap.boxOutlineWidth || 0;
+    $('#cap-box-outline-width-val').textContent = cap.boxOutlineWidth || 0;
     $('#cap-font').value = cap.fontFamily;
     $('#cap-bold').checked = (cap.fontWeight || 700) >= 700;
     toggleCapBoldOption(cap.fontFamily);
@@ -1604,6 +1609,14 @@
       var v = parseFloat(e.target.value);
       $('#cap-stroke-width-val').textContent = v;
       updateSelectedCaption({ strokeWidth: v });
+    });
+    $('#cap-box-outline-color').addEventListener('input', function (e) {
+      updateSelectedCaption({ boxOutlineColor: e.target.value });
+    });
+    $('#cap-box-outline-width').addEventListener('input', function (e) {
+      var v = parseInt(e.target.value, 10);
+      $('#cap-box-outline-width-val').textContent = v;
+      updateSelectedCaption({ boxOutlineWidth: v });
     });
     $('#cap-font').addEventListener('change', function (e) {
       updateSelectedCaption({ fontFamily: e.target.value });
