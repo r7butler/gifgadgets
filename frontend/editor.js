@@ -408,6 +408,56 @@
     $('#crop-h').value = r.h;
   }
 
+  // Each selection handle's place on a caption box, as signs from the box
+  // centre: corners TL, TR, BL, BR (GC.getSelectionCorners) and edges top,
+  // right, bottom, left (GC.getEdgeHandles).
+  var CORNER_SIDES = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  var EDGE_SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+  /**
+   * Record the point of a caption's box that must stay put while it is
+   * resized — `side` is its place as signs from the box centre — in canvas
+   * coordinates with the box's rotation applied, plus where the caption and
+   * its keyframes were when the resize began.
+   */
+  function captionAnchor(cap, bbox, side) {
+    var rad = (cap.rotation || 0) * Math.PI / 180;
+    var dx = side[0] * bbox.w / 2, dy = side[1] * bbox.h / 2;
+    var motion = cap.motion || [];
+    var ip = motion.length > 0 ? GC.getInterpolatedPosition(motion, state.currentFrame) : null;
+    return {
+      side: side,
+      x: bbox.x + bbox.w / 2 + dx * Math.cos(rad) - dy * Math.sin(rad),
+      y: bbox.y + bbox.h / 2 + dx * Math.sin(rad) + dy * Math.cos(rad),
+      shown: ip || { x: cap.x, y: cap.y },
+      start: { x: cap.x, y: cap.y },
+      motion: motion.map(function (k) { return { x: k.x, y: k.y }; }),
+    };
+  }
+
+  /**
+   * Move a caption whose box was just resized so its anchor point is back
+   * where it was. A moving caption's whole path shifts by the same amount, so
+   * the box keeps its place relative to what it follows.
+   */
+  function keepCaptionAnchor(cap, anchor) {
+    var w = (cap.boxWidth || 0.55) * state.width, h = (cap.boxHeight || 0.25) * state.height;
+    var rad = (cap.rotation || 0) * Math.PI / 180;
+    var dx = anchor.side[0] * w / 2, dy = anchor.side[1] * h / 2;
+    var cx = anchor.x - (dx * Math.cos(rad) - dy * Math.sin(rad));
+    var cy = anchor.y - (dx * Math.sin(rad) + dy * Math.cos(rad));
+    // A caption's position is the top of its box, at the left, centre or right.
+    var px = cap.align === 'left' ? cx - w / 2 : cap.align === 'right' ? cx + w / 2 : cx;
+    var shiftX = px / state.width - anchor.shown.x;
+    var shiftY = (cy - h / 2) / state.height - anchor.shown.y;
+    cap.x = anchor.start.x + shiftX;
+    cap.y = anchor.start.y + shiftY;
+    (cap.motion || []).forEach(function (k, i) {
+      k.x = anchor.motion[i].x + shiftX;
+      k.y = anchor.motion[i].y + shiftY;
+    });
+  }
+
   /**
    * The front-most caption or overlay showing under canvas point m on the
    * current frame, as a GC.layerOrder() entry, or null.
@@ -622,6 +672,7 @@
                 startDist: Math.sqrt(Math.pow(lm.x - ancX, 2) + Math.pow(lm.y - ancY, 2)),
                 rotation: selCap.rotation || 0,
                 bboxForUnrotate: bbox,
+                anchor: captionAnchor(selCap, bbox, CORNER_SIDES[oppositeIdx[c]]),
               };
               GC.canvas.style.cursor = 'nwse-resize';
               return;
@@ -644,6 +695,7 @@
                 rotation: selCap.rotation || 0,
                 bboxForUnrotate: bbox,
                 bbox: bbox,
+                anchor: captionAnchor(selCap, bbox, EDGE_SIDES[(ei + 2) % 4]),
               };
               GC.canvas.style.cursor = eh.axis === 'h' ? 'ew-resize' : 'ns-resize';
               return;
@@ -809,6 +861,7 @@
             var sign = (es.edgeIndex === 2) ? 1 : -1;
             cap.boxHeight = Math.max(0.03, Math.min(1, es.startBoxHeight + sign * delta / state.height));
           }
+          keepCaptionAnchor(cap, es.anchor);
           GC.renderCurrentFrame();
           updateCaptionEditor();
         }
@@ -840,6 +893,7 @@
         var scale = dist / state.resizeState.startDist;
         cap.boxWidth = Math.max(0.05, Math.min(1, state.resizeState.startBoxWidth * scale));
         cap.boxHeight = Math.max(0.03, Math.min(1, state.resizeState.startBoxHeight * scale));
+        keepCaptionAnchor(cap, state.resizeState.anchor);
         GC.renderCurrentFrame();
         updateCaptionEditor();
       }

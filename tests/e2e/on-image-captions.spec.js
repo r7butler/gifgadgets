@@ -116,6 +116,49 @@ async function placeCaption(page, text) {
   });
 }
 
+/** The first caption box's corners — TL, TR, BL, BR — on the current frame, turned with the box. */
+function captionCorners(page) {
+  return page.evaluate(() => {
+    const cap = GC.state.captions[0], b = GC.getCaptionBBox(GC.ctx, cap, GC.state.currentFrame);
+    const rad = (cap.rotation || 0) * Math.PI / 180, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => {
+      const dx = sx * b.w / 2, dy = sy * b.h / 2;
+      return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad), y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) };
+    });
+  });
+}
+
+/**
+ * Drag one of the selected caption's handles — corner 0-3 (TL, TR, BL, BR)
+ * or edge 0-3 (top, right, bottom, left) — by (dx, dy) picture pixels along
+ * the box's own axes.
+ */
+async function dragHandle(page, kind, index, dx, dy) {
+  const [from, to] = await page.evaluate(([kind, index, dx, dy]) => {
+    const cap = GC.state.captions[0], b = GC.getCaptionBBox(GC.ctx, cap, GC.state.currentFrame);
+    const hs = GC.HANDLE_SIZE, rad = (cap.rotation || 0) * Math.PI / 180;
+    const corner = GC.getSelectionCorners(b)[index];
+    const handle = kind === 'corner' ? { x: corner.x + hs / 2, y: corner.y + hs / 2 } : GC.getEdgeHandles(b)[index];
+    const r = GC.canvas.getBoundingClientRect(), size = GC.getCompositeSize();
+    const onPage = (x, y) => {
+      const ox = x - (b.x + b.w / 2), oy = y - (b.y + b.h / 2);
+      const px = b.x + b.w / 2 + ox * Math.cos(rad) - oy * Math.sin(rad);
+      const py = b.y + b.h / 2 + ox * Math.sin(rad) + oy * Math.cos(rad) + GC.getFrameOffsetY();
+      return { x: r.left + px * r.width / size.w, y: r.top + py * r.height / size.h };
+    };
+    return [onPage(handle.x, handle.y), onPage(handle.x + dx, handle.y + dy)];
+  }, [kind, index, dx, dy]);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+}
+
+function expectSamePoint(actual, expected) {
+  expect(Math.abs(actual.x - expected.x)).toBeLessThan(0.5);
+  expect(Math.abs(actual.y - expected.y)).toBeLessThan(0.5);
+}
+
 function notRed(picture) {
   const counts = tally(picture);
   return counts.gray + counts.other;
@@ -169,6 +212,62 @@ for (const editor of EDITORS) {
       expect(await page.evaluate(() => GC.state.selectedCaptionId)).toBe('cap-1');
     });
 
+    test('resizing a caption from a corner or edge keeps the opposite one in place', async ({ page }) => {
+      await openWithCaption(page, editor);
+      await placeCaption(page, 'WWWW');
+
+      // Bottom-right corner in: the top-left corner stays put.
+      let before = await captionCorners(page);
+      await dragHandle(page, 'corner', 3, -30, -20);
+      let after = await captionCorners(page);
+      expectSamePoint(after[0], before[0]);
+      expect(after[3].x).toBeLessThan(before[3].x - 10);
+      expect(after[3].y).toBeLessThan(before[3].y - 5);
+
+      // Top-left corner in: the bottom-right corner stays put.
+      before = after;
+      await dragHandle(page, 'corner', 0, 20, 10);
+      after = await captionCorners(page);
+      expectSamePoint(after[3], before[3]);
+      expect(after[0].x).toBeGreaterThan(before[0].x + 5);
+
+      // Top edge down: the bottom edge stays put, and the top follows the pointer.
+      before = after;
+      await dragHandle(page, 'edge', 0, 0, 12);
+      after = await captionCorners(page);
+      expectSamePoint(after[2], before[2]);
+      expectSamePoint(after[3], before[3]);
+      expect(Math.abs(after[0].y - before[0].y - 12)).toBeLessThan(1.5);
+
+      // Right edge in: the left edge stays put.
+      before = after;
+      await dragHandle(page, 'edge', 1, -15, 0);
+      after = await captionCorners(page);
+      expectSamePoint(after[0], before[0]);
+      expectSamePoint(after[2], before[2]);
+      expect(Math.abs(before[1].x - after[1].x - 15)).toBeLessThan(1.5);
+    });
+
+    test('a turned, right-aligned caption keeps its opposite corner while resized', async ({ page }) => {
+      await openWithCaption(page, editor);
+      await placeCaption(page, 'WWWW');
+      await page.evaluate(() => {
+        Object.assign(GC.state.captions[0], { rotation: 30, align: 'right', x: 0.75 });
+        GC.renderCurrentFrame();
+      });
+      const before = await captionCorners(page);
+      await dragHandle(page, 'corner', 3, -30, -20);
+      const after = await captionCorners(page);
+      expectSamePoint(after[0], before[0]);
+      expect(Math.hypot(after[3].x - after[0].x, after[3].y - after[0].y))
+        .toBeLessThan(Math.hypot(before[3].x - before[0].x, before[3].y - before[0].y) - 10);
+
+      await dragHandle(page, 'edge', 3, 15, 0);
+      const narrowed = await captionCorners(page);
+      expectSamePoint(narrowed[1], after[1]);
+      expectSamePoint(narrowed[3], after[3]);
+    });
+
     test('a box outline frames the caption box, clear of its text, in preview and export', async ({ page }) => {
       await openWithCaption(page, editor);
       await placeCaption(page, 'WWWW');
@@ -201,3 +300,18 @@ for (const editor of EDITORS) {
     });
   });
 }
+
+test('resizing a moving caption keeps its corner on this frame and its path shape', async ({ page }) => {
+  await openWithCaption(page, EDITORS[0]);
+  await placeCaption(page, 'WWWW');
+  await page.evaluate(() => {
+    GC.state.captions[0].motion = [{ frame: 0, x: 0.5, y: 0.25 }, { frame: 1, x: 0.6, y: 0.3 }];
+    GC.seekFrame(0);
+  });
+  const before = await captionCorners(page);
+  await dragHandle(page, 'corner', 3, -30, -20);
+  expectSamePoint((await captionCorners(page))[0], before[0]);
+  const [k0, k1] = await page.evaluate(() => GC.state.captions[0].motion);
+  expect(k1.x - k0.x).toBeCloseTo(0.1, 6);
+  expect(k1.y - k0.y).toBeCloseTo(0.05, 6);
+});
