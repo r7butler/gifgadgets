@@ -211,6 +211,78 @@ test('gif-frame-rate merges kept frames that change nothing', () => {
   assert.deepEqual(frames.map(f => f.delay), [20, 10]);
 });
 
+/** A composed 8×4 frame turned or mirrored, written out independently of the worker. */
+function turned(pixels, op) {
+  const out = new Array(pixels.length), w = 8, h = 4;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const [dx, dy, ow] = op === 90 ? [h - 1 - y, x, h] : op === 180 ? [w - 1 - x, h - 1 - y, w]
+      : op === 270 ? [y, w - 1 - x, h] : op === 'horizontal' ? [w - 1 - x, y, w] : [x, h - 1 - y, w];
+    for (let c = 0; c < 4; c++) out[(dy * ow + dx) * 4 + c] = pixels[(y * w + x) * 4 + c];
+  }
+  return out;
+}
+/** A composed 8×4 frame centred on a white 10×6 canvas. */
+function padded(pixels) {
+  const out = [];
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 10; x++) {
+    const inside = x >= 1 && x < 9 && y >= 1 && y < 5, p = ((y - 1) * 8 + x - 1) * 4;
+    out.push(...(inside ? pixels.slice(p, p + 4) : [255, 255, 255, 255]));
+  }
+  return out;
+}
+
+test('re-encoding tools store only what changes and still show the same pictures', () => {
+  const data = frameRateFixture(Array(6).fill(5)), source = composed(data).map(f => f.pixels);
+  const other = frameRateFixture(Array(3).fill(5).concat([7])), second = composed(other).map(f => f.pixels);
+  const cases = [
+    [{tool:'remove-gif-frames', selection:'2', duration:'preserve'}, [0, 2, 3, 4, 5].map(i => source[i]), [10, 5, 5, 5, 5]],
+    [{tool:'trim-gif', start:2, end:4}, [1, 2, 3].map(i => source[i])],
+    [{tool:'reverse-gif'}, source.slice().reverse()],
+    [{tool:'reverse-gif', boomerang:true}, source.concat(source.slice(1, -1).reverse())],
+    ...[90, 180, 270].map(angle => [{tool:'rotate-gif', angle}, source.map(p => turned(p, angle))]),
+    ...['horizontal', 'vertical'].map(axis => [{tool:'flip-gif', axis}, source.map(p => turned(p, axis))]),
+    [{tool:'gif-canvas', width:10, height:6, fit:'pad', background:'#ffffff'}, source.map(padded)],
+    [{tool:'combine-gifs', width:8, height:4, fit:'pad', background:'transparent', repeats:0}, source.concat(second), null, [other.buffer]],
+  ];
+  for (const [opts, expected, delays, extra] of cases) {
+    const run = ['trim-gif', 'reverse-gif', 'rotate-gif', 'flip-gif'].includes(opts.tool) ? context.transform(data, opts) : runBatch(opts, data, extra);
+    const frames = composed(run.bytes), label = JSON.stringify(opts);
+    assert.equal(frames.length, expected.length, label);
+    frames.forEach((f, i) => assert.deepEqual(f.pixels, Array.from(expected[i]), label + ' frame ' + i));
+    // Whole first frame, then only the changed rectangles, each left on screen.
+    const [first, ...rest] = frames;
+    assert.ok(rest.every(f => f.width * f.height < first.width * first.height && f.disposal === 1), label);
+    if (delays) assert.deepEqual(frames.map(f => f.delay), delays, label);
+  }
+});
+
+test('unchanged frames merge only where playback stays exactly the same', () => {
+  // Three identical opaque frames: delays of 5 merge; delays of 0 or 1 play as 10, so they stay.
+  const same = delay => {
+    const data = new Uint8Array(4096), w = new GifWriter(data, 2, 1, {loop: 0});
+    for (let i = 0; i < 3; i++) w.addFrame(0, 0, 2, 1, [1, 2], {palette: [0, 0xff0000, 0x00ff00, 0x0000ff], delay});
+    return data.slice(0, w.end());
+  };
+  assert.deepEqual(composed(context.transform(same(5), {tool:'reverse-gif'}).bytes).map(f => f.delay), [15]);
+  for (const delay of [0, 1]) {
+    const frames = composed(context.transform(same(delay), {tool:'reverse-gif'}).bytes);
+    assert.deepEqual(frames.map(f => f.delay), [delay, delay, delay]);
+    assert.ok(frames.slice(1).every(f => f.width === 1 && f.height === 1));
+  }
+});
+
+test('editing the sample GIF no longer multiplies its size, and compression now compresses', () => {
+  // A typical GIF stores only what changes; writing whole frames made these up to 8× larger.
+  const data = new Uint8Array(fs.readFileSync('frontend/samples/bee.gif'));
+  for (const opts of [{tool:'remove-gif-frames', selection:'2', duration:'preserve'}, {tool:'reverse-gif'}, {tool:'rotate-gif', angle:90}]) {
+    const run = opts.tool === 'remove-gif-frames' ? runBatch(opts, data) : context.transform(data, opts);
+    assert.ok(run.bytes.length < data.length * 1.3, opts.tool + ': ' + run.bytes.length + ' vs ' + data.length);
+  }
+  const compressed = runBatch({tool:'compress-gif', compression:'colors', colors:64}, data);
+  assert.match(compressed.message, /Compare the result/);
+  assert.ok(compressed.bytes.length < data.length);
+});
+
 test('compress-gif strips comments losslessly and never returns a larger file', () => {
   const data = fixture();
   const stripped = runBatch({tool:'compress-gif', compression:'metadata'}, data);

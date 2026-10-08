@@ -7,6 +7,6 @@
   {"q": "How do I choose which part to keep?", "a": "Drag the handles on the frame strip under the preview to set the first and last frames, or drag the highlighted section to move it. The preview loops just the frames you keep. You can also type exact frame numbers; both ends are included."},
   {"q": "Can I trim by seconds instead of frames?", "a": "Selection is by frame, because GIF frames can each have a different delay and a time position would be ambiguous. The length of your selection in seconds is shown under the preview as you adjust it."},
   {"q": "Does trimming change the playback speed?", "a": "No. Every kept frame keeps its own delay, so the remaining section plays at its original pace."},
-  {"q": "Why did the file size change more than I expected?", "a": "Kept frames are re-encoded as full canvases so that disposal and transparency stay correct once earlier frames are gone. That can move the size in either direction."},
+  {"q": "Why did the file size change more than I expected?", "a": "Kept frames are rebuilt as complete pictures, so none depends on a frame that was cut, then stored again keeping only what changes between them. A GIF with transparent areas is stored as whole frames instead, which can make it larger."},
   {"q": "Is my GIF uploaded to a server?", "a": "No. Trimming runs entirely in your browser."}
 ] %}

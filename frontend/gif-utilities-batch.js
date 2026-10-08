@@ -44,22 +44,73 @@ function fitPixels(pixels, width, height, outW, outH, opts) {
   }
   return out;
 }
-function encodeBatch(frames, width, height, loop, colors = 256) {
-  check(frames.length && width * height * 4 * (frames.length + 3) <= BATCH_MEMORY, 'The output canvas and frame count exceed the memory limit.');
-  const capacity = frames.length * (width * height * 3 + 1024) + 1024;
+/**
+ * Plan storing only what changes. In an animation with no transparency, each
+ * frame after the first keeps just the rectangle that differs from the frame
+ * on screen before it, and a frame that changes nothing adds its time to the
+ * one before. Frames are then left in place rather than cleared, which cannot
+ * bring back a clear pixel, so an animation with transparency gets null and
+ * is stored as whole frames.
+ */
+function changedRegions(frames, width, height) {
+  for (const frame of frames) for (let p = 3; p < frame.pixels.length; p += 4) if (frame.pixels[p] !== 255) return null;
+  const plan = [{frame: frames[0], previous: null, rect: {x:0, y:0, w:width, h:height}, delay: frames[0].delay}];
+  let shown = frames[0].pixels;
+  for (const frame of frames.slice(1)) {
+    const pixels = frame.pixels;
+    let left = width, top = height, right = -1, bottom = -1;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const p = (y * width + x) * 4;
+      if (pixels[p] === shown[p] && pixels[p + 1] === shown[p + 1] && pixels[p + 2] === shown[p + 2]) continue;
+      if (x < left) left = x; if (x > right) right = x;
+      if (y < top) top = y; if (y > bottom) bottom = y;
+    }
+    const last = plan[plan.length - 1];
+    if (right < 0) {
+      // Merging would change playback if either delay is under 2 hundredths
+      // (played as 10), or pass the GIF limit; then keep one unchanged pixel.
+      if (frame.delay >= 2 && last.delay >= 2 && last.delay + frame.delay <= 65535) { last.delay += frame.delay; continue; }
+      left = top = right = bottom = 0;
+    }
+    plan.push({frame, previous: shown, rect: {x:left, y:top, w:right - left + 1, h:bottom - top + 1}, delay: frame.delay});
+    shown = pixels;
+  }
+  return plan;
+}
+/** A planned frame's pixels: the changed ones in its rectangle, the rest left clear. */
+function regionPixels(step, width) {
+  if (!step.previous) return step.frame.pixels;
+  const {rect} = step, pixels = step.frame.pixels, shown = step.previous, out = new Uint8Array(rect.w * rect.h * 4);
+  for (let y = 0; y < rect.h; y++) for (let x = 0; x < rect.w; x++) {
+    const p = ((rect.y + y) * width + rect.x + x) * 4;
+    if (pixels[p] !== shown[p] || pixels[p + 1] !== shown[p + 1] || pixels[p + 2] !== shown[p + 2]) out.set(pixels.subarray(p, p + 4), (y * rect.w + x) * 4);
+  }
+  return out;
+}
+/**
+ * Encode composed frames ({pixels, delay}) as a GIF. Each rectangle's pixels
+ * are built as it is written, so the plan holds no second copy of the frames.
+ */
+function encodeFrames(frames, width, height, loop, colors = 256) {
+  const steps = changedRegions(frames, width, height) || frames.map(frame => ({frame, previous: null, rect: null, delay: frame.delay}));
+  const capacity = steps.length * (width * height * 3 + 1024) + 1024;
   check(capacity <= BATCH_MEMORY, 'Output exceeds the memory limit.');
   const buffer = new Uint8Array(capacity), writer = new GifWriter(buffer, width, height, {loop});
   let quantized = false;
-  frames.forEach((frame, i) => {
-    check(frame.delay <= 65535, 'A retained frame exceeds the GIF delay limit. Remove fewer frames or choose Shorten.');
-    const pal = paletteFrame(frame.pixels, colors); quantized ||= pal.quantized;
-    // A frame from changedFrames covers only its rectangle and stays in place.
-    const r = frame.rect || {x:0, y:0, w:width, h:height};
-    writer.addFrame(r.x, r.y, r.w, r.h, pal.indexed, {palette:pal.palette, transparent:pal.transparent, delay:frame.delay, disposal:frame.rect ? 1 : 2});
-    postMessage({progress: 40 + Math.round((i + 1) * 60 / frames.length)});
+  steps.forEach((step, i) => {
+    check(step.delay <= 65535, 'A retained frame exceeds the GIF delay limit. Remove fewer frames or choose Shorten.');
+    const pal = paletteFrame(regionPixels(step, width), colors); quantized ||= pal.quantized;
+    // Planned rectangles stay on screen for the next to draw over; whole frames are cleared.
+    const r = step.rect || {x:0, y:0, w:width, h:height};
+    writer.addFrame(r.x, r.y, r.w, r.h, pal.indexed, {palette:pal.palette, transparent:pal.transparent, delay:step.delay, disposal:step.rect ? 1 : 2});
+    postMessage({progress: 40 + Math.round((i + 1) * 60 / steps.length)});
   });
   const end = writer.end(); check(end <= capacity, 'Output exceeds the memory limit.');
   return {bytes:buffer.slice(0, end), quantized};
+}
+function encodeBatch(frames, width, height, loop, colors = 256) {
+  check(frames.length && width * height * 4 * (frames.length + 3) <= BATCH_MEMORY, 'The output canvas and frame count exceed the memory limit.');
+  return encodeFrames(frames, width, height, loop, colors);
 }
 /** How long a frame is shown: browsers play delays under 2 hundredths of a second at 10. */
 function playedDelay(delay) { return delay < 2 ? 10 : delay; }
@@ -84,40 +135,6 @@ function lowerFrameRate(frames, fps) {
     else kept.push({pixels: frames[source].pixels, delay: until - at, source});
   }
   return {kept, current: shown, seconds: total / 100};
-}
-
-/**
- * Store only what changes. In an animation with no transparency, each frame
- * after the first keeps the rectangle that differs from the frame before,
- * with unchanged pixels left clear so the earlier frame shows through, and a
- * frame that changes nothing adds its time to the one before. Frames are left
- * in place rather than cleared, which cannot bring back a clear pixel, so an
- * animation with transparency keeps whole frames.
- */
-function changedFrames(frames, width, height) {
-  const opaque = frames.every(f => { for (let p = 3; p < f.pixels.length; p += 4) if (f.pixels[p] !== 255) return false; return true; });
-  if (!opaque) return frames;
-  const out = [{pixels: frames[0].pixels, delay: frames[0].delay, rect: {x:0, y:0, w:width, h:height}}];
-  let previous = frames[0].pixels;
-  const differs = (a, b, p) => a[p] !== b[p] || a[p + 1] !== b[p + 1] || a[p + 2] !== b[p + 2];
-  for (const frame of frames.slice(1)) {
-    const current = frame.pixels;
-    let left = width, top = height, right = -1, bottom = -1;
-    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-      if (!differs(current, previous, (y * width + x) * 4)) continue;
-      if (x < left) left = x; if (x > right) right = x;
-      if (y < top) top = y; if (y > bottom) bottom = y;
-    }
-    if (right < 0) { out[out.length - 1].delay += frame.delay; continue; }
-    const w = right - left + 1, h = bottom - top + 1, pixels = new Uint8Array(w * h * 4);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const from = ((top + y) * width + left + x) * 4;
-      if (differs(current, previous, from)) pixels.set(current.subarray(from, from + 4), (y * w + x) * 4);
-    }
-    out.push({pixels, delay: frame.delay, rect: {x:left, y:top, w, h}});
-    previous = current;
-  }
-  return out;
 }
 
 function stripComments(info) {
@@ -161,7 +178,7 @@ function transformBatch(bytes, opts, extra = []) {
     const fps = Number(opts.fps);
     check(Number.isFinite(fps) && fps >= 1 && fps <= 50, 'Choose a frame rate from 1 to 50 frames per second.');
     const {kept, current, seconds} = lowerFrameRate(frames, fps);
-    const result = encodeBatch(changedFrames(kept, info.width, info.height), info.width, info.height, info.reader.loopCount());
+    const result = encodeBatch(kept, info.width, info.height, info.reader.loopCount());
     return {...result, originalSize: bytes.length,
       message: 'Kept ' + kept.length + ' of ' + frames.length + ' frames (about ' + current + ' fps to ' + fps + ' fps); the animation still runs ' + seconds.toFixed(2) + ' s.'};
   }

@@ -193,6 +193,22 @@ test('gif-frame-rate lowers the frame rate, keeps the length and refuses to rais
   expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://gifgadgets.com/gif-frame-rate/');
 });
 
+for (const tool of ['reverse-gif', 'remove-gif-frames']) {
+  test(tool + ' keeps a typical GIF near its original size', async ({page}) => {
+    // The sample stores only what changes between frames, as most GIFs do.
+    // Writing every frame whole made these results 7-8 times the original.
+    const sample = fs.readFileSync(require('path').join(__dirname, '../../frontend/samples/bee.gif'));
+    await page.goto('/' + tool + '/');
+    await page.locator('#utility-file').setInputFiles({name:'bee.gif', mimeType:'image/gif', buffer:sample});
+    await page.locator('#utility-apply').click();
+    await expect(page.locator('#utility-download')).toBeVisible({timeout:30000});
+    const waiting = page.waitForEvent('download'); await page.locator('#utility-download').click();
+    const bytes = fs.readFileSync(await (await waiting).path()), reader = new GifReader(bytes);
+    expect(reader.numFrames()).toBe(tool === 'reverse-gif' ? 40 : 39);
+    expect(bytes.length).toBeLessThan(sample.length * 1.3);
+  });
+}
+
 test('combine-gifs joins two uploads into one animation', async ({page}) => {
   await page.goto('/combine-gifs/');
   await page.locator('#utility-file').setInputFiles([

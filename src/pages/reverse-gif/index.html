@@ -6,7 +6,7 @@
 {% set utility_faq = [
   {"q": "What does the boomerang option do?", "a": "It plays the animation forward and then backward in one file. The first and last frames are not repeated at the turning points, so the loop reads smoothly instead of stuttering."},
   {"q": "Is the frame timing preserved when reversing?", "a": "Yes. Each frame keeps its own delay and the frames simply play in the opposite order."},
-  {"q": "Does reversing change the file size?", "a": "Usually a little, in either direction. Frames are re-encoded as full canvases so that disposal methods stay correct in reverse order."},
+  {"q": "Does reversing change the file size?", "a": "Usually a little, in either direction. Each frame is rebuilt as a complete picture so it still looks right in reverse order, then stored again keeping only what changes between frames. A GIF with transparent areas is stored as whole frames instead, which can make it noticeably larger."},
   {"q": "Will transparency survive?", "a": "Yes. Transparent areas are preserved, and each frame is composed before reversing so nothing smears."},
   {"q": "Is my GIF uploaded to a server?", "a": "No. Reversing happens entirely in your browser."}
 ] %}

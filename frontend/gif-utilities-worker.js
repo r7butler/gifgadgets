@@ -59,13 +59,10 @@ function transform(bytes, opts) {
   const frames = decodeFrames(bytes, reader, parsed);
   const capacity = order.length * (width * height * 3 + 1024) + 1024;
   check(capacity <= 96 * 1024 * 1024, 'The output would require too much memory. Try a shorter animation.');
-  const buffer = new Uint8Array(capacity);
-  const writer = new GifWriter(buffer, outW, outH, {loop: reader.loopCount()});
-  let quantized = false;
-  order.forEach((frameIndex, k) => {
-    const frame = frames[frameIndex]; let pixels = frame.pixels;
-    if (opts.tool === 'rotate-gif' || opts.tool === 'flip-gif') {
-      pixels = new Uint8Array(frame.pixels.length);
+  if (opts.tool === 'rotate-gif' || opts.tool === 'flip-gif') {
+    // Every frame is used once, in order, so each is turned in place.
+    frames.forEach(frame => {
+      const pixels = new Uint8Array(frame.pixels.length);
       for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
         let dx = x, dy = y;
         if (opts.tool === 'flip-gif') { dx = axis === 'horizontal' ? width - 1 - x : x; dy = axis === 'vertical' ? height - 1 - y : y; }
@@ -74,13 +71,11 @@ function transform(bytes, opts) {
         else { dx = y; dy = width - 1 - x; }
         pixels.set(frame.pixels.subarray((y * width + x) * 4, (y * width + x) * 4 + 4), (dy * outW + dx) * 4);
       }
-    }
-    const pal = paletteFrame(pixels); quantized ||= pal.quantized;
-    writer.addFrame(0, 0, outW, outH, pal.indexed, {palette: pal.palette, transparent: pal.transparent, delay: frame.delay, disposal: 2});
-    postMessage({progress: 40 + Math.round((k + 1) / order.length * 60)});
-  });
-  const end = writer.end(); check(end <= capacity, 'Encoded output exceeds the memory limit.');
-  return {bytes: buffer.slice(0, end), quantized};
+      frame.pixels = pixels;
+    });
+  }
+  // encodeFrames (gif-utilities-batch.js, loaded below) stores only what changes where it can.
+  return encodeFrames(order.map(i => frames[i]), outW, outH, reader.loopCount());
 }
 
 importScripts('/gif-utilities-batch.js');
