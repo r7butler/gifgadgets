@@ -171,14 +171,37 @@
       document.body.appendChild(overlay);
     });
   }
+  /**
+   * Whether the file a landing page handed over is still waiting. The editor
+   * deletes it once read (gif-playback.js, image-caption.js), so a later visit
+   * to the same address has nothing to open.
+   */
+  function handoffWaiting(source) {
+    var store = {local: 'gifwidgets', imgcap: 'gifwidgets_imgcap'}[source];
+    if (!store) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      var request = indexedDB.open(store, 1);
+      request.onupgradeneeded = function () { request.result.createObjectStore('files'); };
+      request.onsuccess = function () {
+        var db = request.result;
+        if (!db.objectStoreNames.contains('files')) { db.close(); resolve(false); return; }
+        var count = db.transaction('files', 'readonly').objectStore('files').count('pending');
+        count.onsuccess = function () { db.close(); resolve(count.result > 0); };
+        count.onerror = function () { db.close(); resolve(false); };
+      };
+      request.onerror = function () { resolve(false); };
+    }).catch(function () { return false; });
+  }
   GC.restoreDraft = async function () {
     try {
       var nav = performance.getEntriesByType('navigation')[0];
       // Explicit handoffs of the visitor's own file win; reloads may recover work
-      // after the handoff was consumed. The sample is not their work, so a saved
-      // draft is always offered before it.
-      var handoff = location.search && !new URLSearchParams(location.search).has('sample');
-      if (handoff && (!nav || nav.type !== 'reload')) return false;
+      // after the handoff was consumed, as may any later visit once it is gone.
+      // Some browsers report a refresh as a plain visit. The sample is not their
+      // work, so a saved draft is always offered before it.
+      var params = new URLSearchParams(location.search);
+      var handoff = location.search && !params.has('sample');
+      if (handoff && (!nav || nav.type !== 'reload') && await handoffWaiting(params.get('source'))) return false;
       var db = await dbPromise;
       if (!db) return false;
       var tx = db.transaction('drafts', 'readonly');

@@ -163,37 +163,51 @@ test('an explicit new-file handoff takes precedence over a saved draft', async (
   await page.locator('#on-image-caption-toggle').click();
   await page.locator('#btn-add-caption').click();
   await expect.poll(async () => { await page.evaluate(() => GC.saveDraft()); return page.evaluate(() => GC.hasUnsavedDraft()); }).toBe(false);
-  if (browserName === 'webkit') {
-    // This local WebKit build cannot persist Blob/File objects in IndexedDB.
-    // Stub only that pre-existing handoff I/O; exercise real initialization,
-    // draft precedence, FileReader and decoding with the same file bytes.
-    const bytes = await page.locator('#file-input').evaluate(async input => Array.from(new Uint8Array(await input.files[0].arrayBuffer())));
-    await page.addInitScript(bytes => {
-      document.addEventListener('DOMContentLoaded', () => {
-        GC.loadGifFromIndexedDB = () => GC.loadGifFromFile(new File([new Uint8Array(bytes)], 'test.gif', { type: 'image/gif' }));
-      });
-    }, bytes);
-  } else {
-  await page.evaluate(async () => {
-    // Use an actual file-picker File, just as the landing-page handoff does.
+  await page.evaluate(async webkit => {
+    // An actual file-picker File, just as the landing-page handoff stores it.
+    // This local WebKit build cannot persist Blob/File objects in IndexedDB, so
+    // there it stores the bytes, as the landing page does when a File fails.
     const file = document.querySelector('#file-input').files[0];
+    const record = webkit ? { buffer: await file.arrayBuffer(), name: file.name, type: file.type } : file;
     await new Promise((resolve, reject) => {
       const request = indexedDB.open('gifwidgets', 1);
       request.onupgradeneeded = () => request.result.createObjectStore('files');
       request.onsuccess = () => {
         const tx = request.result.transaction('files', 'readwrite');
-        tx.objectStore('files').put(file, 'pending'); tx.oncomplete = resolve;
+        tx.objectStore('files').put(record, 'pending'); tx.oncomplete = resolve;
         tx.onerror = event => reject(new Error(event.target.error?.name + ': ' + event.target.error?.message));
       };
     });
-  });
-  }
+  }, browserName === 'webkit');
   await page.goto('/gif-editor/edit/?source=local');
   await expect(page.locator('#editor-workspace')).toBeVisible();
   await expect(page.locator('#draft-restore-modal')).toHaveCount(0);
   expect(await page.evaluate(() => GC.state.gifFilename)).toBe('test.gif');
   expect(await page.evaluate(() => GC.state.captions.length)).toBe(0);
 });
+
+for (const [landing, file] of [['/gif-editor/', 'test.gif'], ['/image-editor/', 'test.png']]) {
+  test(`after ${landing} hands its file over, opening the editor's address again offers the draft`, async ({ page }) => {
+    // The editor deletes the handed-over file once read. A later visit to the
+    // same ?source= address that is not reported as a reload (some browsers
+    // report a refresh as a plain visit) looked for it, found nothing and
+    // showed an empty editor without offering the draft.
+    await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
+    await page.goto(landing);
+    await page.locator('#hero-file-input').setInputFiles(path.join(__dirname, 'fixtures', file));
+    await expect(page).toHaveURL(/\/edit\/\?source=/);
+    await expect(page.locator('#editor-workspace')).toBeVisible();
+    await page.locator('#on-image-caption-toggle').click();
+    await page.locator('#btn-add-caption').click();
+    await page.locator('#cap-text').fill('Keep me');
+    await expect.poll(async () => { await page.evaluate(() => GC.saveDraft()); return page.evaluate(() => GC.hasUnsavedDraft()); }).toBe(false);
+    await page.goto(page.url());
+    await expect(page.locator('#draft-restore-modal')).toBeVisible();
+    await page.locator('#draft-restore').click();
+    await expect(page.locator('#editor-workspace')).toBeVisible();
+    expect(await page.evaluate(() => GC.state.captions[0].text)).toBe('Keep me');
+  });
+}
 
 test('image draft restores export settings and can be discarded', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('gc_cookie_consent', 'rejected'));
