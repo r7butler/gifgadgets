@@ -173,6 +173,19 @@ class SiteBuildTests(unittest.TestCase):
                 checked += 1
             self.assertGreaterEqual(checked, 35)
 
+    def test_nav_caption_gif_opens_the_gif_editor(self):
+        """The nav's Caption GIF leads to the GIF editor, which it replaces in the nav."""
+        import re
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            for page, active in [('index.html', False), ('gif-editor/index.html', True), ('add-text-to-gif/index.html', True)]:
+                nav = re.search(r'<div class="site-nav-links">(.*?)</div>', (root / page).read_text(), re.S).group(1)
+                links = re.findall(r'<a href="([^"]+)"( class="active")?>([^<]+)</a>', nav)
+                self.assertEqual([label for _, _, label in links],
+                                 ['GIF Tools', 'Caption GIF', 'Image Tools', 'Video Tools', 'Photo Converters'], page)
+                self.assertEqual(links[1][:2], ('/gif-editor/', ' class="active"' if active else ''), page)
+
     def test_every_utility_page_reports_its_own_funnel_events(self):
         """A slug missing from tool-funnel.js raises no error. Its events are filed
         under legacy-editor instead, which is worse: the analytics still look fine."""
