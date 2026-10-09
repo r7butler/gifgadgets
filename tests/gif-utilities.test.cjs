@@ -312,6 +312,20 @@ test('long GIFs stream through the tools one frame at a time; Reverse still hold
   assert.throws(() => context.transform(huge.slice(0, w.end()), {tool:'flip-gif'}), /4096 × 4096 frame needs more memory/);
 });
 
+test('frames that use all 256 colours keep them exactly when some pixels stay the same', () => {
+  // 33×8 pixels. The first 8 never change; the other 256 show all 256 colours,
+  // shifted along by one each frame. Every frame's change covers the whole
+  // canvas, so leaving the first 8 clear would need a 257th palette slot.
+  const palette = Array.from({length: 256}, (_, i) => (i * 0x9e3779) & 0xffffff);
+  const data = new Uint8Array(65536), w = new GifWriter(data, 33, 8, {loop: 0});
+  for (let f = 0; f < 4; f++) {
+    w.addFrame(0, 0, 33, 8, Array.from({length: 264}, (_, k) => (k < 8 ? 0 : (k - 8 + f) % 256)), {palette, delay: 10});
+  }
+  const source = data.slice(0, w.end()), out = context.transform(source, {tool:'trim-gif', start:1, end:4});
+  assert.equal(out.quantized, false);
+  assert.deepEqual(composed(out.bytes).map(f => f.pixels), composed(source).map(f => f.pixels));
+});
+
 test('compress-gif strips comments losslessly and never returns a larger file', () => {
   const data = fixture();
   const stripped = runBatch({tool:'compress-gif', compression:'metadata'}, data);

@@ -145,7 +145,7 @@ function createGifEncoder(width, height, opts = {}) {
       grown.set(buffer.subarray(0, position));
       buffer = grown; writer.setOutputBuffer(buffer);
     }
-    const pal = paletteFrame(step.pixels, colors); quantized ||= pal.quantized;
+    const pal = step.pal || paletteFrame(step.pixels, colors); quantized ||= pal.quantized;
     writer.addFrame(step.rect.x, step.rect.y, step.rect.w, step.rect.h, pal.indexed,
       {palette: pal.palette, transparent: pal.transparent, delay: step.delay, disposal: step.disposal});
     written++;
@@ -191,12 +191,25 @@ function createGifEncoder(width, height, opts = {}) {
         const i = (rect.y + y) * width + rect.x + x;
         if (marks[i]) region.set(pixels.subarray(i * 4, i * 4 + 4), (y * rect.w + x) * 4);
       }
+      // Pixels left clear take a palette slot. When that alone pushes the
+      // rectangle past the palette, store it solid instead, every pixel as it
+      // is now, so no colour has to be approximated.
+      let pal = paletteFrame(region, colors), solid = false;
+      if (pal.quantized) {
+        const whole = new Uint8Array(rect.w * rect.h * 4);
+        for (let y = 0; y < rect.h; y++) {
+          const from = ((rect.y + y) * width + rect.x) * 4;
+          whole.set(pixels.subarray(from, from + rect.w * 4), y * rect.w * 4);
+        }
+        const exact = paletteFrame(whole, colors);
+        if (!exact.quantized) { pal = exact; solid = true; }
+      }
       write(pending);  // before `shown` changes: the first frame's pixels are `shown`
       for (let y = 0; y < rect.h; y++) for (let x = 0; x < rect.w; x++) {
         const i = (rect.y + y) * width + rect.x + x;
-        if (marks[i]) shown.set(pixels.subarray(i * 4, i * 4 + 4), i * 4);
+        if (solid || marks[i]) shown.set(pixels.subarray(i * 4, i * 4 + 4), i * 4);
       }
-      pending = {pixels: region, rect, delay, disposal: 1};
+      pending = {pal, rect, delay, disposal: 1};
     },
     /** Write the last frame and return {bytes, quantized, frames}. */
     finish() {
