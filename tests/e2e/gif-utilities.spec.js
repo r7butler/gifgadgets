@@ -298,3 +298,20 @@ test('extract-frames exports a PNG for one frame and a ZIP for several', async (
   expect(await page.locator('link[rel="canonical"]').getAttribute('href'))
     .toBe('https://gifgadgets.com/photo-converter/gif-to-png/');
 });
+test('Explore more GIF utilities comes with the download and opens the home page in a new tab', async ({page}) => {
+  await page.goto('/gif-speed/');
+  const explore = page.locator('.explore-more');
+  await page.locator('#utility-file').setInputFiles({name:'clip.gif',mimeType:'image/gif',buffer:fixture()});
+  await expect(page.locator('#utility-original-wrap')).toBeVisible();
+  await expect(explore).toBeHidden();
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible();
+  await expect(explore).toBeVisible();
+  await expect(explore).toHaveText('Explore more GIF utilities');
+  const opened = page.context().waitForEvent('page');
+  await explore.click();
+  const home = await opened;
+  await home.waitForLoadState();
+  expect(new URL(home.url()).pathname + new URL(home.url()).hash).toBe('/#gif-utilities');
+  expect(page.url()).toContain('/gif-speed/');
+});

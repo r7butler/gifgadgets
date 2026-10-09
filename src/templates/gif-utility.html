@@ -120,6 +120,7 @@
   <progress id="utility-progress" max="100" value="0" hidden aria-label="Processing progress"></progress>
   <a id="utility-download" class="btn btn-accent utility-primary" hidden download="edited.gif">Download GIF</a>
   <button id="utility-save" class="btn btn-ghost utility-primary save-photos" type="button" hidden>Save to Photos</button>
+  {% with explore = 'gif' %}{% include 'partials/explore-more.html' %}{% endwith %}
   <button id="utility-replay" class="btn btn-ghost" type="button" hidden>Replay result</button>
   <div id="utility-continue-wrap" hidden>
     <label for="utility-next">Continue editing this result</label>

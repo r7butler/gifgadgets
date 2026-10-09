@@ -121,6 +121,7 @@
         Download WebP
       </button>
       <button class="conv-save-photos save-photos" id="btn-save-photos" type="button" hidden>Save to Photos</button>
+      {% with explore = 'photo' %}{% include 'partials/explore-more.html' %}{% endwith %}
     </div>
 
     <hr style="border:none;border-top:1px solid var(--border);margin:2.5rem 0" />

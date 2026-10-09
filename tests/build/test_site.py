@@ -144,6 +144,35 @@ class SiteBuildTests(unittest.TestCase):
                 digest = hashlib.sha256((ROOT / 'frontend' / url.lstrip('/')).read_bytes()).hexdigest()[:12]
                 self.assertEqual(version, '?v=' + digest, url)
 
+    def test_downloads_offer_the_home_section_listing_their_tool(self):
+        """Under each download, an Explore more link opens the home page's
+        section that lists the tool, in a new tab so the work stays open."""
+        import re
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            root = Path(output)
+            section_of = {}
+            for section, body in re.findall(r'<section id="([a-z-]+)" class="home-section"(.*?)</section>',
+                                            (root / 'index.html').read_text(), re.S):
+                for href in re.findall(r'<a href="(/[^"#]*)" class="tool-card', body):
+                    section_of.setdefault(href, section)
+            checked = 0
+            for page in sorted(root.rglob('index.html')):
+                text = page.read_text()
+                if not re.search(r'id="(utility-download|btn-dl-download|btn-dl-modal|btn-share-download)"'
+                                 r'|class="conv-download-btn"', text):
+                    continue
+                url = '/' + page.parent.relative_to(root).as_posix() + '/'
+                tool = url[:-len('edit/')] if url.endswith('/edit/') else url
+                # Converters missing from the home cards are still listed there as a group.
+                expected = section_of.get(tool, 'photo-converters' if tool.startswith('/photo-converter/') else None)
+                self.assertIsNotNone(expected, f'{url} has a download, but the home page does not list its tool')
+                links = re.findall(r'<a class="btn btn-ghost explore-more" href="([^"]+)" target="_blank" rel="noopener">', text)
+                self.assertTrue(links, f'{url} has a download but no Explore more link')
+                self.assertEqual(set(links), {'/#' + expected}, url)
+                checked += 1
+            self.assertGreaterEqual(checked, 35)
+
     def test_every_utility_page_reports_its_own_funnel_events(self):
         """A slug missing from tool-funnel.js raises no error. Its events are filed
         under legacy-editor instead, which is worse: the analytics still look fine."""

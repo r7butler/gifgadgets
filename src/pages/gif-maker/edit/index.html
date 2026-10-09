@@ -274,6 +274,7 @@
         Download GIF
       </button>
       <button id="btn-save-photos" class="gm-save-photos-link save-photos" type="button" hidden>Save to Photos</button>
+      {% with explore = 'gif' %}{% include 'partials/explore-more.html' %}{% endwith %}
     </div>
   </div>
 </div>
@@ -306,6 +307,7 @@
     <div class="share-buttons">
       <button id="btn-share-download" class="btn btn-primary btn-full">Download GIF</button>
       <button id="btn-share-save-photos" class="btn btn-ghost btn-full save-photos" type="button" hidden>Save to Photos</button>
+      {% with explore = 'gif' %}{% include 'partials/explore-more.html' %}{% endwith %}
       <div id="share-social-skeletons" class="skeleton-social">
         <div class="skeleton skeleton-social-btn"></div>
         <div class="skeleton skeleton-social-btn"></div>

@@ -116,3 +116,15 @@ test("on a phone the timeline sits under the playback bar, once there is somethi
   await expect.poll(() => page.evaluate(() => document.querySelector("#editor-timeline").getBoundingClientRect().top -
     document.querySelector(".editor-main").getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(-1);
 });
+
+test("the download dialog links to more GIF utilities in a new tab", async ({ page }) => {
+  await page.goto("/gif-editor/edit/");
+  await page.locator("#file-input").setInputFiles(path.join(FIXTURES, "test.gif"));
+  await expect(page.locator("#editor-workspace")).toBeVisible();
+  await page.locator("#btn-download").click();
+  const explore = page.locator("#download-modal .explore-more");
+  await expect(explore).toBeVisible({ timeout: 30_000 });
+  await expect(explore).toHaveText("Explore more GIF utilities");
+  await expect(explore).toHaveAttribute("href", "/#gif-utilities");
+  await expect(explore).toHaveAttribute("target", "_blank");
+});

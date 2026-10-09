@@ -1,0 +1,10 @@
+{# Under a finished download: the home page's list of tools of the same kind.
+   It opens in a new tab so the work stays open. Set `explore` to gif, image,
+   video or photo. #}
+{% set explore_targets = {
+  'gif': ('/#gif-utilities', 'Explore more GIF utilities'),
+  'image': ('/#image-tools', 'Explore more image utilities'),
+  'video': ('/#video-tools', 'Explore more video utilities'),
+  'photo': ('/#photo-converters', 'Explore more photo converters'),
+} %}
+<a class="btn btn-ghost explore-more" href="{{ explore_targets[explore][0] }}" target="_blank" rel="noopener">{{ explore_targets[explore][1] }}</a>
