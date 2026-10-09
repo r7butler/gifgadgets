@@ -146,7 +146,9 @@ class SiteBuildTests(unittest.TestCase):
 
     def test_downloads_offer_the_home_section_listing_their_tool(self):
         """Under each download, an Explore more link opens the home page's
-        section that lists the tool, in a new tab so the work stays open."""
+        section that lists the tool, in a new tab so the work stays open.
+        A GIF frame is an image, so frames lead to the image tools: GIF to
+        PNG's, and the GIF editor's Export frame (its dialog has both)."""
         import re
         with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
             module.build()
@@ -167,9 +169,14 @@ class SiteBuildTests(unittest.TestCase):
                 # Converters missing from the home cards are still listed there as a group.
                 expected = section_of.get(tool, 'photo-converters' if tool.startswith('/photo-converter/') else None)
                 self.assertIsNotNone(expected, f'{url} has a download, but the home page does not list its tool')
-                links = re.findall(r'<a class="btn btn-ghost explore-more" href="([^"]+)" target="_blank" rel="noopener">', text)
+                links = re.findall(r'<a class="btn btn-ghost explore-more" href="([^"]+)" target="_blank" rel="noopener"', text)
                 self.assertTrue(links, f'{url} has a download but no Explore more link')
-                self.assertEqual(set(links), {'/#' + expected}, url)
+                wanted = {'/#' + expected}
+                if url == '/photo-converter/gif-to-png/':
+                    wanted = {'/#image-tools'}
+                elif url in ('/gif-editor/edit/', '/add-text-to-gif/edit/'):
+                    wanted.add('/#image-tools')
+                self.assertEqual(set(links), wanted, url)
                 checked += 1
             self.assertGreaterEqual(checked, 35)
 

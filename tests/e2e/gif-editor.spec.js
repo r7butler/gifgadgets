@@ -122,9 +122,27 @@ test("the download dialog links to more GIF utilities in a new tab", async ({ pa
   await page.locator("#file-input").setInputFiles(path.join(FIXTURES, "test.gif"));
   await expect(page.locator("#editor-workspace")).toBeVisible();
   await page.locator("#btn-download").click();
-  const explore = page.locator("#download-modal .explore-more");
+  const explore = page.locator("#download-modal .explore-more:visible");
   await expect(explore).toBeVisible({ timeout: 30_000 });
   await expect(explore).toHaveText("Explore more GIF utilities");
   await expect(explore).toHaveAttribute("href", "/#gif-utilities");
   await expect(explore).toHaveAttribute("target", "_blank");
+});
+
+test("an exported frame is an image, so its dialog links to the image utilities", async ({ page }) => {
+  await page.goto("/gif-editor/edit/");
+  await page.locator("#file-input").setInputFiles(path.join(FIXTURES, "test.gif"));
+  await expect(page.locator("#editor-workspace")).toBeVisible();
+  await page.evaluate(() => GC.pause());
+  await page.locator("#btn-save-frame").click();
+  const explore = page.locator("#download-modal .explore-more:visible");
+  await expect(page.locator("#download-modal .modal-title")).toHaveText("Frame exported!");
+  await expect(explore).toHaveText("Explore more image utilities");
+  await expect(explore).toHaveAttribute("href", "/#image-tools");
+
+  // A GIF from the same dialog goes back to the GIF utilities.
+  await page.locator("#download-modal-close").click();
+  await page.locator("#btn-download").click();
+  await expect(page.locator("#download-modal .modal-title")).toHaveText("Your GIF is ready!", { timeout: 30_000 });
+  await expect(explore).toHaveText("Explore more GIF utilities");
 });

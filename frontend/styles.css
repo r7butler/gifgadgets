@@ -131,6 +131,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* Under a download (partials/explore-more.html); on the tool pages it waits for the download. */
 .explore-more { display: flex; width: 100%; justify-content: center; margin: .5rem 0; }
 .explore-more:hover { text-decoration: none; }
+.explore-more[hidden] { display: none; }
 #utility-download[hidden] ~ .explore-more { display: none; }
 /* Shown by save-to-photos.js only on devices that can save to a photo library. */
 .save-photos[hidden] { display: none !important; }

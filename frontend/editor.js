@@ -1942,7 +1942,12 @@
       modal._blobUrl = blobUrl;
       // Update download button label
       var dlBtn = $('#btn-dl-download');
-      if (dlBtn) dlBtn.textContent = filename && filename.endsWith('.gif') ? 'Download GIF' : 'Download Image';
+      var isGif = !!filename && filename.endsWith('.gif');
+      if (dlBtn) dlBtn.textContent = isGif ? 'Download GIF' : 'Download Image';
+      // An exported frame is an image, so it points at the image tools.
+      modal.querySelectorAll('.explore-more').forEach(function (link) {
+        link.hidden = link.dataset.explore !== (isGif ? 'gif' : 'image');
+      });
       var saveName = filename || GC.makeCaptionedFilename();
       var mimeType = blob.type || (state.isStillImage ? (state.exportFormat || 'image/jpeg') : 'image/gif');
       GWSave.offer($('#btn-dl-save-photos'), GWSave.file(blob, saveName, mimeType),
