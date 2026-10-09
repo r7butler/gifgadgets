@@ -30,11 +30,11 @@ for (const viewport of [{width:1280, height:720}, {width:390, height:844}]) {
     await page.setViewportSize(viewport);
     await page.goto('/remove-gif-frames/');
     const message = page.locator('#utility-upload-error');
-    // A 4096×4096 canvas decodes past the memory limit, though the file is tiny.
+    // A 4096×4096 frame needs more working memory than allowed, though the file is tiny.
     const huge = new Uint8Array(4096), writer = new GifWriter(huge, 4096, 4096, {loop:0});
     writer.addFrame(0, 0, 1, 1, [0], {palette:[0, 0xffffff]});
     await page.locator('#utility-file').setInputFiles({name:'huge.gif', mimeType:'image/gif', buffer:Buffer.from(huge.slice(0, writer.end()))});
-    await expect(message).toHaveText('This GIF exceeds the decoded memory limit. Resize or shorten it first.');
+    await expect(message).toHaveText('Each 4096 × 4096 frame needs more memory than this tool allows. Resize the GIF first.');
     await expect(message).toBeInViewport();
     await expect(page.locator('#utility-upload')).toBeVisible();
 
@@ -54,6 +54,30 @@ for (const viewport of [{width:1280, height:720}, {width:390, height:844}]) {
     await expect(message).toBeHidden();
   });
 }
+test('a long GIF past the old memory limit works, except in Reverse, which says why', async ({page}) => {
+  // 200 frames of 480×270: about 105 MB decoded. Every tool used to refuse it at upload.
+  const w = 480, h = 270, bytes = new Uint8Array(200 * 4096 + 65536), writer = new GifWriter(bytes, w, h, {loop:0});
+  for (let i = 0; i < 200; i++) {
+    const pixels = new Uint8Array(w * h), left = (i * 2) % (w - 20);
+    for (let y = 100; y < 120; y++) pixels.fill(1, y * w + left, y * w + left + 20);
+    writer.addFrame(0, 0, w, h, pixels, {palette:[0x336699, 0xffcc00], delay:4});
+  }
+  const file = {name:'long.gif', mimeType:'image/gif', buffer:Buffer.from(bytes.slice(0, writer.end()))};
+
+  await page.goto('/remove-gif-frames/');
+  await page.locator('#utility-file').setInputFiles(file);
+  await expect(page.locator('#utility-info')).toHaveText('480 × 270 · 200 frames');
+  await expect(page.locator('#utility-upload-error')).toBeHidden();
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-download')).toBeVisible({timeout:60000});
+  const waiting = page.waitForEvent('download'); await page.locator('#utility-download').click();
+  expect(new GifReader(fs.readFileSync(await (await waiting).path())).numFrames()).toBe(199);
+
+  await page.goto('/reverse-gif/');
+  await page.locator('#utility-file').setInputFiles(file);
+  await expect(page.locator('#utility-upload-error')).toHaveText(/^Reversing holds every frame in memory at once/);
+});
+
 for (const tool of ['gif-speed','gif-loop','reverse-gif','rotate-gif','flip-gif','trim-gif']) {
   test(tool + ' downloads a real transformed animation', async ({page}) => {
     await page.goto('/' + tool + '/');

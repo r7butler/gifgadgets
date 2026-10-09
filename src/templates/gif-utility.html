@@ -139,7 +139,7 @@
   <section class="utility-help">
   <h2>How to use {{ utility_title }}</h2>
   <ol><li>Choose an animated GIF from your device.</li><li>{{ utility_help }}</li><li>Select Apply and preview, then download the result.</li></ol>
-  <p>Large dimensions or many frames may exceed the local memory limit even below 40 MB. Resize or shorten the source if needed.</p>
+  <p>Frames are processed one at a time, so long GIFs are fine. Very large frame dimensions can still exceed the local memory limit, and Reverse keeps every frame in memory at once; resize or shorten the source if needed.</p>
   {% if utility_slug == 'extract-frames' %}<p>PNG frames include the complete composed image, including content retained from earlier frames. PNG exports preserve transparency.</p>
   {% elif utility_slug in ['gif-speed', 'gif-loop'] %}<p>This tool edits animation metadata while preserving the original compressed image data.</p>
   {% else %}<p>Frames are re-encoded. File size may change. If a composed frame exceeds the GIF color limit, its colors are reduced; the result reports when that happens.</p>{% endif %}

@@ -283,6 +283,35 @@ test('editing the sample GIF no longer multiplies its size, and compression now 
   assert.ok(compressed.bytes.length < data.length);
 });
 
+/**
+ * 200 frames of 480×270 at 25 fps, a block moving across each: about 105 MB
+ * decoded, past the old 96 MiB limit, though it is an ordinary 8 s clip.
+ */
+function longFixture(count = 200) {
+  const w = 480, h = 270, data = new Uint8Array(count * 4096 + 65536), writer = new GifWriter(data, w, h, {loop: 0});
+  for (let i = 0; i < count; i++) {
+    const pixels = new Uint8Array(w * h), left = (i * 2) % (w - 20);
+    for (let y = 100; y < 120; y++) pixels.fill(1, y * w + left, y * w + left + 20);
+    writer.addFrame(0, 0, w, h, pixels, {palette: [0x336699, 0xffcc00], delay: 4});
+  }
+  return data.slice(0, writer.end());
+}
+
+test('long GIFs stream through the tools one frame at a time; Reverse still holds them all', () => {
+  const data = longFixture(), frames = bytes => new GifReader(bytes).numFrames();
+  assert.equal(frames(runBatch({tool:'remove-gif-frames', selection:'2-10', duration:'preserve'}, data).bytes), 191);
+  assert.equal(frames(runBatch({tool:'gif-frame-rate', fps:5}, data).bytes), 40);
+  const turned = new GifReader(context.transform(data, {tool:'rotate-gif', angle:90}).bytes);
+  assert.deepEqual([turned.numFrames(), turned.width, turned.height], [200, 270, 480]);
+  assert.equal(frames(context.transform(data, {tool:'trim-gif', start:101, end:200}).bytes), 100);
+  assert.equal(frames(context.transform(data, {tool:'gif-speed', rate:2}).bytes), 200);
+  assert.throws(() => context.transform(data, {tool:'reverse-gif'}), /Reversing holds every frame in memory/);
+  // Frame size still matters: a 4096 × 4096 frame is refused before anything is decoded.
+  const huge = new Uint8Array(4096), w = new GifWriter(huge, 4096, 4096, {loop: 0});
+  w.addFrame(0, 0, 1, 1, [0], {palette: [0, 0xffffff]});
+  assert.throws(() => context.transform(huge.slice(0, w.end()), {tool:'flip-gif'}), /4096 × 4096 frame needs more memory/);
+});
+
 test('compress-gif strips comments losslessly and never returns a larger file', () => {
   const data = fixture();
   const stripped = runBatch({tool:'compress-gif', compression:'metadata'}, data);

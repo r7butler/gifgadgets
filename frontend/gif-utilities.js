@@ -50,7 +50,12 @@
       if (!/^GIF8[79]a$/.test(String.fromCharCode(...new Uint8Array(data, 0, Math.min(6, data.byteLength))))) throw new Error('Choose a valid GIF file.');
       const reader = new GifReader(new Uint8Array(data));
       if (!reader.numFrames()) throw new Error('This GIF has no frames.');
-      if (reader.width * reader.height * 4 * (reader.numFrames() + 3) > 96 * 1024 * 1024) throw new Error('This GIF exceeds the decoded memory limit. Resize or shorten it first.');
+      // Most tools handle one frame at a time (gif-utilities-batch.js); Reverse holds them all.
+      // Speed and Loop only rewrite timing, so frame size does not matter to them.
+      if (tool === 'reverse-gif' && reader.width * reader.height * 4 * (reader.numFrames() + 3) > 96 * 1024 * 1024)
+        throw new Error('Reversing holds every frame in memory at once, and this GIF needs more than that allows. Resize or shorten it first.');
+      if (!['gif-speed', 'gif-loop'].includes(tool) && reader.width * reader.height * 4 * 8 > 256 * 1024 * 1024)
+        throw new Error('Each ' + reader.width + ' × ' + reader.height + ' frame needs more memory than this tool allows. Resize the GIF first.');
       for (const other of list.slice(1)) {
         const buffer = await other.arrayBuffer(); if (ticket !== generation) return;
         if (!/^GIF8[79]a$/.test(String.fromCharCode(...new Uint8Array(buffer, 0, Math.min(6, buffer.byteLength)))))
@@ -125,12 +130,14 @@
     metric = GWFunnel.exportStarted(); $('options').disabled = true; $('file').disabled = $('new').disabled = true;
     $('progress').hidden = $('cancel').hidden = false; $('progress').value = 0; $('status').textContent = 'Processing on your device…';
     function failed(message, category) { if (metric) metric.fail(category); stop(); $('status').textContent = message; }
+    // A long GIF can take a while; only 90 seconds without progress counts as stuck.
+    function wait() { clearTimeout(timer); timer = setTimeout(() => failed('Processing timed out. Try a smaller GIF.', 'timeout'), 90000); }
     try {
       worker = new Worker('/gif-utilities-worker.js');
       worker.onmessage = event => {
         const result = event.data;
         if (result.error) return failed(result.error, 'processing');
-        if (result.progress !== undefined) { $('progress').value = result.progress; return; }
+        if (result.progress !== undefined) { $('progress').value = result.progress; wait(); return; }
         if (result.frames) return renderFrames(result, failed);
         outputBlob = new Blob([result.bytes], {type: 'image/gif'}); outputURL = URL.createObjectURL(outputBlob);
         outputName = tool + '.gif';
@@ -150,7 +157,7 @@
           + (result.quantized ? ' Some composed frames required color reduction.' : '');
       };
       worker.onerror = () => failed('Processing failed. Try a smaller GIF.', 'processing');
-      timer = setTimeout(() => failed('Processing timed out. Try a smaller GIF.', 'timeout'), 90000);
+      wait();
       const copy = source.slice(0);
       const extra = extras.map(b => b.slice(0));
       worker.postMessage({buffer: copy, options, extra}, [copy, ...extra]);

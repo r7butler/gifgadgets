@@ -1,15 +1,56 @@
 /* Shares compositing, palettes and encoding with the batch-one worker. */
 'use strict';
 const BATCH_TOOLS = ['extract-frames', 'remove-gif-frames', 'gif-frame-rate', 'compress-gif', 'gif-canvas', 'combine-gifs'];
+// Frames kept in memory together (Reverse; frames to extract), and the output.
 const BATCH_MEMORY = 96 * 1024 * 1024;
+// Every other tool streams: about eight working copies of one frame at a time.
+const FRAME_MEMORY = 256 * 1024 * 1024;
+function checkFrameSize(width, height) {
+  check(width * height * 4 * 8 <= FRAME_MEMORY, 'Each ' + width + ' × ' + height + ' frame needs more memory than this tool allows. Resize the GIF first.');
+}
 function inspectGif(bytes) {
   check(bytes.length <= 40 * 1024 * 1024, 'Choose files totaling less than 40 MB.');
-  const parsed = blocks(bytes), reader = new GifReader(bytes);
+  const parsed = blocks(bytes, false), reader = new GifReader(bytes);
   const count = reader.numFrames(), width = reader.width, height = reader.height;
   check(count && width && height, 'The GIF has no usable frames.');
-  const memory = width * height * 4 * (count + 3);
-  check(memory <= BATCH_MEMORY, 'This GIF exceeds the decoded memory limit. Resize or shorten it first.');
-  return {bytes, parsed, reader, width, height, count, memory};
+  checkFrameSize(width, height);
+  return {bytes, parsed, reader, width, height, count};
+}
+/**
+ * Build a GIF from frames decoded in order and written as they come, so only
+ * a few frames are in memory however long the animation is. Each source
+ * names the frames it keeps (a Map of frame index to delay) and, optionally,
+ * how their pixels change; decoding stops after its last kept frame.
+ */
+function streamGif(sources, width, height, opts) {
+  const gif = createGifEncoder(width, height, {...opts, limit: BATCH_MEMORY});
+  sources.forEach(({info, delays, change = pixels => pixels}, s) => {
+    eachChosenFrame(info, delays, (pixels, i) => gif.add(change(pixels), delays.get(i)),
+      (i, last) => postMessage({progress: Math.round((s + (i + 1) / (last + 1)) * 100 / sources.length)}));
+  });
+  const {bytes, quantized} = gif.finish();
+  return {bytes, quantized};
+}
+/**
+ * Decode frames in order and call visit(pixels, index) for those in `chosen`
+ * (a Set, or a Map keyed by index), stopping after the last; tick(index,
+ * last) runs for every frame decoded. `pixels` is valid only during the call.
+ */
+function eachChosenFrame(info, chosen, visit, tick) {
+  let last = -1;
+  for (const i of chosen.keys()) if (i > last) last = i;
+  let i = 0;
+  for (const frame of decodeFrameStream(info.bytes, info.reader, info.parsed)) {
+    if (chosen.has(i)) visit(frame.pixels, i);
+    tick(i, last);
+    if (i++ === last) break;
+  }
+}
+/** Every frame of a GIF at its own delay, for streamGif. */
+function allFrames(info, delay = d => d) {
+  const delays = new Map();
+  for (let i = 0; i < info.count; i++) delays.set(i, delay(info.reader.frameInfo(i).delay));
+  return delays;
 }
 function frameSelection(text, count) {
   check(typeof text === 'string' && text.trim().length && text.length <= 10000, 'Enter frame numbers or ranges, such as 2, 4-6.');
@@ -24,12 +65,13 @@ function frameSelection(text, count) {
   return selected;
 }
 function fitPixels(pixels, width, height, outW, outH, opts) {
-  const out = new Uint8Array(outW * outH * 4);
+  const out = new Uint8Array(outW * outH * 4), out32 = new Uint32Array(out.buffer);
+  const from = new Uint32Array(pixels.buffer, pixels.byteOffset, width * height);
   const bg = opts.background || 'transparent';
   check(bg === 'transparent' || /^#[0-9a-f]{6}$/i.test(bg), 'Choose a valid background color.');
   if (bg !== 'transparent') {
-    const rgb = parseInt(bg.slice(1), 16), fill = [rgb >> 16, (rgb >> 8) & 255, rgb & 255, 255];
-    for (let p = 0; p < out.length; p += 4) out.set(fill, p);
+    const rgb = parseInt(bg.slice(1), 16);
+    out32.fill(new Uint32Array(new Uint8Array([rgb >> 16, (rgb >> 8) & 255, rgb & 255, 255]).buffer)[0]);
   }
   const mode = opts.fit || 'pad';
   check(['pad', 'contain', 'cover'].includes(mode), 'Choose a canvas fitting mode.');
@@ -39,14 +81,10 @@ function fitPixels(pixels, width, height, outW, outH, opts) {
   for (let y = 0; y < outH; y++) for (let x = 0; x < outW; x++) {
     const sx = Math.floor((x + .5 - left) / scale), sy = Math.floor((y + .5 - top) / scale);
     if (sx < 0 || sy < 0 || sx >= width || sy >= height) continue;
-    const p = (sy * width + sx) * 4;
-    if (pixels[p + 3]) out.set(pixels.subarray(p, p + 4), (y * outW + x) * 4);
+    const k = sy * width + sx;
+    if (pixels[k * 4 + 3]) out32[y * outW + x] = from[k];
   }
   return out;
-}
-function encodeBatch(frames, width, height, loop, colors = 256) {
-  check(frames.length && width * height * 4 * (frames.length + 3) <= BATCH_MEMORY, 'The output canvas and frame count exceed the memory limit.');
-  return encodeFrames(frames, width, height, {loop, colors, limit: BATCH_MEMORY});
 }
 /** How long a frame is shown: browsers play delays under 2 hundredths of a second at 10. */
 function playedDelay(delay) { return delay < 2 ? 10 : delay; }
@@ -57,9 +95,9 @@ function playedDelay(delay) { return delay < 2 ? 10 : delay; }
  * on screen at its step and holds until the next. Timing is whole hundredths,
  * so rates that do not divide 100 alternate frame times to average out.
  */
-function lowerFrameRate(frames, fps) {
-  const delays = frames.map(f => playedDelay(f.delay)), total = delays.reduce((n, d) => n + d, 0);
-  const current = frames.length * 100 / total, shown = Math.round(current * 10) / 10;
+function lowerFrameRate(sourceDelays, fps) {
+  const delays = sourceDelays.map(playedDelay), total = delays.reduce((n, d) => n + d, 0);
+  const current = delays.length * 100 / total, shown = Math.round(current * 10) / 10;
   check(fps < current - 1e-9, 'This GIF plays at about ' + shown + ' fps. Choose a lower frame rate; a higher one would need new frames drawn in between.');
   const kept = [], step = 100 / fps;
   let source = 0, start = 0;
@@ -68,7 +106,7 @@ function lowerFrameRate(frames, fps) {
     while (start + delays[source] <= at) start += delays[source++];
     const last = kept[kept.length - 1];
     if (last && last.source === source) last.delay += until - at;
-    else kept.push({pixels: frames[source].pixels, delay: until - at, source});
+    else kept.push({delay: until - at, source});
   }
   return {kept, current: shown, seconds: total / 100};
 }
@@ -83,45 +121,48 @@ function transformBatch(bytes, opts, extra = []) {
   check(extra.length <= 19, 'Combine at most 20 GIFs at once.');
   check(bytes.length + extra.reduce((sum, b) => sum + b.byteLength, 0) <= 40 * 1024 * 1024, 'Choose files totaling less than 40 MB.');
   const infos = [inspectGif(bytes), ...extra.map(b => inspectGif(new Uint8Array(b)))];
-  check(infos.reduce((sum, info) => sum + info.memory, 0) <= BATCH_MEMORY, 'These files together exceed the decoded memory limit.');
-  const info = infos[0];
+  const info = infos[0], loop = info.reader.loopCount();
+  const delayOf = i => info.reader.frameInfo(i).delay;
   if (opts.tool === 'compress-gif' && opts.compression === 'metadata') {
     const result = stripComments(info);
     return {...result, originalSize:bytes.length, message: result.bytes.length < bytes.length ? 'Removed GIF comments; image data is unchanged.' : 'No removable comments. Original image data retained.'};
   }
-  let frames = decodeFrames(bytes, info.reader, info.parsed);
   if (opts.tool === 'extract-frames') {
-    const selected = opts.extract === 'all' ? new Set(frames.map((_,i) => i)) : frameSelection(String(opts.selection), frames.length);
+    const selected = opts.extract === 'all' ? new Set(Array.from({length: info.count}, (_, i) => i)) : frameSelection(String(opts.selection), info.count);
     check(selected.size <= 500, 'Export at most 500 frames at once. Choose a smaller range.');
-    frames = frames.map((f, i) => ({...f, number:i + 1})).filter((_,i) => selected.has(i));
+    check(selected.size * info.width * info.height * 4 <= BATCH_MEMORY, 'Those frames need more memory than this tool allows. Export fewer at once.');
+    const frames = [];
+    eachChosenFrame(info, selected, (pixels, i) => frames.push({pixels: pixels.slice(), delay: delayOf(i), number: i + 1}),
+      (i, last) => postMessage({progress: Math.round((i + 1) * 100 / (last + 1))}));
     return {frames, width:info.width, height:info.height};
   }
   if (opts.tool === 'remove-gif-frames') {
-    const remove = frameSelection(opts.selection, frames.length);
-    check(remove.size < frames.length, 'Keep at least one frame.');
+    const remove = frameSelection(opts.selection, info.count);
+    check(remove.size < info.count, 'Keep at least one frame.');
     check(['preserve','shorten'].includes(opts.duration), 'Choose a duration mode.');
-    const kept = []; let leading = 0;
-    frames.forEach((frame, i) => {
-      if (!remove.has(i)) { kept.push({...frame, delay:frame.delay + leading}); leading = 0; }
+    // Timing comes from the frame headers, so kept frames are written as they are decoded.
+    const delays = new Map(); let leading = 0, last = -1;
+    for (let i = 0; i < info.count; i++) {
+      if (!remove.has(i)) { delays.set(i, delayOf(i) + leading); leading = 0; last = i; }
       else if (opts.duration === 'preserve') {
-        if (kept.length) kept[kept.length - 1].delay += frame.delay;
-        else leading += frame.delay;
+        if (last >= 0) delays.set(last, delays.get(last) + delayOf(i));
+        else leading += delayOf(i);
       }
-    });
-    return encodeBatch(kept, info.width, info.height, info.reader.loopCount());
+    }
+    return streamGif([{info, delays}], info.width, info.height, {loop});
   }
   if (opts.tool === 'gif-frame-rate') {
     const fps = Number(opts.fps);
     check(Number.isFinite(fps) && fps >= 1 && fps <= 50, 'Choose a frame rate from 1 to 50 frames per second.');
-    const {kept, current, seconds} = lowerFrameRate(frames, fps);
-    const result = encodeBatch(kept, info.width, info.height, info.reader.loopCount());
+    const {kept, current, seconds} = lowerFrameRate(Array.from({length: info.count}, (_, i) => delayOf(i)), fps);
+    const result = streamGif([{info, delays: new Map(kept.map(k => [k.source, k.delay]))}], info.width, info.height, {loop});
     return {...result, originalSize: bytes.length,
-      message: 'Kept ' + kept.length + ' of ' + frames.length + ' frames (about ' + current + ' fps to ' + fps + ' fps); the animation still runs ' + seconds.toFixed(2) + ' s.'};
+      message: 'Kept ' + kept.length + ' of ' + info.count + ' frames (about ' + current + ' fps to ' + fps + ' fps); the animation still runs ' + seconds.toFixed(2) + ' s.'};
   }
   if (opts.tool === 'compress-gif') {
     const colors = Number(opts.colors);
     check([16,32,64,128,256].includes(colors), 'Choose 16, 32, 64, 128 or 256 colors.');
-    const candidate = encodeBatch(frames, info.width, info.height, info.reader.loopCount(), colors);
+    const candidate = streamGif([{info, delays: allFrames(info)}], info.width, info.height, {loop, colors});
     const best = stripComments(info);
     return candidate.bytes.length < best.bytes.length
       ? {...candidate, originalSize:bytes.length, message:'Compare the result with the original before downloading. Color reduction can affect gradients and detail.'}
@@ -131,21 +172,19 @@ function transformBatch(bytes, opts, extra = []) {
   if (opts.tool === 'combine-gifs') check(infos.length >= 2, 'Choose at least two GIFs to combine.');
   const width = Number(opts.width), height = Number(opts.height);
   check(Number.isInteger(width) && Number.isInteger(height) && width >= 1 && height >= 1 && width <= 4096 && height <= 4096, 'Canvas dimensions must be whole numbers from 1 to 4096.');
-  const count = infos.reduce((n, i) => n + i.count, 0);
-  check(width * height * 4 * (count + 3) + infos.reduce((n, i) => n + i.memory, 0) <= BATCH_MEMORY, 'The combined source and output canvases exceed the memory limit.');
-  let all = frames.map(f => ({...f, pixels:fitPixels(f.pixels, info.width, info.height, width, height, opts)}));
-  for (const next of infos.slice(1)) {
-    const decoded = decodeFrames(next.bytes, next.reader, next.parsed);
-    all.push(...decoded.map(f => ({...f, pixels:fitPixels(f.pixels,next.width,next.height,width,height,opts)})));
-  }
-  let loop = info.reader.loopCount();
+  checkFrameSize(width, height);
+  let output = loop, delay = d => d;
   if (opts.tool === 'combine-gifs') {
     const repeats = Number(opts.repeats);
     check(Number.isInteger(repeats) && repeats >= -1 && repeats <= 65535, 'Choose a valid repeat count.');
-    loop = repeats === -1 ? null : repeats;
+    output = repeats === -1 ? null : repeats;
     const speed = Number(opts.rate || 1);
     check(speed >= .1 && speed <= 10, 'Speed must be between 0.1 and 10.');
-    all.forEach(f => { if (f.delay) f.delay = Math.max(1, Math.round(f.delay / speed)); });
+    delay = d => d ? Math.max(1, Math.round(d / speed)) : d;
   }
-  return encodeBatch(all, width, height, loop);
+  const sources = (opts.tool === 'combine-gifs' ? infos : [info]).map(source => ({
+    info: source, delays: allFrames(source, delay),
+    change: pixels => fitPixels(pixels, source.width, source.height, width, height, opts),
+  }));
+  return streamGif(sources, width, height, {loop: output});
 }

@@ -41,40 +41,49 @@ function transform(bytes, opts) {
   const parsed = blocks(bytes), reader = new GifReader(bytes);
   const width = reader.width, height = reader.height, count = reader.numFrames();
   check(count > 0 && width > 0 && height > 0, 'The GIF contains no usable frames.');
-  check(width * height * 4 * (count + 3) <= 96 * 1024 * 1024, 'This GIF needs too much decoded memory. Resize it or use a shorter animation first.');
+  // Speed and looping rewrite timing only; no frame is decoded.
   if (opts.tool === 'gif-speed' || opts.tool === 'gif-loop') return {bytes: metadata(bytes, parsed, opts), quantized: false};
   check(['reverse-gif','rotate-gif','flip-gif','trim-gif'].includes(opts.tool), 'Unknown GIF operation.');
-  let order = Array.from({length: count}, (_, i) => i);
-  if (opts.tool === 'reverse-gif') order = opts.boomerang ? order.concat(order.slice(1, -1).reverse()) : order.reverse();
+  checkFrameSize(width, height);
+  const info = {bytes, parsed, reader, width, height, count}, loop = reader.loopCount();
+  if (opts.tool === 'reverse-gif') {
+    // The last frame comes out first, so every frame is held at once.
+    check(width * height * 4 * (count + 3) <= BATCH_MEMORY, 'Reversing holds every frame in memory at once, and this GIF needs more than that allows. Resize or shorten it first.');
+    const forward = Array.from({length: count}, (_, i) => i);
+    const order = opts.boomerang ? forward.concat(forward.slice(1, -1).reverse()) : forward.slice().reverse();
+    const frames = decodeFrames(bytes, reader, parsed);
+    return encodeFrames(order.map(i => frames[i]), width, height, {loop, limit: BATCH_MEMORY});
+  }
+  // The rest stream: each frame is decoded, changed and written before the next.
+  let first = 0, last = count - 1;
   if (opts.tool === 'trim-gif') {
     const start = Number(opts.start), end = Number(opts.end);
     check(Number.isInteger(start) && Number.isInteger(end) && start >= 1 && end <= count && end >= start, 'Choose a valid inclusive frame range.');
-    order = order.slice(start - 1, end);
+    first = start - 1; last = end - 1;
   }
+  const delays = new Map();
+  for (let i = first; i <= last; i++) delays.set(i, reader.frameInfo(i).delay);
+  if (opts.tool === 'trim-gif') return streamGif([{info, delays}], width, height, {loop});
   const angle = Number(opts.angle || 90), axis = opts.axis || 'horizontal';
   if (opts.tool === 'rotate-gif') check([90,180,270].includes(angle), 'Choose a quarter-turn rotation.');
   if (opts.tool === 'flip-gif') check(['horizontal','vertical'].includes(axis), 'Choose a flip direction.');
   const swap = opts.tool === 'rotate-gif' && angle !== 180;
   const outW = swap ? height : width, outH = swap ? width : height;
-  const frames = decodeFrames(bytes, reader, parsed);
-  const capacity = order.length * (width * height * 3 + 1024) + 1024;
-  check(capacity <= 96 * 1024 * 1024, 'The output would require too much memory. Try a shorter animation.');
-  if (opts.tool === 'rotate-gif' || opts.tool === 'flip-gif') {
-    // Every frame is used once, in order, so each is turned in place.
-    frames.forEach(frame => {
-      const pixels = new Uint8Array(frame.pixels.length);
-      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-        let dx = x, dy = y;
-        if (opts.tool === 'flip-gif') { dx = axis === 'horizontal' ? width - 1 - x : x; dy = axis === 'vertical' ? height - 1 - y : y; }
-        else if (angle === 90) { dx = height - 1 - y; dy = x; }
-        else if (angle === 180) { dx = width - 1 - x; dy = height - 1 - y; }
-        else { dx = y; dy = width - 1 - x; }
-        pixels.set(frame.pixels.subarray((y * width + x) * 4, (y * width + x) * 4 + 4), (dy * outW + dx) * 4);
-      }
-      frame.pixels = pixels;
-    });
-  }
-  return encodeFrames(order.map(i => frames[i]), outW, outH, {loop: reader.loopCount(), limit: 96 * 1024 * 1024});
+  // One buffer serves every frame: the encoder copies whatever it keeps.
+  const turned = new Uint8Array(width * height * 4), turned32 = new Uint32Array(turned.buffer);
+  const change = pixels => {
+    const from = new Uint32Array(pixels.buffer, pixels.byteOffset, width * height);
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      let dx = x, dy = y;
+      if (opts.tool === 'flip-gif') { dx = axis === 'horizontal' ? width - 1 - x : x; dy = axis === 'vertical' ? height - 1 - y : y; }
+      else if (angle === 90) { dx = height - 1 - y; dy = x; }
+      else if (angle === 180) { dx = width - 1 - x; dy = height - 1 - y; }
+      else { dx = y; dy = width - 1 - x; }
+      turned32[dy * outW + dx] = from[y * width + x];
+    }
+    return turned;
+  };
+  return streamGif([{info, delays, change}], outW, outH, {loop});
 }
 
 importScripts('/gif-utilities-batch.js');

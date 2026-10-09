@@ -64,6 +64,8 @@ function paletteFrame(rgba, maxColors = 256) {
 function* decodeFrameStream(bytes, reader, parsed) {
   const width = reader.width, height = reader.height, count = reader.numFrames();
   const composed = new Uint8Array(width * height * 4), pixels = new Uint8Array(composed.length);
+  // Whole pixels at a time: copying through a subarray per pixel dominated decoding.
+  const shown32 = new Uint32Array(composed.buffer), drawn32 = new Uint32Array(pixels.buffer);
   let prior;
   const bgOffset = 13 + bytes[11] * 3;
   const background = (bytes[10] & 128) && bgOffset + 2 < parsed.header.length
@@ -73,8 +75,13 @@ function* decodeFrameStream(bytes, reader, parsed) {
     const info = reader.frameInfo(i);
     check(info.x + info.width <= width && info.y + info.height <= height, 'Frame extends beyond the GIF canvas.');
     if (info.disposal === 3) { prior ||= new Uint8Array(composed.length); prior.set(composed); }
-    pixels.fill(0); reader.decodeAndBlitFrameRGBA(i, pixels);
-    for (let p = 0; p < pixels.length; p += 4) if (pixels[p + 3]) composed.set(pixels.subarray(p, p + 4), p);
+    // The decoder writes only this frame's rectangle, and only its opaque pixels,
+    // which are never 0 as words since their alpha is 255.
+    for (let y = info.y; y < info.y + info.height; y++) drawn32.fill(0, y * width + info.x, y * width + info.x + info.width);
+    reader.decodeAndBlitFrameRGBA(i, pixels);
+    for (let y = info.y; y < info.y + info.height; y++) {
+      for (let k = y * width + info.x, end = k + info.width; k < end; k++) if (drawn32[k]) shown32[k] = drawn32[k];
+    }
     yield {pixels: composed, delay: info.delay};
     if (info.disposal === 2) {
       const fill = info.transparent_index === null ? background : new Uint8Array(4);
