@@ -20,22 +20,6 @@
   var $ = GC.$;
   var state = GC.state;
 
-  // ── GIF Worker Preload ───────────────────────
-  // gif.js uses a Web Worker for encoding.  We fetch the worker
-  // script at page load and turn it into a blob URL so the
-  // encoder can use it later without a cross-origin request.
-
-  GC.preloadGifWorker = function () {
-    fetch('/vendor/gif.worker.js')
-      .then(function (r) { return r.blob(); })
-      .then(function (blob) {
-        state._workerBlobUrl = URL.createObjectURL(blob);
-      })
-      .catch(function () {
-        // Silently fail — checked at export time
-      });
-  };
-
   // ── GIF Loading ──────────────────────────────
 
   /**

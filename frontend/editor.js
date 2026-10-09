@@ -61,7 +61,6 @@
     GC.ctx = GC.canvas.getContext('2d');
     bindEvents();
     GC.initKfMenu();
-    GC.preloadGifWorker();
 
     if (GC.restoreDraft && await GC.restoreDraft()) return;
 

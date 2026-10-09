@@ -104,3 +104,110 @@ function decodeFrames(bytes, reader, parsed) {
   }
   return frames;
 }
+
+/**
+ * Write composed RGBA frames to a GIF one at a time, holding only what is on
+ * screen and the frame waiting to be written, in an output buffer that grows.
+ *
+ * While nothing is clear, each frame after the first keeps only the rectangle
+ * that differs from what is on screen, with unchanged pixels inside it left
+ * clear, and stays on screen for the next to draw over. A frame that changes
+ * nothing adds its time to the one before, unless either delay is under 2
+ * hundredths (browsers play those at 10) or the sum would pass the GIF limit.
+ * A pixel left on screen cannot be made clear again, so from the first frame
+ * with a clear pixel on, frames are stored whole and cleared after showing.
+ *
+ * opts.loop: repeat count (0 forever, null once); opts.colors: most per frame;
+ * opts.tolerance: how far a channel may move and still count as unchanged
+ * (lossy; 0 keeps every change); opts.limit: largest output buffer, in bytes.
+ */
+function createGifEncoder(width, height, opts = {}) {
+  const colors = opts.colors || 256, tolerance = opts.tolerance || 0, limit = opts.limit || Infinity;
+  const full = {x: 0, y: 0, w: width, h: height};
+  let buffer = new Uint8Array(Math.min(limit, 1024 + width * height * 2));
+  const writer = new GifWriter(buffer, width, height, {loop: opts.loop});
+  let shown = null, marks = null, pending = null, whole = false, quantized = false, written = 0;
+
+  function write(step) {
+    check(step.delay <= 65535, 'A retained frame exceeds the GIF delay limit. Remove fewer frames or choose Shorten.');
+    // LZW spends at most 12 bits a pixel, plus block lengths, palette and headers.
+    const position = writer.getOutputBufferPosition(), need = position + Math.ceil(step.rect.w * step.rect.h * 1.6) + 1024;
+    if (need > buffer.length) {
+      check(need <= limit, 'Output exceeds the memory limit.');
+      const grown = new Uint8Array(Math.min(limit, Math.max(need, buffer.length * 2)));
+      grown.set(buffer.subarray(0, position));
+      buffer = grown; writer.setOutputBuffer(buffer);
+    }
+    const pal = paletteFrame(step.pixels, colors); quantized ||= pal.quantized;
+    writer.addFrame(step.rect.x, step.rect.y, step.rect.w, step.rect.h, pal.indexed,
+      {palette: pal.palette, transparent: pal.transparent, delay: step.delay, disposal: step.disposal});
+    written++;
+  }
+  function hasClear(pixels) {
+    for (let p = 3; p < pixels.length; p += 4) if (pixels[p] !== 255) return true;
+    return false;
+  }
+  return {
+    /** Add the next composed frame. `pixels` may be reused by the caller afterwards. */
+    add(pixels, delay) {
+      if (!whole && hasClear(pixels)) {
+        whole = true;
+        // What is on screen is rewritten whole so it can be cleared before this frame.
+        if (pending) pending = {pixels: shown, rect: full, delay: pending.delay, disposal: 2};
+      }
+      if (whole) {
+        if (pending) { write(pending); pending = null; }
+        write({pixels, rect: full, delay, disposal: 2});
+        return;
+      }
+      if (!shown) {
+        shown = pixels.slice(); marks = new Uint8Array(width * height);
+        pending = {pixels: shown, rect: full, delay, disposal: 1};
+        return;
+      }
+      // One pass marks each pixel a channel of which moved more than `tolerance`.
+      let left = width, top = height, right = -1, bottom = -1;
+      for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i++) {
+        const p = i * 4, r = pixels[p] - shown[p], g = pixels[p + 1] - shown[p + 1], b = pixels[p + 2] - shown[p + 2];
+        marks[i] = r > tolerance || r < -tolerance || g > tolerance || g < -tolerance || b > tolerance || b < -tolerance ? 1 : 0;
+        if (!marks[i]) continue;
+        if (x < left) left = x; if (x > right) right = x;
+        if (y < top) top = y; if (y > bottom) bottom = y;
+      }
+      if (right < 0) {
+        if (delay >= 2 && pending.delay >= 2 && pending.delay + delay <= 65535) { pending.delay += delay; return; }
+        left = top = right = bottom = 0;  // keep the frame as one unchanged pixel
+      }
+      const rect = {x: left, y: top, w: right - left + 1, h: bottom - top + 1};
+      const region = new Uint8Array(rect.w * rect.h * 4);
+      for (let y = 0; y < rect.h; y++) for (let x = 0; x < rect.w; x++) {
+        const i = (rect.y + y) * width + rect.x + x;
+        if (marks[i]) region.set(pixels.subarray(i * 4, i * 4 + 4), (y * rect.w + x) * 4);
+      }
+      write(pending);  // before `shown` changes: the first frame's pixels are `shown`
+      for (let y = 0; y < rect.h; y++) for (let x = 0; x < rect.w; x++) {
+        const i = (rect.y + y) * width + rect.x + x;
+        if (marks[i]) shown.set(pixels.subarray(i * 4, i * 4 + 4), i * 4);
+      }
+      pending = {pixels: region, rect, delay, disposal: 1};
+    },
+    /** Write the last frame and return {bytes, quantized, frames}. */
+    finish() {
+      if (pending) { write(pending); pending = null; }
+      check(written > 0, 'The GIF contains no usable frames.');
+      const end = writer.end();
+      return {bytes: buffer.slice(0, end), quantized, frames: written};
+    },
+  };
+}
+
+/** Encode composed frames ({pixels, delay}) held in memory, reporting progress from 40 to 100. */
+function encodeFrames(frames, width, height, opts) {
+  const encoder = createGifEncoder(width, height, opts);
+  frames.forEach((frame, i) => {
+    encoder.add(frame.pixels, frame.delay);
+    postMessage({progress: 40 + Math.round((i + 1) * 60 / frames.length)});
+  });
+  const {bytes, quantized} = encoder.finish();
+  return {bytes, quantized};
+}

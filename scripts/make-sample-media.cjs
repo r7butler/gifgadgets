@@ -429,7 +429,7 @@ async function exportDemo(variant) {
       try { await page.goto(`http://localhost:${port}/gif-editor/edit/?sample=${variant}`); break; }
       catch (err) { if (attempt > 40) throw err; await page.waitForTimeout(250); }
     }
-    await page.waitForFunction(() => GC.state.isSample && GC.state._workerBlobUrl);
+    await page.waitForFunction(() => GC.state.isSample);
     const dataUrl = await page.evaluate(() => new Promise(resolve => {
       GC.exportGif({ onBlob: blob => {
         const reader = new FileReader();

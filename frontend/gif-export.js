@@ -1,9 +1,10 @@
 /* ==========================================================
    GifCaption – GIF Export & Share
 
-   Encodes the captioned GIF using gif.js, provides a file
-   download helper, and drives the share-modal flow (upload
-   to backend → display share URL + social links).
+   Composes the captioned frames and encodes them in
+   gif-export-worker.js, provides a file download helper, and
+   drives the share-modal flow (upload to backend → display
+   share URL + social links).
 
    This module is GIF-specific.  A future still-image tool
    would export a single PNG/JPEG frame instead.
@@ -14,7 +15,7 @@
                            GC.drawWatermark, GC.getCompositeSize,
                            GC.getFrameOffsetY)
      caption-fonts.js     (GC.loadCaptionFonts)
-     gif.js               (GIF global — the gif.js encoder)
+     gif-export-worker.js (the encoder, via gif-codec.js)
      app.js               (shareGif function)
    ========================================================== */
 
@@ -72,31 +73,43 @@
       cropCtx = cropCanvas.getContext('2d');
     }
 
-    var workerUrl = state._workerBlobUrl;
-    if (!workerUrl) {
-      exportMetric.fail('encode');
-      GC.showError('GIF worker not ready. Please try again.');
-      GC.exportInProgress = false;
-      return;
+    // Compression Level runs from 1 (higher quality) to 30 (smaller file): the
+    // most colours a frame keeps, 256 down to 32, and with Lossy, how far a
+    // colour may drift between frames before it is redrawn, 4 to 16 of 255.
+    var colors = 256, tolerance = 0;
+    if (state.compressGif) {
+      var level = Math.max(1, Math.min(30, state.gifQuality || 10));
+      colors = Math.round(256 / Math.pow(2, (level - 1) * 3 / 29));
+      if (state.lossyCompress) tolerance = Math.round(4 + (level - 1) * 12 / 29);
     }
 
-    var quality = state.compressGif ? state.gifQuality : 10;
+    var worker;
+    try { worker = new Worker('/gif-export-worker.js'); }
+    catch (_) {
+      exportMetric.fail('encode');
+      GC.exportInProgress = false;
+      GC.hideExportProgress();
+      GC.showError('Your browser could not start the GIF encoder.');
+      return;
+    }
+    var total = state.frames.length, sent = 0, added = 0, watchdog;
+    function stop() {
+      clearTimeout(watchdog);
+      worker.terminate();
+      GC.exportInProgress = false;
+      GC.hideExportProgress();
+    }
+    function fail(category, message) { stop(); exportMetric.fail(category); GC.showError(message); }
+    // A minute without a frame finishing means the export is stuck.
+    function wait() {
+      clearTimeout(watchdog);
+      watchdog = setTimeout(function () {
+        fail('timeout', 'Export timed out. Try reducing the number of frames or file size.');
+      }, 60000);
+    }
 
-    var gif = new GIF({
-      workers: Math.min(navigator.hardwareConcurrency || 2, 4),
-      quality: quality,
-      width: outW,
-      height: outH,
-      workerScript: workerUrl,
-    });
-
-    // A removed background with nothing behind the subject stays transparent.
-    // gif.js reads transparency from one key color, which has to be chosen
-    // before frames are added, so those frames are composed first.
-    var composed = GC.cutoutLeavesTransparency && GC.cutoutLeavesTransparency() ? [] : null;
-
-    // Composite every frame: base layer → overlay captions → box bars → watermark
-    for (var i = 0; i < state.frames.length; i++) {
+    // Composite one frame: base layer → overlay captions → box bars → watermark
+    function compose(i) {
       expCtx.clearRect(0, 0, compSize.w, compSize.h);
       GC.drawBaseFrame(expCtx, i, 0, offsetY);
 
@@ -107,53 +120,51 @@
 
       GC.drawBoxCaption(expCtx, compSize.w, compSize.h);
       GC.drawWatermark(expCtx);
+      if (!crop) return expCtx.getImageData(0, 0, outW, outH);
 
-      // If cropping, extract the crop region into the crop canvas
-      var frameCtx = expCtx;
-      if (crop) {
-        // Adjust crop Y to account for box caption offset
-        cropCtx.clearRect(0, 0, outW, outH);
-        cropCtx.drawImage(expCanvas, crop.x, crop.y + offsetY, crop.w, crop.h, 0, 0, outW, outH);
-        frameCtx = cropCtx;
-      }
-
-      if (composed) composed.push(frameCtx.getImageData(0, 0, outW, outH));
-      else gif.addFrame(frameCtx, { copy: true, delay: state.frames[i].delay });
-    }
-    if (composed) {
-      var key = BackgroundCore.keyColor(composed.map(function (image) { return image.data; }));
-      gif.setOption('transparent', key);
-      composed.forEach(function (image, index) {
-        BackgroundCore.keyOut(image.data, key);
-        gif.addFrame(image, { delay: state.frames[index].delay });
-      });
+      // Adjust crop Y to account for box caption offset
+      cropCtx.clearRect(0, 0, outW, outH);
+      cropCtx.drawImage(expCanvas, crop.x, crop.y + offsetY, crop.w, crop.h, 0, 0, outW, outH);
+      return cropCtx.getImageData(0, 0, outW, outH);
     }
 
-    gif.on('progress', function (p) { GC.showExportProgress(p); });
-
-    var _exportTimeout = setTimeout(function () {
-      if (GC.exportInProgress) {
-        GC.exportInProgress = false;
-        GC.hideExportProgress();
-        exportMetric.fail('timeout');
-        GC.showError('Export timed out. Try reducing the number of frames or file size.');
+    // Frames are composed a few ahead of the encoder rather than all at once,
+    // so an export holds a handful of frames, not a second copy of the GIF.
+    function feed() {
+      while (sent < total && sent - added < 3) {
+        var image = compose(sent);
+        worker.postMessage({type: 'frame', pixels: image.data.buffer,
+          delay: Math.round(state.frames[sent].delay / 10)}, [image.data.buffer]);
+        if (++sent === total) worker.postMessage({type: 'finish'});
       }
-    }, 60000);
+    }
 
-    gif.on('finished', function (blob) {
-      exportMetric.complete();
-      clearTimeout(_exportTimeout);
-      GC.hideExportProgress();
-      GC.exportInProgress = false;
-      var fname = GC.makeCaptionedFilename();
-      if (opts.onBlob) {
-        opts.onBlob(blob, fname);
-      } else {
-        GC.downloadBlob(blob, fname);
+    worker.onmessage = function (event) {
+      var data = event.data;
+      if (data.type === 'error') {
+        fail('encode', 'The GIF could not be encoded. ' + data.message);
+      } else if (data.type === 'added') {
+        added++;
+        GC.showExportProgress(added / total);
+        wait();
+        feed();
+      } else if (data.type === 'done') {
+        stop();
+        exportMetric.complete();
+        var blob = new Blob([data.bytes], { type: 'image/gif' });
+        var fname = GC.makeCaptionedFilename();
+        if (opts.onBlob) {
+          opts.onBlob(blob, fname);
+        } else {
+          GC.downloadBlob(blob, fname);
+        }
       }
-    });
+    };
+    worker.onerror = function () { fail('encode', 'GIF export failed. Try a shorter GIF.'); };
 
-    gif.render();
+    worker.postMessage({type: 'start', width: outW, height: outH, colors: colors, tolerance: tolerance});
+    wait();
+    feed();
   };
 
   // ── Download Helpers ─────────────────────────

@@ -220,7 +220,6 @@ for (const editor of EDITORS) {
 
       // A red image big enough to cover the whole picture.
       await addRedOverlay(page, 100, 100, { x: 0.5, y: 0.5, scale: 4, scaleX: 4, scaleY: 4 });
-      if (editor.exportFn === 'exportGif') await page.waitForFunction(() => GC.state._workerBlobUrl);
 
       // A new image goes behind the captions, as before layers existed.
       expect(notRed(await renderedPicture(page))).toBeGreaterThan(0);
@@ -387,7 +386,6 @@ for (const editor of EDITORS) {
     test('a box outline frames the caption box, clear of its text, in preview and export', async ({ page }) => {
       await openWithCaption(page, editor);
       await placeCaption(page, 'WWWW');
-      if (editor.exportFn === 'exportGif') await page.waitForFunction(() => GC.state._workerBlobUrl);
       await expect(page.locator('#cap-box-outline-width')).toHaveValue('0');
       expect(tally(await renderedPicture(page), 0, 6).red).toBe(0);
 

@@ -44,73 +44,9 @@ function fitPixels(pixels, width, height, outW, outH, opts) {
   }
   return out;
 }
-/**
- * Plan storing only what changes. In an animation with no transparency, each
- * frame after the first keeps just the rectangle that differs from the frame
- * on screen before it, and a frame that changes nothing adds its time to the
- * one before. Frames are then left in place rather than cleared, which cannot
- * bring back a clear pixel, so an animation with transparency gets null and
- * is stored as whole frames.
- */
-function changedRegions(frames, width, height) {
-  for (const frame of frames) for (let p = 3; p < frame.pixels.length; p += 4) if (frame.pixels[p] !== 255) return null;
-  const plan = [{frame: frames[0], previous: null, rect: {x:0, y:0, w:width, h:height}, delay: frames[0].delay}];
-  let shown = frames[0].pixels;
-  for (const frame of frames.slice(1)) {
-    const pixels = frame.pixels;
-    let left = width, top = height, right = -1, bottom = -1;
-    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-      const p = (y * width + x) * 4;
-      if (pixels[p] === shown[p] && pixels[p + 1] === shown[p + 1] && pixels[p + 2] === shown[p + 2]) continue;
-      if (x < left) left = x; if (x > right) right = x;
-      if (y < top) top = y; if (y > bottom) bottom = y;
-    }
-    const last = plan[plan.length - 1];
-    if (right < 0) {
-      // Merging would change playback if either delay is under 2 hundredths
-      // (played as 10), or pass the GIF limit; then keep one unchanged pixel.
-      if (frame.delay >= 2 && last.delay >= 2 && last.delay + frame.delay <= 65535) { last.delay += frame.delay; continue; }
-      left = top = right = bottom = 0;
-    }
-    plan.push({frame, previous: shown, rect: {x:left, y:top, w:right - left + 1, h:bottom - top + 1}, delay: frame.delay});
-    shown = pixels;
-  }
-  return plan;
-}
-/** A planned frame's pixels: the changed ones in its rectangle, the rest left clear. */
-function regionPixels(step, width) {
-  if (!step.previous) return step.frame.pixels;
-  const {rect} = step, pixels = step.frame.pixels, shown = step.previous, out = new Uint8Array(rect.w * rect.h * 4);
-  for (let y = 0; y < rect.h; y++) for (let x = 0; x < rect.w; x++) {
-    const p = ((rect.y + y) * width + rect.x + x) * 4;
-    if (pixels[p] !== shown[p] || pixels[p + 1] !== shown[p + 1] || pixels[p + 2] !== shown[p + 2]) out.set(pixels.subarray(p, p + 4), (y * rect.w + x) * 4);
-  }
-  return out;
-}
-/**
- * Encode composed frames ({pixels, delay}) as a GIF. Each rectangle's pixels
- * are built as it is written, so the plan holds no second copy of the frames.
- */
-function encodeFrames(frames, width, height, loop, colors = 256) {
-  const steps = changedRegions(frames, width, height) || frames.map(frame => ({frame, previous: null, rect: null, delay: frame.delay}));
-  const capacity = steps.length * (width * height * 3 + 1024) + 1024;
-  check(capacity <= BATCH_MEMORY, 'Output exceeds the memory limit.');
-  const buffer = new Uint8Array(capacity), writer = new GifWriter(buffer, width, height, {loop});
-  let quantized = false;
-  steps.forEach((step, i) => {
-    check(step.delay <= 65535, 'A retained frame exceeds the GIF delay limit. Remove fewer frames or choose Shorten.');
-    const pal = paletteFrame(regionPixels(step, width), colors); quantized ||= pal.quantized;
-    // Planned rectangles stay on screen for the next to draw over; whole frames are cleared.
-    const r = step.rect || {x:0, y:0, w:width, h:height};
-    writer.addFrame(r.x, r.y, r.w, r.h, pal.indexed, {palette:pal.palette, transparent:pal.transparent, delay:step.delay, disposal:step.rect ? 1 : 2});
-    postMessage({progress: 40 + Math.round((i + 1) * 60 / steps.length)});
-  });
-  const end = writer.end(); check(end <= capacity, 'Output exceeds the memory limit.');
-  return {bytes:buffer.slice(0, end), quantized};
-}
 function encodeBatch(frames, width, height, loop, colors = 256) {
   check(frames.length && width * height * 4 * (frames.length + 3) <= BATCH_MEMORY, 'The output canvas and frame count exceed the memory limit.');
-  return encodeFrames(frames, width, height, loop, colors);
+  return encodeFrames(frames, width, height, {loop, colors, limit: BATCH_MEMORY});
 }
 /** How long a frame is shown: browsers play delays under 2 hundredths of a second at 10. */
 function playedDelay(delay) { return delay < 2 ? 10 : delay; }

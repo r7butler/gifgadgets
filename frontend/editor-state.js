@@ -13,7 +13,7 @@
      gif-playback.js       → GIF loading & frame extraction (omggif),
                              play / pause / seek scheduling.
      gif-timeline.js       → D3-brush caption timeline (frame-based).
-     gif-export.js         → GIF encoding (gif.js), download helper,
+     gif-export.js         → GIF encoding (gif-export-worker.js), download helper,
                              share-modal flow.
      editor.js             → Entry point: init, event binding, canvas
                              drag/resize, caption CRUD, UI updates.
@@ -62,8 +62,8 @@
     // Export options
     hideWatermark: false,   // true = user opted out of the watermark
     compressGif: false,     // true = use higher compression settings
-    gifQuality: 10,         // gif.js quality (1 = best, 30 = worst)
-    lossyCompress: false,   // true = reduce colour palette for smaller files
+    gifQuality: 10,         // compression level (1 = best quality, 30 = smallest file)
+    lossyCompress: false,   // true = skip tiny colour changes between frames
 
     // Crop
     cropActive: false,      // true = crop mode enabled

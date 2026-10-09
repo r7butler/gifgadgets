@@ -74,8 +74,7 @@ function transform(bytes, opts) {
       frame.pixels = pixels;
     });
   }
-  // encodeFrames (gif-utilities-batch.js, loaded below) stores only what changes where it can.
-  return encodeFrames(order.map(i => frames[i]), outW, outH, reader.loopCount());
+  return encodeFrames(order.map(i => frames[i]), outW, outH, {loop: reader.loopCount(), limit: 96 * 1024 * 1024});
 }
 
 importScripts('/gif-utilities-batch.js');
