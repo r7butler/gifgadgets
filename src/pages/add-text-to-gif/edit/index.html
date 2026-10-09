@@ -4,9 +4,8 @@
 {% block head_extra %}
 {{ super() }}
 <style>
-/* Keep shared controls mounted for the editor engine; expose caption tools only. */
+/* Keep shared controls mounted for the editor engine; expose caption and overlay tools only. */
 .caption-only-editor #adj-section,
-.caption-only-editor #overlay-section,
 .caption-only-editor .speed-control,
 .caption-only-editor #btn-save-frame { display: none !important; }
 .caption-editor-label { margin: 0; font-size: 1rem; }

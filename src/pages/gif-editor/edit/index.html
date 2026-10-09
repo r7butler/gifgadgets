@@ -156,6 +156,46 @@
             </div>
           </div>
 
+          <div class="sidebar-section box-caption-section collapsed" id="box-caption-section">
+            <button class="section-toggle collapsed" id="box-caption-toggle" aria-expanded="false">Box Caption</button>
+            <div class="box-caption-body">
+              <button id="btn-add-box-top" class="btn btn-ghost btn-xs">+ Top Box Caption</button>
+              <div id="box-top-editor" class="box-editor hidden">
+                <div class="box-editor-header"><span class="box-editor-label">Top Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-top">&times; Remove</button></div>
+                <div class="form-group"><label for="box-top-text">Text</label><textarea id="box-top-text" rows="2" placeholder="Enter text…"></textarea></div>
+                <div class="form-group"><label>Height: <span id="box-top-height-val">80</span>px</label><input type="range" id="box-top-height" min="30" max="300" value="80" /></div>
+                <div class="form-group"><label>Border: <span id="box-top-border-val">0</span>px</label><input type="range" id="box-top-border" min="0" max="20" value="0" /></div>
+                <div class="form-group"><label>Font size: <span id="box-top-fontsize-val">36</span>px</label><input type="range" id="box-top-fontsize" min="12" max="120" value="36" /></div>
+                <div class="form-group box-bold-group" id="box-top-bold-group"><label class="option-label"><input type="checkbox" id="box-top-bold" checked /><span>Bold</span></label></div>
+                <div class="form-row">
+                  <div class="form-group"><label for="box-top-align">Align</label><select id="box-top-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
+                  <div class="form-group"><label for="box-top-font">Font</label><select id="box-top-font">{% include "partials/caption-font-options.html" %}</select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="box-top-text-color">Text</label><input type="color" id="box-top-text-color" value="#000000" /></div>
+                  <div class="form-group"><label for="box-top-bg-color">Background</label><input type="color" id="box-top-bg-color" value="#ffffff" /></div>
+                </div>
+              </div>
+              <button id="btn-add-box-bottom" class="btn btn-ghost btn-xs">+ Bottom Box Caption</button>
+              <div id="box-bottom-editor" class="box-editor hidden">
+                <div class="box-editor-header"><span class="box-editor-label">Bottom Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-bottom">&times; Remove</button></div>
+                <div class="form-group"><label for="box-bottom-text">Text</label><textarea id="box-bottom-text" rows="2" placeholder="Enter text…"></textarea></div>
+                <div class="form-group"><label>Height: <span id="box-bottom-height-val">80</span>px</label><input type="range" id="box-bottom-height" min="30" max="300" value="80" /></div>
+                <div class="form-group"><label>Border: <span id="box-bottom-border-val">0</span>px</label><input type="range" id="box-bottom-border" min="0" max="20" value="0" /></div>
+                <div class="form-group"><label>Font size: <span id="box-bottom-fontsize-val">36</span>px</label><input type="range" id="box-bottom-fontsize" min="12" max="120" value="36" /></div>
+                <div class="form-group box-bold-group" id="box-bottom-bold-group"><label class="option-label"><input type="checkbox" id="box-bottom-bold" checked /><span>Bold</span></label></div>
+                <div class="form-row">
+                  <div class="form-group"><label for="box-bottom-align">Align</label><select id="box-bottom-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
+                  <div class="form-group"><label for="box-bottom-font">Font</label><select id="box-bottom-font">{% include "partials/caption-font-options.html" %}</select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="box-bottom-text-color">Text</label><input type="color" id="box-bottom-text-color" value="#000000" /></div>
+                  <div class="form-group"><label for="box-bottom-bg-color">Background</label><input type="color" id="box-bottom-bg-color" value="#ffffff" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="sidebar-section overlay-img-section collapsed" id="overlay-section">
             <button class="section-toggle collapsed" id="overlay-toggle" aria-expanded="false">Image Overlays</button>
             <div class="overlay-section-body">
@@ -229,46 +269,6 @@
                 <div id="bg-color-options" class="form-group sub-settings" hidden><label for="bg-color" id="bg-color-label">Color</label><input type="color" id="bg-color" value="#ffffff" /></div>
                 <button type="button" id="btn-bg-restore" class="btn btn-ghost btn-xs">Restore the original background</button>
               </fieldset>
-            </div>
-          </div>
-
-          <div class="sidebar-section box-caption-section collapsed" id="box-caption-section">
-            <button class="section-toggle collapsed" id="box-caption-toggle" aria-expanded="false">Box Caption</button>
-            <div class="box-caption-body">
-              <button id="btn-add-box-top" class="btn btn-ghost btn-xs">+ Top Box Caption</button>
-              <div id="box-top-editor" class="box-editor hidden">
-                <div class="box-editor-header"><span class="box-editor-label">Top Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-top">&times; Remove</button></div>
-                <div class="form-group"><label for="box-top-text">Text</label><textarea id="box-top-text" rows="2" placeholder="Enter text…"></textarea></div>
-                <div class="form-group"><label>Height: <span id="box-top-height-val">80</span>px</label><input type="range" id="box-top-height" min="30" max="300" value="80" /></div>
-                <div class="form-group"><label>Border: <span id="box-top-border-val">0</span>px</label><input type="range" id="box-top-border" min="0" max="20" value="0" /></div>
-                <div class="form-group"><label>Font size: <span id="box-top-fontsize-val">36</span>px</label><input type="range" id="box-top-fontsize" min="12" max="120" value="36" /></div>
-                <div class="form-group box-bold-group" id="box-top-bold-group"><label class="option-label"><input type="checkbox" id="box-top-bold" checked /><span>Bold</span></label></div>
-                <div class="form-row">
-                  <div class="form-group"><label for="box-top-align">Align</label><select id="box-top-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
-                  <div class="form-group"><label for="box-top-font">Font</label><select id="box-top-font">{% include "partials/caption-font-options.html" %}</select></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="box-top-text-color">Text</label><input type="color" id="box-top-text-color" value="#000000" /></div>
-                  <div class="form-group"><label for="box-top-bg-color">Background</label><input type="color" id="box-top-bg-color" value="#ffffff" /></div>
-                </div>
-              </div>
-              <button id="btn-add-box-bottom" class="btn btn-ghost btn-xs">+ Bottom Box Caption</button>
-              <div id="box-bottom-editor" class="box-editor hidden">
-                <div class="box-editor-header"><span class="box-editor-label">Bottom Box Caption</span><button class="btn btn-ghost btn-xs btn-remove-box" id="btn-remove-box-bottom">&times; Remove</button></div>
-                <div class="form-group"><label for="box-bottom-text">Text</label><textarea id="box-bottom-text" rows="2" placeholder="Enter text…"></textarea></div>
-                <div class="form-group"><label>Height: <span id="box-bottom-height-val">80</span>px</label><input type="range" id="box-bottom-height" min="30" max="300" value="80" /></div>
-                <div class="form-group"><label>Border: <span id="box-bottom-border-val">0</span>px</label><input type="range" id="box-bottom-border" min="0" max="20" value="0" /></div>
-                <div class="form-group"><label>Font size: <span id="box-bottom-fontsize-val">36</span>px</label><input type="range" id="box-bottom-fontsize" min="12" max="120" value="36" /></div>
-                <div class="form-group box-bold-group" id="box-bottom-bold-group"><label class="option-label"><input type="checkbox" id="box-bottom-bold" checked /><span>Bold</span></label></div>
-                <div class="form-row">
-                  <div class="form-group"><label for="box-bottom-align">Align</label><select id="box-bottom-align"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
-                  <div class="form-group"><label for="box-bottom-font">Font</label><select id="box-bottom-font">{% include "partials/caption-font-options.html" %}</select></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="box-bottom-text-color">Text</label><input type="color" id="box-bottom-text-color" value="#000000" /></div>
-                  <div class="form-group"><label for="box-bottom-bg-color">Background</label><input type="color" id="box-bottom-bg-color" value="#ffffff" /></div>
-                </div>
-              </div>
             </div>
           </div>
 

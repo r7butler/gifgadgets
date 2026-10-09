@@ -443,8 +443,16 @@ test('resizing a moving image overlay keeps its corner on this frame and its pat
   expect(k1.y - k0.y).toBeCloseTo(0.05, 6);
 });
 
-test('caption-only editors leave dropped images alone, as they have no overlay controls', async ({ page }) => {
+test('Add Text to GIF turns a dropped image into an overlay', async ({ page }) => {
   await openEditor(page, { path: '/add-text-to-gif/edit/', exportFn: 'exportGif' });
+  await dropFiles(page, [await solidPng(page, 'red.png', 40, 30, '#ff0000')], 120, 80);
+  await expect(page.locator('#overlay-editor')).toBeVisible();
+  await expect(page.locator('#overlay-name')).toHaveText('red.png');
+  expect(await page.evaluate(() => GC.state.overlays.length)).toBe(1);
+});
+
+test('Add Text to Image leaves dropped images alone, as it has no overlay controls', async ({ page }) => {
+  await openEditor(page, { path: '/add-text-to-image/edit/', exportFn: 'exportImage' });
   await dropFiles(page, [await solidPng(page, 'red.png', 40, 30, '#ff0000')], 120, 80, async () => {
     await expect(page.locator('.canvas-container')).not.toHaveClass(/overlay-drop/);
   });

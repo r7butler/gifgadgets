@@ -56,3 +56,22 @@ test.describe("GIF Editor", () => {
     await expect(shareBtn).toBeAttached();
   });
 });
+
+// The order a visitor reaches for them: text first, then images, then the rest.
+const SECTIONS = {
+  "/gif-editor/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Background", "Adjustments", "Other Options"],
+  "/add-text-to-gif/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Background", "Other Options"],
+  "/image-editor/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Adjustments", "Other Options"],
+  "/add-text-to-image/edit/": ["On-Image Captions", "Box Caption", "Other Options"],
+};
+for (const [editor, sections] of Object.entries(SECTIONS)) {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    test(`${editor} lists its sections in order (${viewport.width}px)`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto(editor);
+      await page.locator("#file-input").setInputFiles(path.join(FIXTURES, editor.includes("image") ? "test.png" : "test.gif"));
+      await expect(page.locator("#editor-workspace")).toBeVisible();
+      await expect(page.locator(".sidebar-section > .section-toggle:visible")).toHaveText(sections);
+    });
+  }
+}

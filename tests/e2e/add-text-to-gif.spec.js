@@ -13,7 +13,7 @@ test('caption landing page opens its dedicated editor and exports captions', asy
   await expect(page).toHaveURL(/\/add-text-to-gif\/edit\/\?source=local/);
   await expect(page.locator('#editor-workspace')).toBeVisible();
   await expect(page.locator('#adj-section')).toBeHidden();
-  await expect(page.locator('#overlay-section')).toBeHidden();
+  await expect(page.locator('#overlay-section')).toBeVisible();
   await page.locator('#on-image-caption-toggle').click();
   await page.locator('#btn-add-caption').click();
   await page.locator('#cap-text').fill('Caption test');
