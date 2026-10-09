@@ -75,3 +75,44 @@ for (const [editor, sections] of Object.entries(SECTIONS)) {
     });
   }
 }
+
+test("on a phone the timeline sits under the playback bar, once there is something to time", async ({ page }) => {
+  // It used to come after every sidebar section, so dragging a caption's
+  // timing scrolled the GIF out of view.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/gif-editor/edit/");
+  await page.locator("#file-input").setInputFiles(path.join(FIXTURES, "test.gif"));
+  await expect(page.locator("#editor-workspace")).toBeVisible();
+  const timeline = page.locator("#editor-timeline");
+  await expect(timeline).toBeHidden();
+
+  await page.locator("#on-image-caption-toggle").click();
+  await page.locator("#btn-add-caption").click();
+  await expect(timeline).toBeVisible();
+  const order = await page.evaluate(() => [".playback-controls", "#editor-timeline", "#editor-sidebar"]
+    .map(selector => document.querySelector(selector).getBoundingClientRect()));
+  expect(order[1].top).toBeGreaterThanOrEqual(order[0].bottom - 1);
+  expect(order[2].top).toBeGreaterThanOrEqual(order[1].bottom - 1);
+  // Opened, its track and the GIF fit on screen together.
+  await page.locator("#timeline-toggle").click();
+  await page.locator("#timeline svg").scrollIntoViewIfNeeded();
+  await expect(page.locator("#timeline svg")).toBeInViewport({ ratio: 1 });
+  await expect(page.locator("#preview-canvas")).toBeInViewport({ ratio: 1 });
+
+  // Deleting the only caption hides it again; an image overlay brings it back.
+  await page.locator("#btn-delete-caption").click();
+  await page.locator("#delete-modal-confirm").click();
+  await expect(timeline).toBeHidden();
+  await page.locator("#overlay-toggle").click();
+  await page.locator("#overlay-file-input").setInputFiles(path.join(FIXTURES, "test.png"));
+  await expect(timeline).toBeVisible();
+
+  // Wider, it runs along the bottom again, and shows even with nothing to time.
+  await page.locator("#btn-delete-overlay").click();
+  await expect.poll(() => page.evaluate(() => GC.state.overlays.length)).toBe(0);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(timeline).toBeVisible();
+  // The browser reports the wider screen after the resize, so wait for the move.
+  await expect.poll(() => page.evaluate(() => document.querySelector("#editor-timeline").getBoundingClientRect().top -
+    document.querySelector(".editor-main").getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(-1);
+});

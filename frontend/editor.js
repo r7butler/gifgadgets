@@ -1422,6 +1422,16 @@
     // ── Mobile timeline toggle ────────────────
     var timelineToggle = $('#timeline-toggle');
     if (timelineToggle) {
+      // Phones stack everything in one column: the timeline goes right under
+      // the playback bar, so the GIF stays in view while timing is dragged.
+      // Wider screens run it along the bottom, under the sidebar too.
+      var timelinePanel = $('#editor-timeline'), phone = window.matchMedia('(max-width: 768px)');
+      var placeTimeline = function () {
+        if (phone.matches) $('.editor-preview').after(timelinePanel);
+        else $('#editor-workspace').appendChild(timelinePanel);
+      };
+      placeTimeline();
+      phone.addEventListener('change', placeTimeline);
       // Start collapsed on mobile
       if (window.innerWidth <= 768) {
         $('#editor-timeline').classList.add('mobile-collapsed');

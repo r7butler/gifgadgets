@@ -29,6 +29,11 @@
     var container = document.getElementById('timeline');
     if (!container) return;   // no timeline in still-image mode
     container.innerHTML = '';
+    // Phones show the timeline only once there is something to time (styles.css).
+    var numCaptionTracks = Math.max(state.captions.length, 0);
+    var numOverlayTracks = state.overlays ? state.overlays.length : 0;
+    var panel = document.getElementById('editor-timeline');
+    if (panel) panel.classList.toggle('timeline-empty', numCaptionTracks + numOverlayTracks === 0);
 
     if (state.frames.length === 0) return;
 
@@ -38,8 +43,6 @@
     var margin = { top: 8, right: 24, bottom: 4, left: 110 };
     var cw = container.clientWidth || window.innerWidth || 800;
     var innerW = cw - margin.left - margin.right;
-    var numCaptionTracks = Math.max(state.captions.length, 0);
-    var numOverlayTracks = state.overlays ? state.overlays.length : 0;
     var numTracks = numCaptionTracks + numOverlayTracks;
     var motionCaps = state.captions.filter(function (c) { return c.motion && c.motion.length > 0; });
     var motionOvs = state.overlays ? state.overlays.filter(function (o) { return o.motion && o.motion.length > 0; }) : [];

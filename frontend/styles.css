@@ -1314,6 +1314,7 @@ input[type="range"]::-moz-range-thumb {
   .editor-sidebar.mobile-collapsed .other-options-section { display: none; }
   .editor-timeline.mobile-collapsed .timeline-header,
   .editor-timeline.mobile-collapsed #timeline { display: none; }
+  .editor-timeline.timeline-empty { display: none; }
   .speed-control { display: none; }
   .zoom-controls { display: none; }
   .frame-counter { font-size: 11px; min-width: 50px; }
