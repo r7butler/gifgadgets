@@ -55,12 +55,15 @@
 
   function _handleWorkerMessage(e) {
     var msg = e.data;
+    // A run's progress outranks a warmup's. The first warmup in a minute
+    // waits up to 10 s on the GPU, and the visitor can start a run meanwhile:
+    // hiding its progress made the run look finished with the caption unmoved.
     if (msg.type === 'warmup-pending') {
-      _setProgressText('Loading tracker…');
+      if (!_trackingCap) _setProgressText('Loading tracker…');
 
     } else if (msg.type === 'warmup-done') {
       GC._trackerWarm = true;
-      _hideTrackingProgress();
+      if (!_trackingCap) _hideTrackingProgress();
 
     } else if (msg.type === 'progress') {
       _setProgressText(msg.text);
