@@ -2,9 +2,11 @@
 """Jinja2 build script — renders src/pages/**/*.html into frontend/."""
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from urllib.parse import urlsplit
 import os
+import re
 import sys
 import time
 
@@ -18,6 +20,25 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 PAGES_DIR = os.path.join(ROOT, "src", "pages")
 TEMPLATES_DIR = os.path.join(ROOT, "src", "templates")
 OUTPUT_DIR = os.path.join(ROOT, "frontend")
+# Scripts and stylesheets are static files kept in frontend/ itself.
+ASSETS_DIR = os.path.join(ROOT, "frontend")
+ASSET_LINK = re.compile(r'(?<![\w-])(src|href)="(/[^"?#]+\.(?:js|css))"')
+
+
+def versioned(html, hashes):
+    """Give each script and stylesheet link its content's hash. Browsers cache
+    them by address, so a page never runs with a copy left from an earlier
+    deploy (CloudFront ignores the query and serves the current file)."""
+    def link(match):
+        attr, url = match.groups()
+        path = os.path.join(ASSETS_DIR, url.lstrip("/"))
+        if url not in hashes:
+            if not os.path.isfile(path):
+                return match.group(0)
+            with open(path, "rb") as f:
+                hashes[url] = hashlib.sha256(f.read()).hexdigest()[:12]
+        return f'{attr}="{url}?v={hashes[url]}"'
+    return ASSET_LINK.sub(link, html)
 
 
 def build():
@@ -68,6 +89,7 @@ def build():
     )
 
     count = 0
+    hashes = {}
     for dirpath, _dirnames, filenames in os.walk(PAGES_DIR):
         for fname in filenames:
             if not fname.endswith(".html"):
@@ -80,7 +102,7 @@ def build():
             os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
             template = env.get_template(rel_path)
-            rendered = template.render()
+            rendered = versioned(template.render(), hashes)
 
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(rendered)

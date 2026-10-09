@@ -22,7 +22,7 @@ class SiteBuildTests(unittest.TestCase):
                 self.assertIn('/' + slug + '/', (root / 'sitemap.xml').read_text())
                 self.assertIn('/' + slug + '/', (root / 'index.html').read_text())
                 page = (root / slug / 'index.html').read_text()
-                self.assertIn('src="/background-utilities.js"', page)
+                self.assertIn('src="/background-utilities.js?v=', page)
                 self.assertIn('id="utility-segment"', page)
                 self.assertIn('id="utility-apply"', page)
                 self.assertIn('"FAQPage"', page)
@@ -121,12 +121,28 @@ class SiteBuildTests(unittest.TestCase):
             self.assertGreaterEqual(len(pages), 23, 'expected far more tool pages')
             for slug, _, text in pages:
                 # Scripts are static assets, so they are read from the real frontend.
-                sources = [ROOT / 'frontend' / src for src in re.findall(r'<script[^>]+src="/([^"]+\.js)"', text)]
+                sources = [ROOT / 'frontend' / src for src in re.findall(r'<script[^>]+src="/([^"?]+\.js)(?:\?v=\w+)?"', text)]
                 engine = '\n'.join(f.read_text() for f in sources if f.exists())
                 self.assertTrue(engine, f'{slug} loads no script of its own')
                 for control in sorted(set(re.findall(r'id="utility-([a-z-]+)"', text))):
                     self.assertTrue(f"'{control}'" in engine or f'"{control}"' in engine,
                                     f'{slug} renders #utility-{control} but no script reads it')
+
+    def test_scripts_and_stylesheets_are_versioned_by_content(self):
+        """Scripts were served with no caching rules, so browsers kept them as
+        long as they liked. After a deploy, a page could run a script left from
+        before it: the editor's export looked for gif.js, which that deploy
+        removed, and stopped at "Exporting 0%"."""
+        import hashlib
+        import re
+        with tempfile.TemporaryDirectory() as output, patch.object(module, 'OUTPUT_DIR', output):
+            module.build()
+            page = (Path(output) / 'gif-editor' / 'edit' / 'index.html').read_text()
+            links = re.findall(r'(?:src|href)="(/[^"?]+\.(?:js|css))(\?v=[0-9a-f]+)?"', page)
+            self.assertIn('/gif-export.js', [url for url, _ in links])
+            for url, version in links:
+                digest = hashlib.sha256((ROOT / 'frontend' / url.lstrip('/')).read_bytes()).hexdigest()[:12]
+                self.assertEqual(version, '?v=' + digest, url)
 
     def test_every_utility_page_reports_its_own_funnel_events(self):
         """A slug missing from tool-funnel.js raises no error. Its events are filed

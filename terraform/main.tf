@@ -415,6 +415,12 @@ resource "aws_cloudfront_function" "add_coop_headers" {
         response.headers['content-security-policy'] = {value: "default-src 'none'; img-src https:; media-src https:; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"};
         response.headers['x-content-type-options'] = {value: 'nosniff'};
       }
+      // Site files carry no caching rules of their own, and browsers then keep
+      // them as long as they guess is safe, past deploys. Checking each time
+      // costs a 304 when nothing changed. Files that set their own rules keep them.
+      if (!response.headers['cache-control']) {
+        response.headers['cache-control'] = {value: 'no-cache'};
+      }
       return response;
     }
   EOF
