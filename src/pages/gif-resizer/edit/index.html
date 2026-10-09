@@ -214,7 +214,7 @@
 
 {% block scripts %}
 <script src="/vendor/omggif.js"></script>
-<script src="/vendor/gif.js"></script>
+<script src="/gif-encode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -252,12 +252,7 @@
   var lastGifBlob = null;
   var lastGifFilename = 'resized.gif';
   var gifFilename = 'gif';
-  var workerBlobUrl = null;
 
-  fetch('/vendor/gif.worker.js')
-    .then(function(r){ return r.blob(); })
-    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
-    .catch(function(){});
 
   var chkWatermark = document.getElementById('chk-watermark');
 
@@ -487,30 +482,24 @@
     dstCanvas.width = newW; dstCanvas.height = newH;
     var dstCtx = dstCanvas.getContext('2d', { willReadFrequently: true });
 
-    var resizedFrames = [];
-    for (var i = 0; i < frames.length; i++) {
+    // Each frame is resized when the encoder asks for it, a few at a time.
+    function resizedFrame(i) {
       srcCtx.putImageData(frames[i].imageData, 0, 0);
       dstCtx.clearRect(0, 0, newW, newH);
       dstCtx.drawImage(srcCanvas, 0, 0, newW, newH);
       drawWatermark(dstCtx, newW, newH);
-      resizedFrames.push({ imageData: dstCtx.getImageData(0, 0, newW, newH), delay: frames[i].delay });
-      progressFill.style.width = ((i + 1) / frames.length * 40) + '%';
+      return dstCtx.getImageData(0, 0, newW, newH);
     }
 
     loadingText.textContent = 'Encoding GIF…';
-    progressFill.style.width = '40%';
-
-    var gifOptions = { workers: 2, quality: 10, width: newW, height: newH, repeat: 0 };
-    if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
-    var gif = new GIF(gifOptions);
-    resizedFrames.forEach(function (f) { gif.addFrame(f.imageData, { delay: f.delay, copy: true }); });
-
-    gif.on('progress', function (p) {
-      progressFill.style.width = (p * 60 + 40) + '%';
-      loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 60 + 40) + '%';
-    });
-
-    gif.on('finished', function (blob) {
+    GWGif.encode({
+      width: newW, height: newH, count: frames.length, frame: resizedFrame,
+      delay: function (i) { return Math.round(frames[i].delay / 10); },
+      onProgress: function (p) {
+        progressFill.style.width = (p * 100) + '%';
+        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 100) + '%';
+      },
+    }).then(function (blob) {
       exportMetric.complete();
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');
@@ -524,13 +513,16 @@
       GWSave.offer(btnSavePhotos, GWSave.file(blob, lastGifFilename, 'image/gif'), downloadGif);
 
       resultGif.src = url;
-      resultInfo.textContent = resizedFrames.length + ' frames · ' + newW + '×' + newH + ' · ' + formatSize(blob.size);
+      resultInfo.textContent = frames.length + ' frames · ' + newW + '×' + newH + ' · ' + formatSize(blob.size);
       resultModal.classList.remove('hidden');
       dlBtnHeader.disabled = false;
       btnShare.disabled = false;
+    }, function (error) {
+      exportMetric.fail(error.category);
+      loadingOverlay.classList.add('hidden');
+      resizeBtn.disabled = false;
+      alert(error.message);
     });
-
-    gif.render();
   }
 
   resizeBtn.addEventListener('click', startResize);

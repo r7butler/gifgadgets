@@ -76,11 +76,17 @@ test("encodes exactly 500 frames into a readable GIF", async ({ page }) => {
     Array.from(new Uint8Array(await (await fetch(img.src)).arrayBuffer())));
   const { GifReader } = require("../../frontend/vendor/omggif.js");
   const reader = new GifReader(Buffer.from(bytes));
-  expect(reader.numFrames()).toBe(500);
+  // A frame identical to the one before is stored once and held for both, so
+  // the GIF can have fewer frames than were captured, but plays all 500.
+  let length = 0;
+  for (let i = 0; i < reader.numFrames(); i++) length += reader.frameInfo(i).delay;
+  expect(length).toBe(500 * 10);
+  expect(reader.numFrames()).toBeLessThanOrEqual(500);
   expect(reader.width).toBe(120);
   expect(reader.height).toBe(80);
+  // Each frame stores what changed, so the last is shown by drawing them in turn.
   const pixels = new Uint8Array(reader.width * reader.height * 4);
-  reader.decodeAndBlitFrameRGBA(499, pixels);
+  for (let i = 0; i < reader.numFrames(); i++) reader.decodeAndBlitFrameRGBA(i, pixels);
   expect(pixels.some(value => value !== 0)).toBe(true);
 });
 

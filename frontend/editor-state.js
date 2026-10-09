@@ -13,7 +13,7 @@
      gif-playback.js       → GIF loading & frame extraction (omggif),
                              play / pause / seek scheduling.
      gif-timeline.js       → D3-brush caption timeline (frame-based).
-     gif-export.js         → GIF encoding (gif-export-worker.js), download helper,
+     gif-export.js         → GIF encoding (gif-encode.js), download helper,
                              share-modal flow.
      editor.js             → Entry point: init, event binding, canvas
                              drag/resize, caption CRUD, UI updates.

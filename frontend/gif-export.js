@@ -1,8 +1,8 @@
 /* ==========================================================
    GifCaption – GIF Export & Share
 
-   Composes the captioned frames and encodes them in
-   gif-export-worker.js, provides a file download helper, and
+   Composes the captioned frames and encodes them with
+   gif-encode.js, provides a file download helper, and
    drives the share-modal flow (upload to backend → display
    share URL + social links).
 
@@ -15,7 +15,7 @@
                            GC.drawWatermark, GC.getCompositeSize,
                            GC.getFrameOffsetY)
      caption-fonts.js     (GC.loadCaptionFonts)
-     gif-export-worker.js (the encoder, via gif-codec.js)
+     gif-encode.js        (GWGif.encode — encodes in gif-encode-worker.js)
      app.js               (shareGif function)
    ========================================================== */
 
@@ -83,31 +83,6 @@
       if (state.lossyCompress) tolerance = Math.round(4 + (level - 1) * 12 / 29);
     }
 
-    var worker;
-    try { worker = new Worker('/gif-export-worker.js'); }
-    catch (_) {
-      exportMetric.fail('encode');
-      GC.exportInProgress = false;
-      GC.hideExportProgress();
-      GC.showError('Your browser could not start the GIF encoder.');
-      return;
-    }
-    var total = state.frames.length, sent = 0, added = 0, watchdog;
-    function stop() {
-      clearTimeout(watchdog);
-      worker.terminate();
-      GC.exportInProgress = false;
-      GC.hideExportProgress();
-    }
-    function fail(category, message) { stop(); exportMetric.fail(category); GC.showError(message); }
-    // A minute without a frame finishing means the export is stuck.
-    function wait() {
-      clearTimeout(watchdog);
-      watchdog = setTimeout(function () {
-        fail('timeout', 'Export timed out. Try reducing the number of frames or file size.');
-      }, 60000);
-    }
-
     // Composite one frame: base layer → overlay captions → box bars → watermark
     function compose(i) {
       expCtx.clearRect(0, 0, compSize.w, compSize.h);
@@ -128,43 +103,25 @@
       return cropCtx.getImageData(0, 0, outW, outH);
     }
 
-    // Frames are composed a few ahead of the encoder rather than all at once,
-    // so an export holds a handful of frames, not a second copy of the GIF.
-    function feed() {
-      while (sent < total && sent - added < 3) {
-        var image = compose(sent);
-        worker.postMessage({type: 'frame', pixels: image.data.buffer,
-          delay: Math.round(state.frames[sent].delay / 10)}, [image.data.buffer]);
-        if (++sent === total) worker.postMessage({type: 'finish'});
+    function done() { GC.exportInProgress = false; GC.hideExportProgress(); }
+    GWGif.encode({
+      width: outW, height: outH, count: state.frames.length, frame: compose,
+      delay: function (i) { return Math.round(state.frames[i].delay / 10); },
+      colors: colors, tolerance: tolerance, onProgress: GC.showExportProgress,
+    }).then(function (blob) {
+      done();
+      exportMetric.complete();
+      var fname = GC.makeCaptionedFilename();
+      if (opts.onBlob) {
+        opts.onBlob(blob, fname);
+      } else {
+        GC.downloadBlob(blob, fname);
       }
-    }
-
-    worker.onmessage = function (event) {
-      var data = event.data;
-      if (data.type === 'error') {
-        fail('encode', 'The GIF could not be encoded. ' + data.message);
-      } else if (data.type === 'added') {
-        added++;
-        GC.showExportProgress(added / total);
-        wait();
-        feed();
-      } else if (data.type === 'done') {
-        stop();
-        exportMetric.complete();
-        var blob = new Blob([data.bytes], { type: 'image/gif' });
-        var fname = GC.makeCaptionedFilename();
-        if (opts.onBlob) {
-          opts.onBlob(blob, fname);
-        } else {
-          GC.downloadBlob(blob, fname);
-        }
-      }
-    };
-    worker.onerror = function () { fail('encode', 'GIF export failed. Try a shorter GIF.'); };
-
-    worker.postMessage({type: 'start', width: outW, height: outH, colors: colors, tolerance: tolerance});
-    wait();
-    feed();
+    }, function (error) {
+      done();
+      exportMetric.fail(error.category || 'encode');
+      GC.showError(error.message);
+    });
   };
 
   // ── Download Helpers ─────────────────────────

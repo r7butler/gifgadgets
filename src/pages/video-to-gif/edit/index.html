@@ -302,7 +302,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/vendor/gif.js"></script>
+<script src="/gif-encode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -346,7 +346,6 @@
   var lastGifBlob = null;
   var lastGifFilename = 'video.gif';
   var pendingShareAfterConvert = false;
-  var workerBlobUrl = null;
   var duration = 0;
   var inTime = 0;
   var outTime = 0;
@@ -439,10 +438,6 @@
   }
 
   // Preload gif.js worker
-  fetch('/vendor/gif.worker.js')
-    .then(function(r){ return r.blob(); })
-    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
-    .catch(function(){});
 
   var chkWatermark = document.getElementById('chk-watermark');
 
@@ -813,16 +808,15 @@
   function encodeGif(frames, w, h, fps) {
     loadingText.textContent = 'Encoding GIF…';
     progressFill.style.width = '70%';
-    var delay = Math.round(100 / fps) * 10;
-    var gifOptions = { workers: 2, quality: 10, width: w, height: h, repeat: 0 };
-    if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
-    var gif = new GIF(gifOptions);
-    frames.forEach(function (f) { gif.addFrame(f, { delay: delay, copy: true }); });
-    gif.on('progress', function (p) {
-      loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 30 + 70) + '%';
-      progressFill.style.width = (p * 30 + 70) + '%';
-    });
-    gif.on('finished', function (blob) {
+    GWGif.encode({
+      // The captured frames are handed over to the encoder, which frees them.
+      width: w, height: h, count: frames.length, frame: function (i) { return frames[i]; },
+      delay: function () { return Math.round(100 / fps); },
+      onProgress: function (p) {
+        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 30 + 70) + '%';
+        progressFill.style.width = (p * 30 + 70) + '%';
+      },
+    }).then(function (blob) {
       exportMetric.complete();
       video.onseeked = null;
       progressFill.style.width = '100%';
@@ -841,8 +835,14 @@
       } else {
         resultModal.classList.remove('hidden');
       }
+    }, function (error) {
+      exportMetric.fail(error.category);
+      video.onseeked = null;
+      loadingOverlay.classList.add('hidden');
+      convertBtn.disabled = false;
+      pendingShareAfterConvert = false;
+      alert(error.message);
     });
-    gif.render();
   }
 
   // ── Result modal ──

@@ -323,7 +323,7 @@
 {% block scripts %}
 <script src="/vendor/heic2any.min.js"></script>
 <script src="/vendor/omggif.js"></script>
-<script src="/vendor/gif.js"></script>
+<script src="/gif-encode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -372,7 +372,6 @@
   var lastGifBlob = null;
   var lastGifFilename = 'animation.gif';
   var pendingShareAfterMake = false;
-  var workerBlobUrl = null;
   var cachedDims = null;
   var lastActiveSourceIndex = -1;
   var nextGroupId = 0;
@@ -380,10 +379,6 @@
   function newGroupId() { return 'g' + (++nextGroupId); }
 
   // Preload gif.js worker
-  fetch('/vendor/gif.worker.js')
-    .then(function(r){ return r.blob(); })
-    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
-    .catch(function(){});
 
   var chkWatermark = document.getElementById('chk-watermark');
 
@@ -1344,78 +1339,56 @@
       tempCanvas.height = dims.height;
       var tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
-      var gifOptions = {
-        workers: 2,
-        quality: 10,
-        width: dims.width,
-        height: dims.height,
-        repeat: loopCount
-      };
-      if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
-
-      var gif = new GIF(gifOptions);
-
-      loadingText.textContent = 'Encoding GIF…';
-      progressFill.style.width = '20%';
-
-      // Stream frames directly to encoder — crossfade between groups, not every frame
+      // The output frames, in order: each image, and with crossfade on, the
+      // blends between one group's last image and the next group's first.
+      var plan = [];
       var encGroups = getFrameGroups();
       for (var g = 0; g < encGroups.length; g++) {
         var grp = encGroups[g];
-        for (var i = grp.startIndex; i < grp.startIndex + grp.count; i++) {
-          var frameDelay = frames[i].delay;
-          tempCtx.clearRect(0, 0, dims.width, dims.height);
-          if (chkResize.checked) {
-            tempCtx.drawImage(frames[i].img, 0, 0, dims.width, dims.height);
-          } else {
-            var x = Math.round((dims.width - frames[i].width) / 2);
-            var y = Math.round((dims.height - frames[i].height) / 2);
-            tempCtx.drawImage(frames[i].img, x, y);
-          }
-          drawWatermark(tempCtx, dims.width, dims.height);
-          gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: frameDelay, copy: true });
-          totalFrames++;
-        }
-
+        for (var i = grp.startIndex; i < grp.startIndex + grp.count; i++) plan.push({ frame: frames[i], delay: frames[i].delay });
         if (useCrossfade && g < encGroups.length - 1) {
-          var lastIdx = grp.startIndex + grp.count - 1;
-          var nextIdx = encGroups[g + 1].startIndex;
-          var lastFrame = frames[lastIdx];
-          var nextFrame = frames[nextIdx];
+          var lastFrame = frames[grp.startIndex + grp.count - 1];
+          var nextFrame = frames[encGroups[g + 1].startIndex];
           var crossDelay = Math.round(lastFrame.delay / (crossfadeCount + 1));
           for (var c = 1; c <= crossfadeCount; c++) {
-            var alpha = c / (crossfadeCount + 1);
-            tempCtx.clearRect(0, 0, dims.width, dims.height);
-            if (chkResize.checked) {
-              tempCtx.drawImage(lastFrame.img, 0, 0, dims.width, dims.height);
-            } else {
-              var cx = Math.round((dims.width - lastFrame.width) / 2);
-              var cy = Math.round((dims.height - lastFrame.height) / 2);
-              tempCtx.drawImage(lastFrame.img, cx, cy);
-            }
-            tempCtx.globalAlpha = alpha;
-            if (chkResize.checked) {
-              tempCtx.drawImage(nextFrame.img, 0, 0, dims.width, dims.height);
-            } else {
-              var nx = Math.round((dims.width - nextFrame.width) / 2);
-              var ny = Math.round((dims.height - nextFrame.height) / 2);
-              tempCtx.drawImage(nextFrame.img, nx, ny);
-            }
-            tempCtx.globalAlpha = 1;
-            drawWatermark(tempCtx, dims.width, dims.height);
-            gif.addFrame(tempCtx.getImageData(0, 0, dims.width, dims.height), { delay: crossDelay, copy: true });
-            totalFrames++;
+            plan.push({ frame: lastFrame, next: nextFrame, alpha: c / (crossfadeCount + 1), delay: crossDelay });
           }
         }
       }
+      totalFrames = plan.length;
 
-      gif.on('progress', function (p) {
-        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 80 + 20) + '%';
-        progressFill.style.width = (p * 80 + 20) + '%';
-      });
+      function place(frame) {
+        if (chkResize.checked) {
+          tempCtx.drawImage(frame.img, 0, 0, dims.width, dims.height);
+        } else {
+          tempCtx.drawImage(frame.img, Math.round((dims.width - frame.width) / 2), Math.round((dims.height - frame.height) / 2));
+        }
+      }
+      // Each output frame is drawn when the encoder asks for it, a few at a time.
+      function outputFrame(k) {
+        var step = plan[k];
+        tempCtx.clearRect(0, 0, dims.width, dims.height);
+        place(step.frame);
+        if (step.next) {
+          tempCtx.globalAlpha = step.alpha;
+          place(step.next);
+          tempCtx.globalAlpha = 1;
+        }
+        drawWatermark(tempCtx, dims.width, dims.height);
+        return tempCtx.getImageData(0, 0, dims.width, dims.height);
+      }
 
-      gif.on('finished', function (blob) {
-      exportMetric.complete();
+      loadingText.textContent = 'Encoding GIF…';
+      GWGif.encode({
+        width: dims.width, height: dims.height, count: plan.length, frame: outputFrame,
+        delay: function (k) { return Math.round(plan[k].delay / 10); },
+        loop: loopCount,
+        onProgress: function (p) {
+          loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 100) + '%';
+          progressFill.style.width = (p * 100) + '%';
+        },
+      }).then(function (blob) {
+        exportMetric.complete();
         progressFill.style.width = '100%';
         loadingOverlay.classList.add('hidden');
         makeBtn.disabled = false;
@@ -1439,9 +1412,13 @@
         } else {
           resultModal.classList.remove('hidden');
         }
+      }, function (error) {
+        exportMetric.fail(error.category);
+        loadingOverlay.classList.add('hidden');
+        makeBtn.disabled = false;
+        pendingShareAfterMake = false;
+        alert(error.message);
       });
-
-      gif.render();
     }, 50);
   }
 

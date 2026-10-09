@@ -1,5 +1,5 @@
-/* Encodes the editor's composed frames as they arrive (GC.exportGif in gif-export.js).
-   Messages in:  {type:'start', width, height, colors, tolerance}
+/* Encodes composed frames as they arrive, for gif-encode.js (GWGif.encode).
+   Messages in:  {type:'start', width, height, loop, colors, tolerance}
                  {type:'frame', pixels: ArrayBuffer of RGBA, delay: hundredths}
                  {type:'finish'}
    Messages out: {type:'added'} once per frame, {type:'done', bytes}, {type:'error', message} */
@@ -10,7 +10,7 @@ let encoder = null;
 self.onmessage = ({data}) => {
   try {
     if (data.type === 'start') {
-      encoder = createGifEncoder(data.width, data.height, {loop: 0, colors: data.colors, tolerance: data.tolerance});
+      encoder = createGifEncoder(data.width, data.height, {loop: data.loop, colors: data.colors, tolerance: data.tolerance});
     } else if (data.type === 'frame') {
       const pixels = new Uint8Array(data.pixels);
       // GIF pixels are clear or not. Half-covered edges count as covered, as the

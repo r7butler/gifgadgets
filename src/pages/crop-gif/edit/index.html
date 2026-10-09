@@ -220,7 +220,7 @@
 
 {% block scripts %}
 <script src="/vendor/omggif.js"></script>
-<script src="/vendor/gif.js"></script>
+<script src="/gif-encode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -261,16 +261,11 @@
   var lastGifBlob = null;
   var lastGifFilename = 'cropped.gif';
   var gifFilename = 'gif';
-  var workerBlobUrl = null;
 
   // Crop state (in image coordinates)
   var crop = { x: 0, y: 0, w: 0, h: 0 };
   var dragState = null; // { startX, startY } in image coords
 
-  fetch('/vendor/gif.worker.js')
-    .then(function(r){ return r.blob(); })
-    .then(function(b){ workerBlobUrl = URL.createObjectURL(b); })
-    .catch(function(){});
 
   var chkWatermark = document.getElementById('chk-watermark');
 
@@ -570,30 +565,23 @@
     wmCanvas.width = crop.w; wmCanvas.height = crop.h;
     var wmCtx = wmCanvas.getContext('2d', { willReadFrequently: true });
 
-    var croppedFrames = [];
-    for (var i = 0; i < frames.length; i++) {
+    // Each frame is cropped when the encoder asks for it, a few at a time.
+    function croppedFrame(i) {
       srcCtx.putImageData(frames[i].imageData, 0, 0);
-      var cropped = srcCtx.getImageData(crop.x, crop.y, crop.w, crop.h);
-      wmCtx.putImageData(cropped, 0, 0);
+      wmCtx.putImageData(srcCtx.getImageData(crop.x, crop.y, crop.w, crop.h), 0, 0);
       drawWatermark(wmCtx, crop.w, crop.h);
-      croppedFrames.push({ imageData: wmCtx.getImageData(0, 0, crop.w, crop.h), delay: frames[i].delay });
-      progressFill.style.width = ((i + 1) / frames.length * 40) + '%';
+      return wmCtx.getImageData(0, 0, crop.w, crop.h);
     }
 
     loadingText.textContent = 'Encoding GIF…';
-    progressFill.style.width = '40%';
-
-    var gifOptions = { workers: 2, quality: 10, width: crop.w, height: crop.h, repeat: 0 };
-    if (workerBlobUrl) gifOptions.workerScript = workerBlobUrl;
-    var gif = new GIF(gifOptions);
-    croppedFrames.forEach(function (f) { gif.addFrame(f.imageData, { delay: f.delay, copy: true }); });
-
-    gif.on('progress', function (p) {
-      progressFill.style.width = (p * 60 + 40) + '%';
-      loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 60 + 40) + '%';
-    });
-
-    gif.on('finished', function (blob) {
+    GWGif.encode({
+      width: crop.w, height: crop.h, count: frames.length, frame: croppedFrame,
+      delay: function (i) { return Math.round(frames[i].delay / 10); },
+      onProgress: function (p) {
+        progressFill.style.width = (p * 100) + '%';
+        loadingText.textContent = 'Encoding GIF… ' + Math.round(p * 100) + '%';
+      },
+    }).then(function (blob) {
       exportMetric.complete();
       progressFill.style.width = '100%';
       loadingOverlay.classList.add('hidden');
@@ -607,13 +595,16 @@
       GWSave.offer(btnSavePhotos, GWSave.file(blob, lastGifFilename, 'image/gif'), downloadGif);
 
       resultGif.src = url;
-      resultInfo.textContent = croppedFrames.length + ' frames · ' + crop.w + '×' + crop.h + ' · ' + formatSize(blob.size);
+      resultInfo.textContent = frames.length + ' frames · ' + crop.w + '×' + crop.h + ' · ' + formatSize(blob.size);
       resultModal.classList.remove('hidden');
       dlBtnHeader.disabled = false;
       btnShare.disabled = false;
+    }, function (error) {
+      exportMetric.fail(error.category);
+      loadingOverlay.classList.add('hidden');
+      cropBtn.disabled = false;
+      alert(error.message);
     });
-
-    gif.render();
   }
 
   cropBtn.addEventListener('click', startCrop);

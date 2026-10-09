@@ -15,13 +15,12 @@ Self-hosted rather than loaded from a CDN. Three reasons:
 
 | File | Upstream |
 | --- | --- |
-| `gif.js` | https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js |
-| `gif.worker.js` | https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js |
 | `omggif.js` | https://unpkg.com/omggif@1.0.10/omggif.js |
 | `heic2any.min.js` | https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js |
 
-`gif.js` 0.2.0 is unmaintained upstream, so there is no update treadmill here.
-If the encoder is ever replaced, replace these files and re-run the checksum.
+GIFs are written with `omggif.js`'s writer, through `../gif-codec.js` (and
+`../gifenc.browser.js` when a frame needs its colours reduced). The site used to
+encode with gif.js, which wrote every frame whole; it was removed in favour of that.
 
 **Note:** `heic2any.min.js` is 1.3 MB and is currently loaded synchronously on six
 pages, though it is only needed when a HEIC file is selected. Loading it on demand
