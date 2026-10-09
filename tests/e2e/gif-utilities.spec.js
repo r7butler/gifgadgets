@@ -54,6 +54,32 @@ for (const viewport of [{width:1280, height:720}, {width:390, height:844}]) {
     await expect(message).toBeHidden();
   });
 }
+/** The 3-frame fixture padded past `size` bytes with a comment block. */
+function paddedGif(size) {
+  const gif = fixture(), parts = [gif.subarray(0, gif.length - 1), Buffer.from([0x21, 0xfe])];
+  for (let left = size; left > 0; left -= 255) {
+    const n = Math.min(255, left), block = Buffer.alloc(n + 1, 0x20); block[0] = n; parts.push(block);
+  }
+  parts.push(Buffer.from([0, 0x3b]));
+  return Buffer.concat(parts);
+}
+
+test('GIF tools take files up to 100 MB', async ({page}, testInfo) => {
+  // Playwright passes files over 50 MB by path, so these are written out first.
+  const big = testInfo.outputPath('big.gif'), tooBig = testInfo.outputPath('too-big.gif');
+  fs.writeFileSync(big, paddedGif(60 * 1024 * 1024));
+  fs.writeFileSync(tooBig, paddedGif(101 * 1024 * 1024));
+  await page.goto('/compress-gif/');
+  await expect(page.locator('#utility-upload small')).toHaveText('Animated GIF · Up to 100 MB');
+  await page.locator('#utility-file').setInputFiles(tooBig);
+  await expect(page.locator('#utility-upload-error')).toHaveText('Choose files totaling less than 100 MB.');
+  await page.locator('#utility-file').setInputFiles(big);
+  await expect(page.locator('#utility-info')).toHaveText('3 × 2 · 3 frames');
+  await page.locator('#utility-compression').selectOption('metadata');
+  await page.locator('#utility-apply').click();
+  await expect(page.locator('#utility-status')).toContainText('Removed GIF comments', {timeout:60000});
+});
+
 test('a long GIF past the old memory limit works, except in Reverse, which says why', async ({page}) => {
   // 200 frames of 480×270: about 105 MB decoded. Every tool used to refuse it at upload.
   const w = 480, h = 270, bytes = new Uint8Array(200 * 4096 + 65536), writer = new GifWriter(bytes, w, h, {loop:0});

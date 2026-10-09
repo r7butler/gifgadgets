@@ -312,6 +312,19 @@ test('long GIFs stream through the tools one frame at a time; Reverse still hold
   assert.throws(() => context.transform(huge.slice(0, w.end()), {tool:'flip-gif'}), /4096 × 4096 frame needs more memory/);
 });
 
+/** A small GIF padded past `size` bytes with a comment, as metadata-heavy GIFs are. */
+function paddedFixture(size) {
+  const gif = fixture(), comment = [0x21, 0xfe];
+  const padding = new Uint8Array(size + 2 + Math.ceil(size / 255) * 256 + 1);
+  padding.set(comment);
+  let p = 2;
+  for (let left = size; left > 0; left -= 255) { const n = Math.min(255, left); padding[p] = n; p += n + 1; }
+  padding[p++] = 0;  // end of the comment's sub-blocks
+  const out = new Uint8Array(gif.length - 1 + p + 1);
+  out.set(gif.subarray(0, gif.length - 1)); out.set(padding.subarray(0, p), gif.length - 1); out[out.length - 1] = 0x3b;
+  return out;
+}
+
 test('frames that use all 256 colours keep them exactly when some pixels stay the same', () => {
   // 33×8 pixels. The first 8 never change; the other 256 show all 256 colours,
   // shifted along by one each frame. Every frame's change covers the whole
@@ -324,6 +337,17 @@ test('frames that use all 256 colours keep them exactly when some pixels stay th
   const source = data.slice(0, w.end()), out = context.transform(source, {tool:'trim-gif', start:1, end:4});
   assert.equal(out.quantized, false);
   assert.deepEqual(composed(out.bytes).map(f => f.pixels), composed(source).map(f => f.pixels));
+});
+
+test('the GIF tools take files up to 100 MB', () => {
+  const mb = 1024 * 1024;
+  const big = paddedFixture(60 * mb), stripped = runBatch({tool:'compress-gif', compression:'metadata'}, big);
+  assert.ok(big.length > 60 * mb && stripped.bytes.length < 4096);
+  assert.equal(new GifReader(stripped.bytes).numFrames(), 3);
+  assert.equal(new GifReader(context.transform(big, {tool:'reverse-gif'}).bytes).numFrames(), 3);
+  const tooBig = paddedFixture(101 * mb);
+  assert.throws(() => runBatch({tool:'compress-gif', compression:'metadata'}, tooBig), /less than 100 MB/);
+  assert.throws(() => context.transform(tooBig, {tool:'gif-speed', rate:2}), /under 100 MB/);
 });
 
 test('compress-gif strips comments losslessly and never returns a larger file', () => {

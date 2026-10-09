@@ -37,8 +37,9 @@ function metadata(bytes, parsed, opts) {
 }
 
 function transform(bytes, opts) {
-  check(bytes.length <= 40 * 1024 * 1024, 'Choose a GIF under 40 MB.');
-  const parsed = blocks(bytes), reader = new GifReader(bytes);
+  check(bytes.length <= MAX_FILE, 'Choose a GIF under 100 MB.');
+  // Views into the source rather than copies; the source is not used again.
+  const parsed = blocks(bytes, false), reader = new GifReader(bytes);
   const width = reader.width, height = reader.height, count = reader.numFrames();
   check(count > 0 && width > 0 && height > 0, 'The GIF contains no usable frames.');
   // Speed and looping rewrite timing only; no frame is decoded.
@@ -52,7 +53,7 @@ function transform(bytes, opts) {
     const forward = Array.from({length: count}, (_, i) => i);
     const order = opts.boomerang ? forward.concat(forward.slice(1, -1).reverse()) : forward.slice().reverse();
     const frames = decodeFrames(bytes, reader, parsed);
-    return encodeFrames(order.map(i => frames[i]), width, height, {loop, limit: BATCH_MEMORY});
+    return encodeFrames(order.map(i => frames[i]), width, height, {loop, limit: OUTPUT_MEMORY});
   }
   // The rest stream: each frame is decoded, changed and written before the next.
   let first = 0, last = count - 1;

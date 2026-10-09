@@ -35,7 +35,7 @@
   <section class="utility-stage" aria-label="GIF preview">
     <button id="utility-upload" class="utility-drop-zone" type="button">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg>
-      <strong>{% if utility_slug == 'combine-gifs' %}Drop your GIFs here{% else %}Drop a GIF here{% endif %}</strong><span>or click to browse</span><small>Animated GIF · Up to 40 MB{% if utility_slug == 'combine-gifs' %} total · 2–20 files{% endif %}</small>
+      <strong>{% if utility_slug == 'combine-gifs' %}Drop your GIFs here{% else %}Drop a GIF here{% endif %}</strong><span>or click to browse</span><small>Animated GIF · Up to 100 MB{% if utility_slug == 'combine-gifs' %} total · 2–20 files{% endif %}</small>
     </button>
     <input id="utility-file" type="file" accept="image/gif,.gif" aria-label="Choose a GIF" {% if utility_slug == 'combine-gifs' %}multiple{% endif %} hidden />
     <p id="utility-upload-error" class="utility-upload-error" role="alert" hidden></p>

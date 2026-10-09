@@ -216,7 +216,8 @@ function createGifEncoder(width, height, opts = {}) {
       if (pending) { write(pending); pending = null; }
       check(written > 0, 'The GIF contains no usable frames.');
       const end = writer.end();
-      return {bytes: buffer.slice(0, end), quantized, frames: written};
+      // A view, not a copy: callers hand the whole buffer over to the page.
+      return {bytes: buffer.subarray(0, end), quantized, frames: written};
     },
   };
 }

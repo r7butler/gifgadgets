@@ -45,7 +45,7 @@
     try {
       if (MULTI && list.length < 2) throw new Error('Choose at least two GIFs to combine.');
       if (MULTI && list.length > 20) throw new Error('Combine at most 20 GIFs at once.');
-      if (list.reduce((n, f) => n + f.size, 0) > 40 * 1024 * 1024) throw new Error('Choose files totaling less than 40 MB.');
+      if (list.reduce((n, f) => n + f.size, 0) > 100 * 1024 * 1024) throw new Error('Choose files totaling less than 100 MB.');
       const data = await file.arrayBuffer(); if (ticket !== generation) return;
       if (!/^GIF8[79]a$/.test(String.fromCharCode(...new Uint8Array(data, 0, Math.min(6, data.byteLength))))) throw new Error('Choose a valid GIF file.');
       const reader = new GifReader(new Uint8Array(data));

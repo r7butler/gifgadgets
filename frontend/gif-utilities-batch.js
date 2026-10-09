@@ -1,15 +1,19 @@
 /* Shares compositing, palettes and encoding with the batch-one worker. */
 'use strict';
 const BATCH_TOOLS = ['extract-frames', 'remove-gif-frames', 'gif-frame-rate', 'compress-gif', 'gif-canvas', 'combine-gifs'];
-// Frames kept in memory together (Reverse; frames to extract), and the output.
+// The largest GIF, or set of GIFs to combine, that the tools accept.
+const MAX_FILE = 100 * 1024 * 1024;
+// Frames kept in memory together: Reverse, and frames to extract.
 const BATCH_MEMORY = 96 * 1024 * 1024;
+// The encoded result, which for a large source can be larger than the source.
+const OUTPUT_MEMORY = 256 * 1024 * 1024;
 // Every other tool streams: about eight working copies of one frame at a time.
 const FRAME_MEMORY = 256 * 1024 * 1024;
 function checkFrameSize(width, height) {
   check(width * height * 4 * 8 <= FRAME_MEMORY, 'Each ' + width + ' × ' + height + ' frame needs more memory than this tool allows. Resize the GIF first.');
 }
 function inspectGif(bytes) {
-  check(bytes.length <= 40 * 1024 * 1024, 'Choose files totaling less than 40 MB.');
+  check(bytes.length <= MAX_FILE, 'Choose files totaling less than 100 MB.');
   const parsed = blocks(bytes, false), reader = new GifReader(bytes);
   const count = reader.numFrames(), width = reader.width, height = reader.height;
   check(count && width && height, 'The GIF has no usable frames.');
@@ -23,7 +27,7 @@ function inspectGif(bytes) {
  * how their pixels change; decoding stops after its last kept frame.
  */
 function streamGif(sources, width, height, opts) {
-  const gif = createGifEncoder(width, height, {...opts, limit: BATCH_MEMORY});
+  const gif = createGifEncoder(width, height, {...opts, limit: OUTPUT_MEMORY});
   sources.forEach(({info, delays, change = pixels => pixels}, s) => {
     eachChosenFrame(info, delays, (pixels, i) => gif.add(change(pixels), delays.get(i)),
       (i, last) => postMessage({progress: Math.round((s + (i + 1) / (last + 1)) * 100 / sources.length)}));
@@ -119,7 +123,7 @@ function stripComments(info) {
 }
 function transformBatch(bytes, opts, extra = []) {
   check(extra.length <= 19, 'Combine at most 20 GIFs at once.');
-  check(bytes.length + extra.reduce((sum, b) => sum + b.byteLength, 0) <= 40 * 1024 * 1024, 'Choose files totaling less than 40 MB.');
+  check(bytes.length + extra.reduce((sum, b) => sum + b.byteLength, 0) <= MAX_FILE, 'Choose files totaling less than 100 MB.');
   const infos = [inspectGif(bytes), ...extra.map(b => inspectGif(new Uint8Array(b)))];
   const info = infos[0], loop = info.reader.loopCount();
   const delayOf = i => info.reader.frameInfo(i).delay;
