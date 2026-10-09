@@ -7,6 +7,14 @@
   let objects = [{points:[]}], history = [], task, generation = 0;
   const mime = file => ({gif:'image/gif',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'})[file.name.split('.').pop().toLowerCase()];
   const status = message => { $('status').textContent = message; };
+  // Upload problems show under the drop zone, where the person is looking. The
+  // status line can sit below the fold, so a rejected file looked ignored.
+  function uploadError(message) {
+    $('upload-error').textContent = message || '';
+    $('upload-error').hidden = !message;
+    // Wait a frame: the code reporting the error may still be re-laying out the page.
+    if (message) requestAnimationFrame(() => $('upload-error').scrollIntoView({block: 'nearest'}));
+  }
   // A description and a set of clicks are alternative prompts, and they run on
   // different halves of the model, so whichever is filled in decides the job.
   const describing = () => $('prompt').value.trim();
@@ -143,7 +151,8 @@
   async function load(file) {
     if (!file || busy) return;
     const type=mime(file);
-    if (!(gif ? type==='image/gif' : ['image/png','image/jpeg','image/webp'].includes(type)) || !file.size || file.size>100*1024*1024) { status('Choose a supported file up to 100 MB.'); return; }
+    if (!(gif ? type==='image/gif' : ['image/png','image/jpeg','image/webp'].includes(type)) || !file.size || file.size>100*1024*1024) { status('Choose a supported file up to 100 MB.'); uploadError('Choose a supported file up to 100 MB.'); return; }
+    uploadError('');
     generation++; killWorker(); original=null; source=file; backgroundFile=null; maskBuffer=null; clearResult(); resetObjects();
     if ($('background')) { $('background').value=''; $('background-name').textContent=''; $('background-mode').value='color'; $('background-file-options').hidden=true; }
     $('original-wrap').hidden=true; $('info').textContent='';
@@ -154,7 +163,7 @@
       $('original-wrap').hidden=false; $('upload').hidden=true; $('new').hidden=false;
       $('info').textContent=`${file.name} · ${original.width} × ${original.height} · ${original.count} frame${original.count===1?'':'s'}`;
       draw(); status('Describe what to keep, or click the objects to keep, then choose Preview cutout.'); window.GWFunnel?.ready();
-    } catch(error) { if(ticket===generation) { original=null; source=null; killWorker(); $('upload').hidden=false; status(error.message); window.GWFunnel?.failure('decode'); } }
+    } catch(error) { if(ticket===generation) { original=null; source=null; killWorker(); $('upload').hidden=false; status(error.message); uploadError(error.message); window.GWFunnel?.failure('decode'); } }
     finally { if(ticket===generation) setBusy(false); }
   }
   $('upload').onclick=$('new').onclick=()=>$('file').click();
@@ -162,7 +171,13 @@
   const stage=document.querySelector('.utility-stage');
   stage.ondragover=event=>{event.preventDefault(); $('upload').classList.add('dragover');};
   stage.ondragleave=()=>$('upload').classList.remove('dragover');
-  stage.ondrop=event=>{event.preventDefault(); $('upload').classList.remove('dragover'); load(event.dataTransfer.files[0]);};
+  stage.ondrop=event=>{
+    event.preventDefault(); $('upload').classList.remove('dragover');
+    if (busy) return;
+    // A file dragged from a web page arrives as a link, not a file.
+    if (event.dataTransfer.files.length) load(event.dataTransfer.files[0]);
+    else uploadError('Drop ' + (gif ? 'a GIF' : 'an image') + ' file from your device.');
+  };
   async function exportResult() {
     const ticket = generation;
     await ensureWorker();

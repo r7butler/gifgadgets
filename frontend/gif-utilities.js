@@ -21,7 +21,8 @@
   function uploadError(message) {
     $('upload-error').textContent = message || '';
     $('upload-error').hidden = !message;
-    if (message) $('upload-error').scrollIntoView({block: 'nearest'});
+    // Wait a frame: the code reporting the error may still be re-laying out the page.
+    if (message) requestAnimationFrame(() => $('upload-error').scrollIntoView({block: 'nearest'}));
   }
   function stop() {
     if (worker) worker.terminate();

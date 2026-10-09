@@ -8,7 +8,10 @@ function checkMemory(memory, budget, width, height) {
 }
 async function decode(buffer, type, budget = MAX_MEMORY) {
   if (type === 'image/gif') {
-    const bytes = new Uint8Array(buffer), reader = new GifReader(bytes), parsed = blocks(bytes, false);
+    const bytes = new Uint8Array(buffer);
+    // The GIF reader's own message for this is "Invalid GIF 87a/89a header."
+    check(/^GIF8[79]a$/.test(String.fromCharCode(...bytes.subarray(0, 6))), 'Choose a valid GIF file.');
+    const reader = new GifReader(bytes), parsed = blocks(bytes, false);
     // Budget encoded input plus decoder/compositing buffers, not one RGBA canvas
     // for every frame. Frame count now affects processing time, not pixel storage.
     const memory = bytes.byteLength + reader.width * reader.height * 4 * 10;
@@ -23,7 +26,10 @@ async function decode(buffer, type, budget = MAX_MEMORY) {
     pixelsAt(0);
     return {width:reader.width, height:reader.height, loop:reader.loopCount(), memory, frames, pixelsAt};
   }
-  const bitmap = await createImageBitmap(new Blob([buffer], {type}));
+  // Each browser words a failed decode its own way, some of them unreadably.
+  const bitmap = await createImageBitmap(new Blob([buffer], {type})).catch(() => {
+    throw Error('This image could not be read. Try another PNG, JPG or WebP file.');
+  });
   try {
     const memory = buffer.byteLength + bitmap.width * bitmap.height * 4 * 3;
     checkMemory(memory, budget, bitmap.width, bitmap.height);

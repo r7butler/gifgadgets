@@ -40,6 +40,7 @@
       <strong>Drop your images here</strong><span>or click to browse</span><small>PNG · JPG · WebP · GIF · BMP · AVIF — up to 60 files, 100 MB total</small>
     </button>
     <input id="utility-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.png,.jpg,.jpeg,.webp,.gif,.bmp,.avif" aria-label="Choose images" multiple hidden />
+    <p id="utility-upload-error" class="utility-upload-error" role="alert" hidden></p>
     {% if utility_slug == 'image-contact-sheet' %}
     <div class="utility-previews">
       <figure id="utility-result-wrap" hidden><figcaption>Contact sheet</figcaption><div class="utility-preview-image"><img id="utility-result" alt="Generated contact sheet" /></div></figure>

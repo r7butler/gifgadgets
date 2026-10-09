@@ -94,7 +94,7 @@
     const ticket = ++generation;
     stop(); chosen = []; clearResult(); $('options').disabled = true;
     $('upload').hidden = false; $('new').hidden = true;
-    $('files').hidden = true; $('files').textContent = ''; $('info').textContent = '';
+    $('files').hidden = true; $('files').textContent = ''; $('info').textContent = ''; uploadError('');
     const picked = list ? Array.from(list) : [];
     if (!picked.length) return;
     GWFunnel.accepted(picked.reduce((n, f) => n + f.size, 0));
@@ -124,8 +124,17 @@
       $('status').textContent = 'Ready. Choose settings, then apply.';
       GWFunnel.ready();
     } catch (error) {
-      chosen = []; $('status').textContent = error.message; GWFunnel.failure('decode');
+      chosen = []; $('status').textContent = error.message; uploadError(error.message); GWFunnel.failure('decode');
     }
+  }
+
+  // Upload problems show under the drop zone, where the person is looking. The
+  // status line can sit below the fold, so a rejected file looked ignored.
+  function uploadError(message) {
+    $('upload-error').textContent = message || '';
+    $('upload-error').hidden = !message;
+    // Wait a frame: the code reporting the error may still be re-laying out the page.
+    if (message) requestAnimationFrame(() => $('upload-error').scrollIntoView({block: 'nearest'}));
   }
 
   /* One source image through crop, scale and encode. */
@@ -328,7 +337,10 @@
   $('upload').addEventListener('dragleave', () => $('upload').classList.remove('dragover'));
   $('upload').addEventListener('drop', event => {
     event.preventDefault(); $('upload').classList.remove('dragover');
-    if (!running && event.dataTransfer.files.length) load(event.dataTransfer.files);
+    if (running) return;
+    // An image dragged from a web page arrives as a link, not a file.
+    if (event.dataTransfer.files.length) load(event.dataTransfer.files);
+    else uploadError('Drop image files from your device.');
   });
 
   $('options').addEventListener('input', event => {

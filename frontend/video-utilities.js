@@ -4,6 +4,14 @@
   const tool = document.querySelector('[data-tool]').dataset.tool;
   let file, worker, pending, duration = 0, busy = false, sourceURL, resultURL, generation = 0;
   const status = message => { $('status').textContent = message; };
+  // Upload problems show under the drop zone, where the person is looking. The
+  // status line can sit below the fold, so a rejected file looked ignored.
+  function uploadError(message) {
+    $('upload-error').textContent = message || '';
+    $('upload-error').hidden = !message;
+    // Wait a frame: the code reporting the error may still be re-laying out the page.
+    if (message) requestAnimationFrame(() => $('upload-error').scrollIntoView({block: 'nearest'}));
+  }
   function setBusy(value) {
     busy = value;
     $('options').disabled = value || !file || !duration;
@@ -51,9 +59,10 @@
     if (!selected || busy) return;
     const extension = selected.name.split('.').pop().toLowerCase();
     if (!(tool === 'gif-to-mp4' ? ['gif'] : ['mp4','mov','webm']).includes(extension) || !selected.size || selected.size > 100 * 1024 * 1024) {
-      status('Choose a ' + (tool === 'gif-to-mp4' ? 'GIF' : 'MP4, MOV or WebM') + ' file up to 100 MB.'); return;
+      const message = 'Choose ' + (tool === 'gif-to-mp4' ? 'a GIF' : 'an MP4, MOV or WebM') + ' file up to 100 MB.';
+      status(message); uploadError(message); return;
     }
-    stop(); clearResult(); duration = 0; file = selected;
+    stop(); clearResult(); duration = 0; file = selected; uploadError('');
     if (sourceURL) URL.revokeObjectURL(sourceURL);
     sourceURL = URL.createObjectURL(file);
     $('preview-note').hidden = true;
@@ -71,7 +80,14 @@
       if ($('end')) { $('end').value = duration; $('end').max = duration; }
       $('info').textContent += ' · ' + duration.toFixed(3) + ' seconds';
       status('Ready to export.'); window.GWFunnel?.ready();
-    } catch (error) { if (current === generation) { stop(); status(error.message); window.GWFunnel?.failure('decode'); } }
+    } catch (error) {
+      if (current !== generation) return;
+      // Put the drop zone back: the preview of a file that cannot be read is no use.
+      stop(); file = null; status(error.message); uploadError(error.message);
+      $('original').removeAttribute('src'); $('original-wrap').hidden = true;
+      $('upload').hidden = false; $('new').hidden = true; $('info').textContent = '';
+      window.GWFunnel?.failure('decode');
+    }
     finally { setBusy(false); }
   }
   $('original').addEventListener('error', () => { $('preview-note').hidden = false; });
@@ -80,7 +96,13 @@
   const stage = document.querySelector('.utility-stage');
   stage.ondragover = event => { event.preventDefault(); $('upload').classList.add('dragover'); };
   stage.ondragleave = () => $('upload').classList.remove('dragover');
-  stage.ondrop = event => { event.preventDefault(); $('upload').classList.remove('dragover'); choose(event.dataTransfer.files[0]); };
+  stage.ondrop = event => {
+    event.preventDefault(); $('upload').classList.remove('dragover');
+    if (busy) return;
+    // A file dragged from a web page arrives as a link, not a file.
+    if (event.dataTransfer.files.length) choose(event.dataTransfer.files[0]);
+    else uploadError('Drop a ' + (tool === 'gif-to-mp4' ? 'GIF' : 'video') + ' file from your device.');
+  };
   if ($('use-time')) $('use-time').onclick = () => {
     const time = $('original').currentTime;
     if (Number.isFinite(time)) { $('start').value = Math.min(time, Math.max(0, duration - .001)).toFixed(3); clearResult(); }
