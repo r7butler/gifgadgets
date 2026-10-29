@@ -213,6 +213,48 @@ function notRed(picture) {
 
 for (const editor of EDITORS) {
   test.describe(editor.name, () => {
+    test('captions drag onto either white bar, remain selectable, and export there', async ({ page }) => {
+      await openWithCaption(page, editor);
+      await placeCaption(page, 'WWWW');
+      await page.evaluate(() => {
+        const bar = { height: 100, borderWidth: 4, bgColor: '#ffffff', text: '',
+          fontSize: 24, fontFamily: 'Arial', textColor: '#000000', align: 'center' };
+        GC.state.boxCaptionTop = { ...bar };
+        GC.state.boxCaptionBottom = { ...bar };
+        Object.assign(GC.state.captions[0], { boxHeight: 0.25, color: '#000000' });
+        GC.renderCurrentFrame();
+      });
+      // Coordinates are relative to the photo: negative is in the top bar,
+      // greater than the photo height is in the bottom bar.
+      for (const targetY of [-80, 180]) {
+        const center = await page.evaluate(() => {
+          const b = GC.getCaptionBBox(GC.ctx, GC.state.captions[0], 0);
+          return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+        });
+        const from = await pagePoint(page, center.x, center.y);
+        const to = await pagePoint(page, center.x, targetY + 20);
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(to.x, to.y, { steps: 8 });
+        await page.mouse.up();
+        expect(await page.evaluate(() => GC.state.captions[0].y * GC.state.height)).toBeCloseTo(targetY, 0);
+        for (const picture of [await renderedPicture(page), await renderedPicture(page, editor.exportFn)]) {
+          const { width, data, box } = picture;
+          let dark = 0;
+          for (let y = Math.ceil(box.y); y < box.y + box.h; y++) {
+            for (let x = Math.ceil(box.x); x < box.x + box.w; x++) {
+              const i = (y * width + x) * 4;
+              if (data[i] < 100 && data[i + 1] < 100 && data[i + 2] < 100) dark++;
+            }
+          }
+          expect(dark).toBeGreaterThan(30);
+        }
+        await page.evaluate(() => GC.selectCaption(null));
+        await page.mouse.click(to.x, to.y);
+        expect(await page.evaluate(() => GC.state.selectedCaptionId)).toBe('cap-1');
+      }
+    });
+
     test('bring to front moves an image over a caption and the caption back over it', async ({ page }) => {
       await openWithCaption(page, editor);
       await placeCaption(page, 'WWWW');

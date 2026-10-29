@@ -1012,7 +1012,11 @@
 
     // Active position drag
     var newX = Math.max(0, Math.min(1, (m.x - state.dragState.offsetX) / state.width));
-    var newY = Math.max(0, Math.min(1, (m.y - state.dragState.offsetY) / state.height));
+    // Caption coordinates stay relative to the source image, but the
+    // draggable area includes both caption bars in the composite canvas.
+    var minY = state.dragState.captionId ? -GC.getFrameOffsetY() / state.height : 0;
+    var maxY = state.dragState.captionId ? 1 + GC.boxTotalH(state.boxCaptionBottom) / state.height : 1;
+    var newY = Math.max(minY, Math.min(maxY, (m.y - state.dragState.offsetY) / state.height));
 
     if (state.dragState.overlayId) {
       var ov = GC.findOverlay(state.dragState.overlayId);
