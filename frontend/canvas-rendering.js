@@ -162,7 +162,7 @@
 
   /**
    * Render the current frame onto the preview canvas.
-   * Composites: GIF frame → overlay captions → box bars → selection box.
+   * Composites: GIF frame → box bars → overlay captions → selection box.
    */
   GC.renderCurrentFrame = function () {
     if (state.frames.length === 0) return;
@@ -177,6 +177,8 @@
     ctx.clearRect(0, 0, size.w, size.h);
     GC.drawBaseFrame(ctx, state.currentFrame, 0, offsetY);
 
+    GC.drawBoxCaption(ctx, size.w, size.h);
+
     // Overlay on-image captions and image overlays (coordinates are relative to the GIF area)
     ctx.save();
     ctx.translate(0, offsetY);
@@ -184,9 +186,6 @@
     // Points marking what to keep, while they are being placed (preview only)
     if (GC.drawCutoutPoints) GC.drawCutoutPoints(ctx);
     ctx.restore();
-
-    // Box-caption bars on top of everything
-    GC.drawBoxCaption(ctx, size.w, size.h);
 
     // Selection highlight (hidden when sidebar is collapsed on mobile)
     var sidebarEl = GC.$('#editor-sidebar');

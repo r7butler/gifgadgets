@@ -83,17 +83,17 @@
       if (state.lossyCompress) tolerance = Math.round(4 + (level - 1) * 12 / 29);
     }
 
-    // Composite one frame: base layer → overlay captions → box bars → watermark
+    // Composite one frame: base layer → box bars → overlay captions → watermark
     function compose(i) {
       expCtx.clearRect(0, 0, compSize.w, compSize.h);
       GC.drawBaseFrame(expCtx, i, 0, offsetY);
+      GC.drawBoxCaption(expCtx, compSize.w, compSize.h);
 
       expCtx.save();
       expCtx.translate(0, offsetY);
       GC.drawLayers(expCtx, i);
       expCtx.restore();
 
-      GC.drawBoxCaption(expCtx, compSize.w, compSize.h);
       GC.drawWatermark(expCtx);
       if (!crop) return expCtx.getImageData(0, 0, outW, outH);
 
@@ -298,12 +298,12 @@
     saveCanvas.height = compSize.h;
     var saveCtx = saveCanvas.getContext('2d');
     GC.drawBaseFrame(saveCtx, state.currentFrame, 0, offsetY);
+    GC.drawBoxCaption(saveCtx, compSize.w, compSize.h);
 
     saveCtx.save();
     saveCtx.translate(0, offsetY);
     GC.drawLayers(saveCtx, state.currentFrame);
     saveCtx.restore();
-    GC.drawBoxCaption(saveCtx, compSize.w, compSize.h);
     GC.drawWatermark(saveCtx);
     return saveCanvas;
   }
