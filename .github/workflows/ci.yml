@@ -104,6 +104,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Diagnose AWS OIDC
+        uses: actions/github-script@v8
+        env:
+          DEPLOY_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_PROD }}
+        with:
+          script: |
+            const expectedRole =
+              "arn:aws:iam::425750453898:role/GifGadgetsGitHubDeployRole";
+
+            const actualRole = process.env.DEPLOY_ROLE_ARN || "";
+
+            core.info(`Role secret present: ${actualRole.length > 0}`);
+            core.info(
+              `Role secret matches expected ARN: ${actualRole === expectedRole}`
+            );
+
+            const token = await core.getIDToken("sts.amazonaws.com");
+            core.setSecret(token);
+
+            const claims = JSON.parse(
+              Buffer.from(token.split(".")[1], "base64url").toString("utf8")
+            );
+
+            for (const key of [
+              "iss", "aud", "sub", "environment", "repository", "ref"
+            ]) {
+              core.info(`${key}: ${JSON.stringify(claims[key] ?? null)}`);
+            }
+
+            if (actualRole !== expectedRole) {
+              core.setFailed(
+                "The effective AWS_ROLE_ARN_PROD does not exactly match the expected role ARN."
+              );
+            }
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
