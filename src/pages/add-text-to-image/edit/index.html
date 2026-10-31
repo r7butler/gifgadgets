@@ -5,8 +5,8 @@
 {% block head_extra %}
 {{ super() }}
 <style>
-/* Shared modules need these controls mounted, even in the caption-only view. */
-.image-caption-only-editor #adj-section,
-.image-caption-only-editor #overlay-section { display: none !important; }
+/* Keep adjustments mounted for shared modules. Photo overlays remain available
+   so blank canvases can contain multiple independently editable photos. */
+.image-caption-only-editor #adj-section { display: none !important; }
 </style>
 {% endblock %}

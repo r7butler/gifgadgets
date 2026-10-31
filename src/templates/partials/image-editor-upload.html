@@ -6,6 +6,15 @@
   var cta = document.getElementById('upload-cta');
   var fileInput = document.getElementById('hero-file-input');
 
+  var blankStart = document.createElement('p');
+  blankStart.className = 'tool-hero-alt';
+  var blankLink = document.createElement('a');
+  blankLink.id = 'blank-canvas-cta';
+  blankLink.href = '{{ image_caption_editor_url | default('/image-editor/edit/') }}#blank-canvas';
+  blankLink.textContent = 'Start with a blank canvas';
+  blankStart.appendChild(blankLink);
+  cta.insertAdjacentElement('afterend', blankStart);
+
   function isHeic(file) {
     return file.type === 'image/heic' || file.type === 'image/heif' ||
            /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
