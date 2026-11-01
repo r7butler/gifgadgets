@@ -17,7 +17,11 @@ test('image caption tool is featured, loads a photo, and exports text and captio
   await expect(page).toHaveURL(/\/add-text-to-image\/edit\/\?source=imgcap/);
   await expect(page.locator('#editor-workspace')).toBeVisible();
   await expect(page.locator('#adj-section')).toBeHidden();
-  await expect(page.locator('#overlay-section')).toBeHidden();
+  // Photo layers are available in both image tools for memes and collages.
+  await expect(page.locator('#overlay-section')).toBeVisible();
+  await page.locator('#overlay-toggle').click();
+  await expect(page.locator('#btn-add-overlay')).toBeVisible();
+  await page.locator('#overlay-toggle').click();
   await page.locator('#on-image-caption-toggle').click();
   await page.locator('#btn-add-caption').click();
   await page.locator('#cap-text').fill('Photo caption');
