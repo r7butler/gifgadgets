@@ -62,7 +62,7 @@ const SECTIONS = {
   "/gif-editor/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Background", "Adjustments", "Other Options"],
   "/add-text-to-gif/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Background", "Other Options"],
   "/image-editor/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Adjustments", "Other Options"],
-  "/add-text-to-image/edit/": ["On-Image Captions", "Box Caption", "Other Options"],
+  "/add-text-to-image/edit/": ["On-Image Captions", "Box Caption", "Image Overlays", "Other Options"],
 };
 for (const [editor, sections] of Object.entries(SECTIONS)) {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {

@@ -493,10 +493,41 @@ test('Add Text to GIF turns a dropped image into an overlay', async ({ page }) =
   expect(await page.evaluate(() => GC.state.overlays.length)).toBe(1);
 });
 
-test('Add Text to Image leaves dropped images alone, as it has no overlay controls', async ({ page }) => {
+test('Add Text to Image adds and exports a dropped photo without replacing the base image', async ({ page }) => {
   await openEditor(page, { path: '/add-text-to-image/edit/', exportFn: 'exportImage' });
   await dropFiles(page, [await solidPng(page, 'red.png', 40, 30, '#ff0000')], 120, 80, async () => {
-    await expect(page.locator('.canvas-container')).not.toHaveClass(/overlay-drop/);
+    await expect(page.locator('.canvas-container')).toHaveClass(/overlay-drop/);
   });
-  expect(await page.evaluate(() => GC.state.overlays.length)).toBe(0);
+  await expect.poll(() => page.evaluate(() => GC.state.overlays.length)).toBe(1);
+  await expect(page.locator('.canvas-container')).not.toHaveClass(/overlay-drop/);
+  await expect(page.locator('#overlay-editor')).toBeVisible();
+  await expect(page.locator('#overlay-name')).toHaveText('red.png');
+  const state = await page.evaluate(() => ({
+    width: GC.state.width, height: GC.state.height, filename: GC.state.gifFilename,
+    frames: GC.state.frames.length,
+    basePixel: Array.from(GC.state.frames[0].imageData.data.slice(0, 4)),
+    x: GC.state.overlays[0].x, y: GC.state.overlays[0].y,
+    selected: GC.state.selectedOverlayId === GC.state.overlays[0].id,
+  }));
+  expect(state).toMatchObject({ width: 240, height: 160, filename: 'gray.png', frames: 1,
+    basePixel: [128, 128, 128, 255], selected: true });
+  // DragEvent coordinates round to screen pixels, so allow a subpixel offset.
+  expect(Math.abs(state.x - 0.5)).toBeLessThan(0.01);
+  expect(Math.abs(state.y - 0.5)).toBeLessThan(0.01);
+
+  // Check the exported pixels, not just the presence of the photo in the UI.
+  const output = await page.evaluate(async () => {
+    GC.state.exportFormat = 'image/png';
+    const blob = await new Promise(resolve => GC.exportImage({ onBlob: resolve }));
+    const image = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width; canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0); image.close();
+    return { width: canvas.width, height: canvas.height, type: blob.type,
+      background: Array.from(ctx.getImageData(0, 0, 1, 1).data),
+      photo: Array.from(ctx.getImageData(120, 80, 1, 1).data) };
+  });
+  expect(output).toEqual({ width: 240, height: 160, type: 'image/png',
+    background: [128, 128, 128, 255], photo: [255, 0, 0, 255] });
 });
